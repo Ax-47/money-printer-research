@@ -1,0 +1,84 @@
+[project]
+name = "money-printer-research"
+version = "0.0.1"
+description = "A short description of the project."
+authors = [
+    {name = "Mikhail Akhsakov", email = "your.email@example.com"}
+]
+readme = "README.md"
+keywords = ["python"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.urls]
+Homepage = "https://Ax-47.github.io/money-printer-research/"
+Repository = "https://github.com/Ax-47/money-printer-research"
+Documentation = "https://Ax-47.github.io/money-printer-research/"
+
+requires-python = ">=3.9,<4.0"
+dependencies = [
+    # Add your project dependencies here
+]
+
+# DEV SETTING
+[dependency-groups]
+dev = [
+    "ipykernel>=6.29.5",
+    "jupyterlab>=4.3.1",
+    "pyright>=1.1.398",
+    "pytest-cov>=6.0.0",
+    "pytest>=8.1.1",
+    "ruff>=0.9.4",
+    "toml-sort>=0.24.2",
+    "uv>=0.5.26",
+    "pre-commit>=4.1.0",
+]
+docs = [
+    "mkdocs>=1.6.1",
+    "mkdocs-include-markdown-plugin>=7.1.4",
+    "mkdocs-jupyter>=0.25.1",
+    "mkdocs-material>=9.6.3",
+    "mkdocstrings[python]>=0.15.0",
+    "pymdown-extensions>=10.14.3",
+]
+
+# DEV SETTING
+[tool.uv]
+default-groups = ["dev"]
+
+# DEV SETTING
+# ruff.toml file is used.
+[tool.ruff]
+
+# DEV SETTING
+# pytest.ini file is used.
+[tool.pytest]
+
+# DEV SETTING
+# .coveragerc file is used. A pytest fixture in .conftest.py is used to create coverage file/report directory.
+[tool.coverage]
+
+# DEV SETTING
+# pyrightconfig.json file is used. NOTE: Ensure to set the python version correctly.
+[tool.pyright]
+
+# DEV SETTING
+# NOTE: to sort, run: "uv run toml-sort pyproject.toml"
+[tool.tomlsort]
+in_place = true
+no_sort_tables = true
+sort_inline_arrays = true
+spaces_before_inline_comment = 4
+spaces_indent_inline_array = 4
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/money_printer_research"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

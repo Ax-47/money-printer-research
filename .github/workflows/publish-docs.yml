@@ -1,0 +1,30 @@
+name: Publish Docs via GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python ${{ matrix.python-version }} with uv
+        uses: ./.github/actions/setup-python-with-uv
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Deploy docs
+        run: uv run mkdocs gh-deploy --force
