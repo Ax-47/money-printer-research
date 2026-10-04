@@ -1,18 +1,25 @@
 # Application configuration settings
+[kaggle]
+handle = "marcohuiii/english-premier-league-epl-match-data-2000-2025"
+output_dir = "data/raw/matches"
 
-[model_settings]
-input_dim = 784 # 28 * 28 for MNIST images
-hidden_dim = 64
-latent_dim = 3
+[fbref]
+league = "ENG-Premier League"
+start_year = 2015
+end_year = 2025
+out_dir = "data/raw/lineups"
+cache_dir = "data/FBref"
 
-[training_settings]
-epochs = 1
-limit_train_batches = 100
-learning_rate = 0.001
+[understat]
+league = "ENG-Premier League"
+start_year = 2014
+end_year = 2025
+out_dir = "data/raw/player_stats"
+schedule_file = "data/raw/xg_schedule.csv"
+cache_dir = "data/Understat"
 
-[data_settings]
-mnist_data_path = "./MNIST"
-
+[clean]
+out_dir = "data/clean"
 [api_settings]
 host = "0.0.0.0"
 port = 8000

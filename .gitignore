@@ -152,3 +152,5 @@ cython_debug/
 
 # MacOS
 .DS_Store
+data/
+**/downloaded_files/

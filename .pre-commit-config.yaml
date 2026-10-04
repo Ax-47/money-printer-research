@@ -5,8 +5,8 @@
 default_stages: [pre-commit]
 
 ci:
-  autofix_commit_msg: 'ci: auto fixes from pre-commit.com hooks'
-  autoupdate_commit_msg: 'ci: pre-commit autoupdate'
+  autofix_commit_msg: "ci: auto fixes from pre-commit.com hooks"
+  autoupdate_commit_msg: "ci: pre-commit autoupdate"
 
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -30,11 +30,12 @@ repos:
         types: [python]
         fail_fast: true
 
-  # - repo: local
-  #   hooks:
-  #     - id: pyright
-  #       name: Type checker
-  #       entry: uv run pyright
-  #       language: system
-  #       types: [python]
-  #       fail_fast: true
+  - repo: local
+    hooks:
+      - id: pyright
+        name: Type checker
+        entry: uv run pyright
+        language: system
+        types: [python]
+        fail_fast: true
+        pass_filenames: false
