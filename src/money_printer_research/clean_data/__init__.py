@@ -3,6 +3,8 @@ from pathlib import Path
 import polars as pl
 
 from money_printer_research.category_theory import Err, Ok, Result, compose, functor, lift
+from money_printer_research.clean_data.build_elo import add_elo
+from money_printer_research.clean_data.build_fatigue import player_fatigue, team_fatigue
 from money_printer_research.clean_data.build_player import build_player_feat, player_form
 from money_printer_research.clean_data.rename_columns import snake_columns_pl
 from money_printer_research.clean_data.rename_team_names import (
@@ -120,6 +122,20 @@ def _add_player_feat(frames: Frames) -> Frames:
     return {**frames, "player_matches": form, "matches": matches}
 
 
+def _add_fatigue(frames: Frames) -> Frames:
+    fatigue = player_fatigue(frames["player_matches"])
+    team = team_fatigue(fatigue)
+    matches = frames["matches"].join(team, on="game_id", how="left", validate="1:1")
+    return {**frames, "player_matches": fatigue, "matches": matches}
+
+
+def _add_elo(frames: Frames) -> Frames:
+    keys = ["season_start", "home_team", "away_team"]
+    elo = add_elo(frames["kaggle"]).select(*keys, "elo_home", "elo_away", "elo_diff")
+    matches = frames["matches"].join(elo, on=keys, how="left", validate="1:1")
+    return {**frames, "matches": matches}
+
+
 clean = compose(
     lift(_read_all),
     lift(functor(snake_columns_pl)),
@@ -127,8 +143,10 @@ clean = compose(
     lift(functor(rename_team_names)),
     lift(_add_season_start),
     lift(_build_matches),
+    lift(_add_elo),
     lift(_build_player_matches),
     lift(_add_player_feat),
+    lift(_add_fatigue),
 )
 
 

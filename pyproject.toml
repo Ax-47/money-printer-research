@@ -23,6 +23,7 @@ dependencies = [
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
     "scikit-learn>=1.9.1",
+    "scipy-stubs>=1.18.1.1",
     "soccerdata>=1.9.1",
 ]
 
