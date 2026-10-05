@@ -42,7 +42,11 @@ def kleisli[A, B, C](
 
 
 def functor[A, B](f: Morphism[A, B]) -> Morphism[dict[str, A], dict[str, B]]:
-    return lambda xs: {key: f(x) for key, x in xs.items()}
+    def mapped(xs: dict[str, A]) -> dict[str, B]:
+        return {key: f(x) for key, x in xs.items()}
+
+    mapped.__name__ = f"functor({getattr(f, '__name__', 'f')})"
+    return mapped
 
 
 def compose(*morphisms: Morphism[Any, Result[Any]]) -> Morphism[Any, Result[Any]]:

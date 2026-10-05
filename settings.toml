@@ -4,16 +4,38 @@ handle = "marcohuiii/english-premier-league-epl-match-data-2000-2025"
 output_dir = "data/raw/matches"
 
 [fbref]
-league = "ENG-Premier League"
+leagues = [
+  "ENG-Premier League",
+  "ESP-La Liga",
+  "GER-Bundesliga",
+  "ITA-Serie A",
+  "FRA-Ligue 1",
+  # "RUS-Premier League",
+]
 start_year = 2015
-end_year = 2025
+end_year = 2026
 out_dir = "data/raw/lineups"
 cache_dir = "data/FBref"
+[transfermarkt]
+first_season = 2014
 
+[transfermarkt.leagues]
+GB1 = "ENG-Premier League"
+ES1 = "ESP-La Liga"
+L1 = "GER-Bundesliga"
+IT1 = "ITA-Serie A"
+FR1 = "FRA-Ligue 1"
 [understat]
-league = "ENG-Premier League"
+leagues = [
+  "ENG-Premier League",
+  "ESP-La Liga",
+  "GER-Bundesliga",
+  "ITA-Serie A",
+  "FRA-Ligue 1",
+  # "RUS-Premier League",
+]
 start_year = 2014
-end_year = 2025
+end_year = 2026
 out_dir = "data/raw/player_stats"
 schedule_file = "data/raw/xg_schedule.csv"
 cache_dir = "data/Understat"

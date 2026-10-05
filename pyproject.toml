@@ -14,6 +14,7 @@ classifiers = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "duckdb>=1.5.6",
     "kaggle>=2.2.4",
     "kagglehub>=1.0.2",
     "matplotlib>=3.11.2",
@@ -38,6 +39,7 @@ requires-python = ">=3.9,<4.0"
 collect_data = "money_printer_research:collect_data"
 clean_data = "money_printer_research:clean_data"
 feature_importance = "money_printer_research:exec_feature_importance"
+notebook = "money_printer_research:exec_notebook"
 # DEV SETTING
 [dependency-groups]
 dev = [
@@ -70,6 +72,10 @@ url = "https://pypi.tuna.tsinghua.edu.cn/simple"
 default = true
 [tool.ruff.lint.per-file-ignores]
 "notebooks/*" = ["E501", "F821"]
+"src/money_printer_research/clean_data/rename_team_names.py" = ["F601"]
+"src/money_printer_research/data_collection/__init__.py" = ["F401"]
+"src/money_printer_research/schema/__init__.py" = ["D402"]
+"src/money_printer_research/schema/column.py" = ["D102"]
 # DEV SETTING
 # ruff.toml file is used.
 [tool.ruff]

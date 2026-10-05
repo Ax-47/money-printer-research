@@ -1,6 +1,6 @@
 import polars as pl
 
-PLAYER_FEATURES = ["xg90", "xa90", "form90", "prev_min"]
+PLAYER_FEATURES = ["xg90", "xa90", "form90", "prev_min", "fatigue_score"]
 N_SLOTS = 11
 
 
@@ -36,7 +36,7 @@ def _player_form(pm: pl.DataFrame, window: int, prior_minutes: float) -> pl.Data
 
 
 def _player_slots(form: pl.DataFrame) -> pl.DataFrame:
-    """One row per game: h_player1_xg90 ... a_player11_prev_min, best form first."""
+    """One row per game: h_player1_xg90 ... a_player11_fatigue, best form first."""
     ranked = (
         form.filter(pl.col("position") != "Sub")
         .with_columns(

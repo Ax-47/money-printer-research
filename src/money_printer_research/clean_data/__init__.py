@@ -6,20 +6,49 @@ from money_printer_research.category_theory import Err, Ok, Result, compose, fun
 from money_printer_research.clean_data.build_elo import add_elo
 from money_printer_research.clean_data.build_fatigue import player_fatigue, team_fatigue
 from money_printer_research.clean_data.build_player import build_player_feat, player_form
+from money_printer_research.clean_data.build_team_calendar import (
+    map_clubs,
+    map_games,
+    standardize_games,
+    team_schedule_features,
+)
 from money_printer_research.clean_data.rename_columns import snake_columns_pl
 from money_printer_research.clean_data.rename_team_names import (
     find_missing_aliases,
     format_alias_lines,
     rename_team_names,
 )
-from money_printer_research.config import Settings, settings
+from money_printer_research.config import Settings
+from money_printer_research.config import settings as default_settings
 
 type Frames = dict[str, pl.DataFrame]
 
+EPL = "ENG-Premier League"
+
+# Extra match statistics that only Kaggle has (Premier League only).
+KAGGLE_EXTRA = [
+    "half_time_home_goals",
+    "half_time_away_goals",
+    "half_time_result",
+    "home_shots",
+    "away_shots",
+    "home_shots_on_target",
+    "away_shots_on_target",
+    "home_corners",
+    "away_corners",
+    "home_fouls",
+    "away_fouls",
+    "home_yellow_cards",
+    "away_yellow_cards",
+    "home_red_cards",
+    "away_red_cards",
+]
+
+NO_ALIAS_SOURCES = frozenset({"tm_games", "tm_competitions"})
+
 
 def _read_kaggle(settings: Settings) -> pl.DataFrame:
-    raw_kaggle_file = settings.kaggle.output_dir / "epl_final.csv"
-    return pl.read_csv(raw_kaggle_file, try_parse_dates=True)
+    return pl.read_csv(settings.kaggle.output_dir / "epl_final.csv", try_parse_dates=True)
 
 
 def _read_fbref(settings: Settings) -> pl.DataFrame:
@@ -34,9 +63,10 @@ def _read_xg(settings: Settings) -> pl.DataFrame:
 
 
 def _read_player(settings: Settings) -> pl.DataFrame:
-    files = sorted(settings.understat.out_dir.glob("*.parquet"))
+    # One sub-folder per league: <out_dir>/<league>/<season>.parquet
+    files = sorted(settings.understat.out_dir.glob("*/*.parquet"))
     if not files:
-        raise FileNotFoundError(f"No parquet files in {settings.fbref.out_dir}")
+        raise FileNotFoundError(f"No parquet files in {settings.understat.out_dir}/<league>/")
     return pl.read_parquet(files)
 
 
@@ -46,11 +76,24 @@ def _read_all(settings: Settings) -> Frames:
         "fbref": _read_fbref(settings),
         "xg": _read_xg(settings),
         "player_stat": _read_player(settings),
+        "tm_games": pl.read_parquet(settings.transfermarkt.out_dir / "games.parquet"),
+        "tm_competitions": pl.read_parquet(
+            settings.transfermarkt.out_dir / "competitions.parquet"
+        ),
     }
 
 
+def _epl_only(df: pl.DataFrame) -> pl.DataFrame:
+    """Rows that must line up across sources. Other leagues come from Understat alone."""
+    return df.filter(pl.col("league") == EPL) if "league" in df.columns else df
+
+
+def _alias_frames(frames: Frames) -> Frames:
+    return {src: df for src, df in frames.items() if src not in NO_ALIAS_SOURCES}
+
+
 def _check_aliases(frames: Frames) -> Result[Frames]:
-    per_source = functor(find_missing_aliases)(frames)
+    per_source = functor(find_missing_aliases)(_alias_frames(frames))
     missing = {src: m for src, m in per_source.items() if m.height}
     if missing:
         return Err(
@@ -72,16 +115,61 @@ SEASON_START = {
 
 def _add_season_start(frames: Frames) -> Frames:
     return {
-        key: df.with_columns(SEASON_START[key].alias("season_start")) for key, df in frames.items()
+        **frames,
+        **{
+            key: frames[key].with_columns(expr.alias("season_start"))
+            for key, expr in SEASON_START.items()
+        },
     }
 
 
+def _season_label(start: pl.Expr) -> pl.Expr:
+    """2014 -> "2014/15", the same format Kaggle uses."""
+    return pl.concat_str(
+        start.cast(pl.String), pl.lit("/"), ((start + 1) % 100).cast(pl.String).str.zfill(2)
+    )
+
+
 def _build_matches(frames: Frames) -> Frames:
-    keys = ["season_start", "home_team", "away_team"]
-    xg = frames["xg"].select(*keys, "game_id", "home_xg", "away_xg")
-    # validate="1:1" raises if any key repeats, instead of silently duplicating rows
-    matches = frames["kaggle"].join(xg, on=keys, how="inner", validate="1:1")
+    """All leagues from the Understat schedule; Kaggle stats added for the Premier League."""
+    home, away = pl.col("home_goals"), pl.col("away_goals")
+    base = (
+        frames["xg"]
+        .filter(pl.col("is_result"))
+        .select(
+            "league",
+            _season_label(pl.col("season_start")).alias("season"),
+            "season_start",
+            "game_id",
+            pl.col("date").dt.date().alias("match_date"),
+            "home_team",
+            "away_team",
+            home.alias("full_time_home_goals"),
+            away.alias("full_time_away_goals"),
+            pl.when(home > away)
+            .then(pl.lit("H"))
+            .when(home < away)
+            .then(pl.lit("A"))
+            .otherwise(pl.lit("D"))
+            .alias("full_time_result"),
+            "home_xg",
+            "away_xg",
+        )
+    )
+    keys = ["league", "season_start", "home_team", "away_team"]
+    extra = frames["kaggle"].select(
+        pl.lit(EPL).alias("league"), "season_start", "home_team", "away_team", *KAGGLE_EXTRA
+    )
+    matches = base.join(extra, on=keys, how="left", validate="1:1")
     return {**frames, "matches": matches}
+
+
+def _add_elo(frames: Frames) -> Frames:
+    """Elo per league from 2014/15; treat the first season as warm-up."""
+    m = frames["matches"]
+    leagues = m["league"].unique().sort().to_list()
+    rated = pl.concat([add_elo(m.filter(pl.col("league") == lg)) for lg in leagues])
+    return {**frames, "matches": rated.sort("match_date", "game_id")}
 
 
 def _build_player_matches(frames: Frames) -> Frames:
@@ -117,9 +205,15 @@ def _build_player_matches(frames: Frames) -> Frames:
 
 def _add_player_feat(frames: Frames) -> Frames:
     form = player_form(frames["player_matches"])
-    feat = build_player_feat(form)
-    matches = frames["matches"].join(feat, on="game_id", how="left", validate="1:1")
-    return {**frames, "player_matches": form, "matches": matches}
+    fatigue = player_fatigue(form)
+    feat = build_player_feat(fatigue)
+    team = team_fatigue(fatigue)
+    matches = (
+        frames["matches"]
+        .join(feat, on="game_id", how="left", validate="1:1")
+        .join(team, on="game_id", how="left", validate="1:1")
+    )
+    return {**frames, "player_matches": fatigue, "matches": matches}
 
 
 def _add_fatigue(frames: Frames) -> Frames:
@@ -129,10 +223,17 @@ def _add_fatigue(frames: Frames) -> Frames:
     return {**frames, "player_matches": fatigue, "matches": matches}
 
 
-def _add_elo(frames: Frames) -> Frames:
-    keys = ["season_start", "home_team", "away_team"]
-    elo = add_elo(frames["kaggle"]).select(*keys, "elo_home", "elo_away", "elo_diff")
-    matches = frames["matches"].join(elo, on=keys, how="left", validate="1:1")
+def _add_team_calendar(frames: Frames) -> Frames:
+    tm = standardize_games(frames["tm_games"], frames["tm_competitions"])
+    schedule = frames["xg"].filter(pl.col("is_result"))
+    clubs = map_clubs(tm, schedule)
+    bad = clubs.filter(
+        pl.col("duplicate") | ((pl.col("coverage") < 0.9) & (pl.col("games") >= 10))
+    )
+    if bad.height:
+        raise ValueError(f"suspicious club mappings:\n{bad}")
+    feat = team_schedule_features(tm, clubs, map_games(tm, clubs, schedule))
+    matches = frames["matches"].join(feat, on="game_id", how="left", validate="1:1")
     return {**frames, "matches": matches}
 
 
@@ -146,12 +247,12 @@ clean = compose(
     lift(_add_elo),
     lift(_build_player_matches),
     lift(_add_player_feat),
-    lift(_add_fatigue),
+    lift(_add_team_calendar),
 )
 
 
 def save_frames(frames: Frames, out_dir: Path) -> list[Path]:
-    """Write each frame to <out_dir>/<key>.parquet."""
+    """Write each frame to <out_dir>/<key>.csv."""
     out_dir.mkdir(parents=True, exist_ok=True)
     paths = []
     for key, df in frames.items():
@@ -161,7 +262,7 @@ def save_frames(frames: Frames, out_dir: Path) -> list[Path]:
     return paths
 
 
-def clean_data() -> Frames:
+def clean_data(settings: Settings = default_settings) -> Frames:
     match clean(settings):
         case Ok(frames):
             for path in save_frames(frames, settings.clean.out_dir):
