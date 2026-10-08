@@ -32,11 +32,6 @@ class _Section(BaseModel):
     model_config = ConfigDict(validate_default=True)
 
 
-class KaggleSettings(_Section):
-    handle: str = "marcohuiii/english-premier-league-epl-match-data-2000-2025"
-    output_dir: RootPath = Path("data")
-
-
 class TransfermarktSettings(_Section):
     url: str = (
         "https://pub-e682421888d945d684bcae8890b0ec20.r2.dev/data/transfermarkt-datasets.duckdb"
@@ -99,7 +94,6 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    kaggle: KaggleSettings = Field(default_factory=KaggleSettings)
     fbref: FBrefSettings = Field(default_factory=FBrefSettings)
     understat: UnderstatSettings = Field(default_factory=UnderstatSettings)
     team_map: TeamMapSettings = Field(default_factory=TeamMapSettings)

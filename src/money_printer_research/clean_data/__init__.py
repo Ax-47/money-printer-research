@@ -8,6 +8,7 @@ from money_printer_research.clean_data.build_fatigue import player_fatigue, team
 from money_printer_research.clean_data.build_player import build_player_feat, player_form
 from money_printer_research.clean_data.build_team_calendar import (
     map_clubs,
+    game_info,
     map_games,
     standardize_games,
     team_schedule_features,
@@ -20,46 +21,22 @@ from money_printer_research.clean_data.rename_team_names import (
 )
 from money_printer_research.config import Settings
 from money_printer_research.config import settings as default_settings
+from money_printer_research.schema.raw import FB, PS, TM_COMPETITIONS, TM_GAMES, XG, read_selected
 
 type Frames = dict[str, pl.DataFrame]
 
-EPL = "ENG-Premier League"
-
-# Extra match statistics that only Kaggle has (Premier League only).
-KAGGLE_EXTRA = [
-    "half_time_home_goals",
-    "half_time_away_goals",
-    "half_time_result",
-    "home_shots",
-    "away_shots",
-    "home_shots_on_target",
-    "away_shots_on_target",
-    "home_corners",
-    "away_corners",
-    "home_fouls",
-    "away_fouls",
-    "home_yellow_cards",
-    "away_yellow_cards",
-    "home_red_cards",
-    "away_red_cards",
-]
-
 NO_ALIAS_SOURCES = frozenset({"tm_games", "tm_competitions"})
-
-
-def _read_kaggle(settings: Settings) -> pl.DataFrame:
-    return pl.read_csv(settings.kaggle.output_dir / "epl_final.csv", try_parse_dates=True)
 
 
 def _read_fbref(settings: Settings) -> pl.DataFrame:
     files = sorted(settings.fbref.out_dir.glob("*.parquet"))
     if not files:
         raise FileNotFoundError(f"No parquet files in {settings.fbref.out_dir}")
-    return pl.read_parquet(files)
+    return read_selected(files, FB)
 
 
 def _read_xg(settings: Settings) -> pl.DataFrame:
-    return pl.read_csv(settings.understat.schedule_file, try_parse_dates=True)
+    return read_selected(settings.understat.schedule_file, XG)
 
 
 def _read_player(settings: Settings) -> pl.DataFrame:
@@ -67,25 +44,19 @@ def _read_player(settings: Settings) -> pl.DataFrame:
     files = sorted(settings.understat.out_dir.glob("*/*.parquet"))
     if not files:
         raise FileNotFoundError(f"No parquet files in {settings.understat.out_dir}/<league>/")
-    return pl.read_parquet(files)
+    return read_selected(files, PS)
 
 
 def _read_all(settings: Settings) -> Frames:
+    """Raw sources, only the columns the pipeline uses (schema.raw.SELECTED)."""
+    tm_dir = settings.transfermarkt.out_dir
     return {
-        "kaggle": _read_kaggle(settings),
         "fbref": _read_fbref(settings),
         "xg": _read_xg(settings),
         "player_stat": _read_player(settings),
-        "tm_games": pl.read_parquet(settings.transfermarkt.out_dir / "games.parquet"),
-        "tm_competitions": pl.read_parquet(
-            settings.transfermarkt.out_dir / "competitions.parquet"
-        ),
+        "tm_games": read_selected(tm_dir / "games.parquet", TM_GAMES),
+        "tm_competitions": read_selected(tm_dir / "competitions.parquet", TM_COMPETITIONS),
     }
-
-
-def _epl_only(df: pl.DataFrame) -> pl.DataFrame:
-    """Rows that must line up across sources. Other leagues come from Understat alone."""
-    return df.filter(pl.col("league") == EPL) if "league" in df.columns else df
 
 
 def _alias_frames(frames: Frames) -> Frames:
@@ -106,7 +77,6 @@ def _check_aliases(frames: Frames) -> Result[Frames]:
 _START_FROM_STR = 2000 + pl.col("season").str.slice(0, 2).cast(pl.Int32)
 
 SEASON_START = {
-    "kaggle": pl.col("season").str.slice(0, 4).cast(pl.Int32),
     "fbref": _START_FROM_STR,
     "player_stat": _START_FROM_STR,
     "xg": (2000 + pl.col("season") // 100).cast(pl.Int32),
@@ -124,14 +94,14 @@ def _add_season_start(frames: Frames) -> Frames:
 
 
 def _season_label(start: pl.Expr) -> pl.Expr:
-    """2014 -> "2014/15", the same format Kaggle uses."""
+    """2014 -> "2014/15"."""
     return pl.concat_str(
         start.cast(pl.String), pl.lit("/"), ((start + 1) % 100).cast(pl.String).str.zfill(2)
     )
 
 
 def _build_matches(frames: Frames) -> Frames:
-    """All leagues from the Understat schedule; Kaggle stats added for the Premier League."""
+    """One row per played match, every league, from the Understat schedule."""
     home, away = pl.col("home_goals"), pl.col("away_goals")
     base = (
         frames["xg"]
@@ -156,12 +126,7 @@ def _build_matches(frames: Frames) -> Frames:
             "away_xg",
         )
     )
-    keys = ["league", "season_start", "home_team", "away_team"]
-    extra = frames["kaggle"].select(
-        pl.lit(EPL).alias("league"), "season_start", "home_team", "away_team", *KAGGLE_EXTRA
-    )
-    matches = base.join(extra, on=keys, how="left", validate="1:1")
-    return {**frames, "matches": matches}
+    return {**frames, "matches": base}
 
 
 def _add_elo(frames: Frames) -> Frames:
@@ -203,6 +168,23 @@ def _build_player_matches(frames: Frames) -> Frames:
     return {**frames, "player_matches": result}
 
 
+def _add_team_stats(frames: Frames) -> Frames:
+    """Post-match shots and cards per side, summed from Understat player rows."""
+    stats = ["shots", "yellow_cards", "red_cards"]
+    per_side = frames["player_matches"].group_by("game_id", "is_home").agg(pl.col(stats).sum())
+
+    def side(is_home: bool, prefix: str) -> pl.DataFrame:
+        return (
+            per_side.filter(pl.col("is_home") == is_home)
+            .drop("is_home")
+            .rename({c: f"{prefix}_{c}" for c in stats})
+        )
+
+    team = side(True, "home").join(side(False, "away"), on="game_id", how="full", coalesce=True)
+    matches = frames["matches"].join(team, on="game_id", how="left", validate="1:1")
+    return {**frames, "matches": matches}
+
+
 def _add_player_feat(frames: Frames) -> Frames:
     form = player_form(frames["player_matches"])
     fatigue = player_fatigue(form)
@@ -232,8 +214,21 @@ def _add_team_calendar(frames: Frames) -> Frames:
     )
     if bad.height:
         raise ValueError(f"suspicious club mappings:\n{bad}")
-    feat = team_schedule_features(tm, clubs, map_games(tm, clubs, schedule))
-    matches = frames["matches"].join(feat, on="game_id", how="left", validate="1:1")
+    game_map = map_games(tm, clubs, schedule)
+    feat = team_schedule_features(tm, clubs, game_map)
+    info = game_info(tm, game_map)
+    # Understat keeps the score played on the pitch, Transfermarkt the official one,
+    # so they differ where a result was overturned (forfeit, ineligible player).
+    overturned = (pl.col("full_time_home_goals") != pl.col("tm_home_goals")) | (
+        pl.col("full_time_away_goals") != pl.col("tm_away_goals")
+    )
+    matches = (
+        frames["matches"]
+        .join(feat, on="game_id", how="left", validate="1:1")
+        .join(info, on="game_id", how="left", validate="1:1")
+        .with_columns(overturned.fill_null(False).alias("result_overturned"))
+        .drop("tm_home_goals", "tm_away_goals")
+    )
     return {**frames, "matches": matches}
 
 
@@ -246,6 +241,7 @@ clean = compose(
     lift(_build_matches),
     lift(_add_elo),
     lift(_build_player_matches),
+    lift(_add_team_stats),
     lift(_add_player_feat),
     lift(_add_team_calendar),
 )

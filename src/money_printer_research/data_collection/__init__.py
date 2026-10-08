@@ -1,5 +1,4 @@
 from money_printer_research.config import settings
-from money_printer_research.data_collection.get_matches import _collect_matches
 from money_printer_research.data_collection.scrape_lineups import (
     _collect_lineups as _collect_lineups,
 )
@@ -10,7 +9,6 @@ from money_printer_research.data_collection.scrape_transfermarket import _collec
 
 def collect_data() -> None:
     """Fast and model-critical sources first; FBref lineups (slowest) last."""
-    _collect_matches(settings)  # Kaggle, one download
     _collect_schedule(settings)  # Understat schedule, one request per league-season
     _collect_player_stats(settings)  # Understat, one page per match
     _collect_transfermarkt(settings)

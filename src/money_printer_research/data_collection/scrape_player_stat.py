@@ -2,6 +2,8 @@ import soccerdata as sd
 
 from money_printer_research.config import Settings
 from money_printer_research.config import settings as default_settings
+from money_printer_research.data_collection.checked import save_checked
+from money_printer_research.schema.raw import PS
 
 
 def _collect_player_stats(settings: Settings = default_settings) -> None:
@@ -23,7 +25,7 @@ def _collect_player_stats(settings: Settings = default_settings) -> None:
             try:
                 us = sd.Understat(leagues=league, seasons=[season], data_dir=cfg.cache_dir)
                 df = us.read_player_match_stats().reset_index()
-                df.to_parquet(out)
+                save_checked(df, out, PS)
                 print("saved", league, season, df.shape, flush=True)
             except Exception as e:
                 print("FAILED", league, season, repr(e), flush=True)
