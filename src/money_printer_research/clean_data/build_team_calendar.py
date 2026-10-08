@@ -36,100 +36,15 @@ SCHEDULE_FEATURES = [
 ]
 
 
-def standardize_games(games: pl.DataFrame, competitions: pl.DataFrame) -> pl.DataFrame:
-    """Transfermarkt games with a comp_type column: league / domestic_cup / europe / other."""
-    comp = competitions.select("competition_id", pl.col("type").alias("tm_type"))
-    return (
-        games.join(comp, on="competition_id", how="left")
-        .with_columns(
-            pl.col("date").cast(pl.Date),
-            pl.when(pl.col("competition_id").is_in(list(TM_LEAGUE)))
-            .then(pl.lit("league"))
-            .when(pl.col("tm_type") == "domestic_cup")
-            .then(pl.lit("domestic_cup"))
-            .when(pl.col("tm_type") == "international_cup")
-            .then(pl.lit("europe"))
-            .otherwise(pl.lit("other"))
-            .alias("comp_type"),
-            pl.col("competition_id").replace_strict(TM_LEAGUE, default=None).alias("league"),
-        )
-        .select(
-            pl.col("game_id").alias("tm_game_id"),
-            "competition_id",
-            "comp_type",
-            "league",
-            "date",
-            "home_club_id",
-            "away_club_id",
-            pl.col("home_club_goals").cast(pl.Int64).alias("home_goals"),
-            pl.col("away_club_goals").cast(pl.Int64).alias("away_goals"),
-            "season",
-            pl.col("season").cast(pl.Int32).alias("season_start"),
-            "round",
-            "home_club_formation",
-            "away_club_formation",
-        )
-        .filter(pl.col("date").is_not_null())
-    )
-
-
-def map_clubs(tm: pl.DataFrame, schedule: pl.DataFrame, max_day_shift: int = 1) -> pl.DataFrame:
-    """Transfermarkt club_id -> Understat team, learned from league fixtures.
-
-    coverage: share of the club's Transfermarkt league games that back the pairing
-              (close to 1.0 when correct). duplicate: two club ids map to one team.
-    """
-    tm_league = tm.filter(pl.col("comp_type") == "league")
-    us = schedule.select(
-        "league",
-        pl.col("date").cast(pl.Date).alias("us_date"),
-        "home_team",
-        "away_team",
-        pl.col("home_goals").cast(pl.Int64),
-        pl.col("away_goals").cast(pl.Int64),
-    )
-    pairs = tm_league.join(us, on=["league", "home_goals", "away_goals"]).filter(
-        (pl.col("date") - pl.col("us_date")).dt.total_days().abs() <= max_day_shift
-    )
-    long = pl.concat(
-        [
-            pairs.select(
-                pl.col("home_club_id").alias("club_id"), pl.col("home_team").alias("team")
-            ),
-            pairs.select(
-                pl.col("away_club_id").alias("club_id"), pl.col("away_team").alias("team")
-            ),
-        ]
-    )
-    games = (
-        pl.concat(
-            [
-                tm_league.select(pl.col("home_club_id").alias("club_id")),
-                tm_league.select(pl.col("away_club_id").alias("club_id")),
-            ]
-        )
-        .group_by("club_id")
-        .len("games")
-    )
-    return (
-        long.group_by("club_id", "team")
-        .len()
-        .sort("len", descending=True)
-        .group_by("club_id", maintain_order=True)
-        .agg(pl.col("team").first(), pl.col("len").first().alias("n"))
-        .join(games, on="club_id")
-        .with_columns((pl.col("n") / pl.col("games")).round(3).alias("coverage"))
-        .with_columns(pl.len().over("team").gt(1).alias("duplicate"))
-        .sort("team")
-    )
-
-
-def map_games(tm: pl.DataFrame, clubs: pl.DataFrame, schedule: pl.DataFrame) -> pl.DataFrame:
-    """Transfermarkt league tm_game_id <-> Understat game_id (one to one).
+def join_match_w_stat(
+    tm: pl.DataFrame, clubs: pl.DataFrame, schedule: pl.DataFrame
+) -> pl.DataFrame:
+    """Understat schedule rows with their Transfermarkt league game (left join).
 
     Keyed on league, season and both teams rather than the date: a fixture is
     played once per season, and postponed or resumed games can sit days apart
-    in the two sources (Udinese-Roma 2024: 14 April vs 25 April).
+    in the two sources (Udinese-Roma 2024: 14 April vs 25 April). Transfermarkt
+    columns get a tm_ prefix so Understat's goals and date keep their names.
     """
     club_team = clubs.filter(~pl.col("duplicate")).select("club_id", "team")
     tm_league = (
@@ -140,10 +55,22 @@ def map_games(tm: pl.DataFrame, clubs: pl.DataFrame, schedule: pl.DataFrame) -> 
         .join(
             club_team.rename({"club_id": "away_club_id", "team": "away_team"}), on="away_club_id"
         )
+        .select(
+            "league",
+            "season_start",
+            "home_team",
+            "away_team",
+            "tm_game_id",
+            pl.col("season").alias("tm_season"),
+            pl.col("round").alias("tm_round"),
+            pl.col("home_formation"),
+            pl.col("away_formation"),
+            pl.col("home_goals").alias("tm_home_goals"),
+            pl.col("away_goals").alias("tm_away_goals"),
+        )
     )
-    us = schedule.select("league", "season_start", "home_team", "away_team", "game_id")
     keys = ["league", "season_start", "home_team", "away_team"]
-    return tm_league.join(us, on=keys, how="inner", validate="1:1").select("tm_game_id", "game_id")
+    return schedule.join(tm_league, on=keys, how="left", validate="1:1")
 
 
 def game_info(tm: pl.DataFrame, game_map: pl.DataFrame) -> pl.DataFrame:
@@ -153,8 +80,8 @@ def game_info(tm: pl.DataFrame, game_map: pl.DataFrame) -> pl.DataFrame:
         "tm_game_id",
         pl.col("season").alias("tm_season"),
         pl.col("round").alias("tm_round"),
-        pl.col("home_club_formation").alias("h_formation"),
-        pl.col("away_club_formation").alias("a_formation"),
+        pl.col("home_club_formation").alias("home_formation"),
+        pl.col("away_club_formation").alias("away_formation"),
         pl.col("home_goals").alias("tm_home_goals"),
         pl.col("away_goals").alias("tm_away_goals"),
     )
