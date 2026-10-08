@@ -5,6 +5,8 @@ import soccerdata as sd
 
 from money_printer_research.config import Settings
 from money_printer_research.config import settings as default_settings
+from money_printer_research.data_collection.checked import save_checked
+from money_printer_research.schema.raw import PS
 
 
 def _read_by_match(us: sd.Understat, league: str, season: str) -> pd.DataFrame:
@@ -44,7 +46,7 @@ def _collect_player_stats(settings: Settings = default_settings) -> None:
                     # One match with empty rosters breaks the whole season read.
                     df = _read_by_match(us, league, season)
                 df = df.reset_index()
-                df.to_parquet(out)
+                save_checked(df, out, PS)
                 print("saved", league, season, df.shape, flush=True)
             except Exception as e:
                 print("FAILED", league, season, repr(e), flush=True)

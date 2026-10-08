@@ -63,6 +63,11 @@ def standardize_games(games: pl.DataFrame, competitions: pl.DataFrame) -> pl.Dat
             "away_club_id",
             pl.col("home_club_goals").cast(pl.Int64).alias("home_goals"),
             pl.col("away_club_goals").cast(pl.Int64).alias("away_goals"),
+            "season",
+            pl.col("season").cast(pl.Int32).alias("season_start"),
+            "round",
+            "home_club_formation",
+            "away_club_formation",
         )
         .filter(pl.col("date").is_not_null())
     )
@@ -120,7 +125,12 @@ def map_clubs(tm: pl.DataFrame, schedule: pl.DataFrame, max_day_shift: int = 1) 
 
 
 def map_games(tm: pl.DataFrame, clubs: pl.DataFrame, schedule: pl.DataFrame) -> pl.DataFrame:
-    """Transfermarkt league tm_game_id <-> Understat game_id (one to one)."""
+    """Transfermarkt league tm_game_id <-> Understat game_id (one to one).
+
+    Keyed on league, season and both teams rather than the date: a fixture is
+    played once per season, and postponed or resumed games can sit days apart
+    in the two sources (Udinese-Roma 2024: 14 April vs 25 April).
+    """
     club_team = clubs.filter(~pl.col("duplicate")).select("club_id", "team")
     tm_league = (
         tm.filter(pl.col("comp_type") == "league")
@@ -131,18 +141,22 @@ def map_games(tm: pl.DataFrame, clubs: pl.DataFrame, schedule: pl.DataFrame) -> 
             club_team.rename({"club_id": "away_club_id", "team": "away_team"}), on="away_club_id"
         )
     )
-    us = schedule.select(
-        "league",
+    us = schedule.select("league", "season_start", "home_team", "away_team", "game_id")
+    keys = ["league", "season_start", "home_team", "away_team"]
+    return tm_league.join(us, on=keys, how="inner", validate="1:1").select("tm_game_id", "game_id")
+
+
+def game_info(tm: pl.DataFrame, game_map: pl.DataFrame) -> pl.DataFrame:
+    """Per Understat game_id: Transfermarkt id, season, round, formations and official score."""
+    return tm.join(game_map, on="tm_game_id", how="inner").select(
         "game_id",
-        pl.col("date").cast(pl.Date).alias("us_date"),
-        "home_team",
-        "away_team",
-    )
-    return (
-        tm_league.join(us, on=["league", "home_team", "away_team"])
-        .filter((pl.col("date") - pl.col("us_date")).dt.total_days().abs() <= 1)
-        .select("tm_game_id", "game_id")
-        .unique()
+        "tm_game_id",
+        pl.col("season").alias("tm_season"),
+        pl.col("round").alias("tm_round"),
+        pl.col("home_club_formation").alias("h_formation"),
+        pl.col("away_club_formation").alias("a_formation"),
+        pl.col("home_goals").alias("tm_home_goals"),
+        pl.col("away_goals").alias("tm_away_goals"),
     )
 
 

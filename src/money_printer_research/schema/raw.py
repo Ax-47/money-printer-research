@@ -3,12 +3,12 @@
 Each field is a Column: a str (the raw column name) that also carries its
 expected polars dtype, so it works anywhere a column name does:
 
-    pl.col(KG.home_team)            # "HomeTeam"
-    validate(df, KG)                # missing columns and wrong dtypes, in one error
+    pl.col(XG.home_team)            # "home_team"
+    validate(df, XG)                # missing columns and wrong dtypes, in one error
     pl.read_csv(path, schema_overrides=dtypes(XG))
 
-Raw names are kept as they come from each source (Kaggle uses CamelCase);
-snake_columns_pl turns them into the clean names used in schema.py.
+Raw names are kept as they come from each source; snake_columns_pl turns them
+into the clean names used in schema.py.
 
 Two uses, two column sets:
 - collection checks every column of the raw schema (check_collected), so a
@@ -199,10 +199,9 @@ SELECTED: dict[type, tuple[Column, ...]] = {
         TM_GAMES.away_club_id,
         TM_GAMES.home_club_goals,
         TM_GAMES.away_club_goals,
-        TM_GAMES.home_club_formation,
         TM_GAMES.season,
         TM_GAMES.round,
-        TM_GAMES.date,
+        TM_GAMES.home_club_formation,
         TM_GAMES.away_club_formation,
     ),
     TransfermarktCompetitionsRaw: (TM_COMPETITIONS.competition_id, TM_COMPETITIONS.type),

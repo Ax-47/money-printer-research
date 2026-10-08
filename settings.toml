@@ -1,8 +1,4 @@
 # Application configuration settings
-[kaggle]
-handle = "marcohuiii/english-premier-league-epl-match-data-2000-2025"
-output_dir = "data/raw/matches"
-
 [fbref]
 leagues = [
   "ENG-Premier League",

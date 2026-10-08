@@ -1,5 +1,8 @@
 """Column names and dtypes of the clean outputs in settings.clean.out_dir.
 
+The source frames (xg, player_stat) hold only the raw columns
+the pipeline reads (schema.raw.SELECTED), renamed to snake_case.
+
 Every field is a Column (see column.py): a str with the expected dtype attached.
 The dtypes are the ones the pipeline produces in memory. CSV loses some of
 them (season "1516" comes back as an integer), so read the CSVs with
@@ -37,25 +40,15 @@ class ScheduleCols:
 
     league: Column = Column("league", STR)
     season: Column = Column("season", INT)  # 1415
-    game: Column = Column("game", STR)
-    league_id: Column = Column("league_id", INT)
-    season_id: Column = Column("season_id", INT)
     game_id: Column = Column("game_id", INT)
     date: Column = Column("date", DATETIME)
-    home_team_id: Column = Column("home_team_id", INT)
-    away_team_id: Column = Column("away_team_id", INT)
     home_team: Column = Column("home_team", STR)
     away_team: Column = Column("away_team", STR)
-    away_team_code: Column = Column("away_team_code", STR)
-    home_team_code: Column = Column("home_team_code", STR)
-    # Played matches only: unplayed fixtures are split off into fixtures.csv.
-    home_goals: Column = Column("home_goals", INT)
-    away_goals: Column = Column("away_goals", INT)
-    home_xg: Column = Column("home_xg", FLOAT)
-    away_xg: Column = Column("away_xg", FLOAT)
+    home_goals: Column = Column("home_goals", INT, nullable=True)  # null before kick-off
+    away_goals: Column = Column("away_goals", INT, nullable=True)
+    home_xg: Column = Column("home_xg", FLOAT, nullable=True)
+    away_xg: Column = Column("away_xg", FLOAT, nullable=True)
     is_result: Column = Column("is_result", BOOL)
-    has_data: Column = Column("has_data", BOOL)
-    url: Column = Column("url", STR)
     season_start: Column = Column("season_start", INT)
 
 
@@ -68,22 +61,19 @@ class PlayerStatCols:
     game: Column = Column("game", STR)
     team: Column = Column("team", STR)
     player: Column = Column("player", STR)
-    league_id: Column = Column("league_id", STR)  # "1"; CSV reads it back as an integer
-    season_id: Column = Column("season_id", INT)
     game_id: Column = Column("game_id", INT)
     team_id: Column = Column("team_id", INT)
     player_id: Column = Column("player_id", INT)
     position: Column = Column("position", STR)  # "Sub" for substitutes
-    position_id: Column = Column("position_id", INT)
     minutes: Column = Column("minutes", INT)
+    xg: Column = Column("xg", FLOAT)
+    xa: Column = Column("xa", FLOAT)
     goals: Column = Column("goals", INT)
     own_goals: Column = Column("own_goals", INT)
     shots: Column = Column("shots", INT)
-    xg: Column = Column("xg", FLOAT)
     xg_chain: Column = Column("xg_chain", FLOAT)
     xg_buildup: Column = Column("xg_buildup", FLOAT)
     assists: Column = Column("assists", INT)
-    xa: Column = Column("xa", FLOAT)
     key_passes: Column = Column("key_passes", INT)
     yellow_cards: Column = Column("yellow_cards", INT)
     red_cards: Column = Column("red_cards", INT)
@@ -134,6 +124,14 @@ class MatchCols:
     full_time_result: Column = Column("full_time_result", STR)
     home_xg: Column = Column("home_xg", FLOAT)
     away_xg: Column = Column("away_xg", FLOAT)
+    # Post-match statistics summed from Understat player rows (_add_team_stats);
+    # null for the few matches without player data.
+    home_shots: Column = Column("home_shots", INT, nullable=True)
+    away_shots: Column = Column("away_shots", INT, nullable=True)
+    home_yellow_cards: Column = Column("home_yellow_cards", INT, nullable=True)
+    away_yellow_cards: Column = Column("away_yellow_cards", INT, nullable=True)
+    home_red_cards: Column = Column("home_red_cards", INT, nullable=True)
+    away_red_cards: Column = Column("away_red_cards", INT, nullable=True)
     # Pre-match features
     elo_home: Column = Column("elo_home", FLOAT)
     elo_away: Column = Column("elo_away", FLOAT)
@@ -152,6 +150,15 @@ class MatchCols:
     h_missing_regulars: Column = Column("h_missing_regulars", INT, nullable=True)
     a_missing_regulars: Column = Column("a_missing_regulars", INT, nullable=True)
     missing_q_diff: Column = Column("missing_q_diff", FLOAT, nullable=True)
+
+    # Transfermarkt game info (build_team_calendar.game_info); null where no TM game matched
+    tm_game_id: Column = Column("tm_game_id", STR, nullable=True)
+    tm_season: Column = Column("tm_season", STR, nullable=True)
+    tm_round: Column = Column("tm_round", STR, nullable=True)
+    h_formation: Column = Column("h_formation", STR, nullable=True)
+    a_formation: Column = Column("a_formation", STR, nullable=True)
+    # Pitch score differs from Transfermarkt's official one: drop these when training
+    result_overturned: Column = Column("result_overturned", BOOL)
 
 
 SCHEDULE = ScheduleCols()
