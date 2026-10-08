@@ -1,6 +1,6 @@
 """Column names and dtypes of the clean outputs in settings.clean.out_dir.
 
-The source frames (xg, fbref, player_stat) hold only the raw columns
+The source frames (xg, player_stat) hold only the raw columns
 the pipeline reads (schema.raw.SELECTED), renamed to snake_case.
 
 Every field is a Column (see column.py): a str with the expected dtype attached.
@@ -30,13 +30,13 @@ from money_printer_research.schema.column import (
     validate,
 )
 
-PLAYER_SLOT_FEATURES = ("xg90", "xa90", "form90", "prev_min")
+PLAYER_SLOT_FEATURES = ("xg90", "xa90", "form90", "prev_min", "fatigue_score")
 N_SLOTS = 11
 
 
 @dataclass(frozen=True)
 class ScheduleCols:
-    """xg.csv: Understat schedule with goals and xG."""
+    """xg.csv: Understat schedule, played matches only, with goals and xG."""
 
     league: Column = Column("league", STR)
     season: Column = Column("season", INT)  # 1415
@@ -49,21 +49,6 @@ class ScheduleCols:
     home_xg: Column = Column("home_xg", FLOAT, nullable=True)
     away_xg: Column = Column("away_xg", FLOAT, nullable=True)
     is_result: Column = Column("is_result", BOOL)
-    season_start: Column = Column("season_start", INT)
-
-
-@dataclass(frozen=True)
-class FbrefCols:
-    """fbref.csv: FBref line-ups, one row per player per match."""
-
-    league: Column = Column("league", STR)
-    season: Column = Column("season", STR)  # "1516"; CSV reads it back as an integer
-    game: Column = Column("game", STR)
-    player: Column = Column("player", STR)
-    team: Column = Column("team", STR)
-    is_starter: Column = Column("is_starter", BOOL)
-    position: Column = Column("position", STR, nullable=True)  # null for substitutes
-    minutes_played: Column = Column("minutes_played", INT)
     season_start: Column = Column("season_start", INT)
 
 
@@ -151,11 +136,21 @@ class MatchCols:
     elo_home: Column = Column("elo_home", FLOAT)
     elo_away: Column = Column("elo_away", FLOAT)
     elo_diff: Column = Column("elo_diff", FLOAT)
-    h_fatigue: Column = Column("h_fatigue", FLOAT)
-    a_fatigue: Column = Column("a_fatigue", FLOAT)
-    h_min_7d: Column = Column("h_min_7d", INT)
-    a_min_7d: Column = Column("a_min_7d", INT)
-    fatigue_diff: Column = Column("fatigue_diff", FLOAT)
+    # Player-based features below are null for the two matches Understat has no
+    # line-ups for (2016/17 Bastia-Lyon, abandoned; one Bundesliga 2024/25 game).
+    h_fatigue: Column = Column("h_fatigue", FLOAT, nullable=True)
+    a_fatigue: Column = Column("a_fatigue", FLOAT, nullable=True)
+    h_min_7d: Column = Column("h_min_7d", INT, nullable=True)
+    a_min_7d: Column = Column("a_min_7d", INT, nullable=True)
+    fatigue_diff: Column = Column("fatigue_diff", FLOAT, nullable=True)
+
+    # Missing regulars (build_absence.team_absence)
+    h_missing_q: Column = Column("h_missing_q", FLOAT, nullable=True)
+    a_missing_q: Column = Column("a_missing_q", FLOAT, nullable=True)
+    h_missing_regulars: Column = Column("h_missing_regulars", INT, nullable=True)
+    a_missing_regulars: Column = Column("a_missing_regulars", INT, nullable=True)
+    missing_q_diff: Column = Column("missing_q_diff", FLOAT, nullable=True)
+
     # Transfermarkt game info (build_team_calendar.game_info); null where no TM game matched
     tm_game_id: Column = Column("tm_game_id", STR, nullable=True)
     tm_season: Column = Column("tm_season", STR, nullable=True)
@@ -167,7 +162,6 @@ class MatchCols:
 
 
 SCHEDULE = ScheduleCols()
-FBREF = FbrefCols()
 PLAYER_STAT = PlayerStatCols()
 PM = PlayerMatchCols()
 M = MatchCols()
@@ -181,7 +175,8 @@ def slot_column(side: str, slot: int, feature: str) -> str:
 def slot_columns() -> list[Column]:
     """The 88 generated player slot columns of matches.csv."""
     return [
-        Column(slot_column(side, slot, feat), FLOAT)
+        # nullable: no line-up data, or fewer than 11 starters recorded
+        Column(slot_column(side, slot, feat), FLOAT, nullable=True)
         for side in ("h", "a")
         for slot in range(1, N_SLOTS + 1)
         for feat in PLAYER_SLOT_FEATURES
@@ -191,7 +186,6 @@ def slot_columns() -> list[Column]:
 # File name (without .csv) -> every column expected in that file.
 CLEAN_FILES: dict[str, list[Column]] = {
     "xg": columns(SCHEDULE),
-    "fbref": columns(FBREF),
     "player_stat": columns(PLAYER_STAT),
     "player_matches": columns(PM),
     "matches": columns(M) + slot_columns(),
@@ -226,7 +220,6 @@ def main() -> None:
 
 
 __all__ = [
-    "FBREF",
     "M",
     "PLAYER_STAT",
     "PM",

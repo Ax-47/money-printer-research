@@ -21,18 +21,11 @@ from money_printer_research.clean_data.rename_team_names import (
 )
 from money_printer_research.config import Settings
 from money_printer_research.config import settings as default_settings
-from money_printer_research.schema.raw import FB, PS, TM_COMPETITIONS, TM_GAMES, XG, read_selected
+from money_printer_research.schema.raw import PS, TM_COMPETITIONS, TM_GAMES, XG, read_selected
 
 type Frames = dict[str, pl.DataFrame]
 
 NO_ALIAS_SOURCES = frozenset({"tm_games", "tm_competitions"})
-
-
-def _read_fbref(settings: Settings) -> pl.DataFrame:
-    files = sorted(settings.fbref.out_dir.glob("*.parquet"))
-    if not files:
-        raise FileNotFoundError(f"No parquet files in {settings.fbref.out_dir}")
-    return read_selected(files, FB)
 
 
 def _read_xg(settings: Settings) -> pl.DataFrame:
@@ -51,7 +44,6 @@ def _read_all(settings: Settings) -> Frames:
     """Raw sources, only the columns the pipeline uses (schema.raw.SELECTED)."""
     tm_dir = settings.transfermarkt.out_dir
     return {
-        "fbref": _read_fbref(settings),
         "xg": _read_xg(settings),
         "player_stat": _read_player(settings),
         "tm_games": read_selected(tm_dir / "games.parquet", TM_GAMES),
@@ -77,7 +69,6 @@ def _check_aliases(frames: Frames) -> Result[Frames]:
 _START_FROM_STR = 2000 + pl.col("season").str.slice(0, 2).cast(pl.Int32)
 
 SEASON_START = {
-    "fbref": _START_FROM_STR,
     "player_stat": _START_FROM_STR,
     "xg": (2000 + pl.col("season") // 100).cast(pl.Int32),
 }
@@ -236,6 +227,7 @@ clean = compose(
     lift(_read_all),
     lift(functor(snake_columns_pl)),
     _check_aliases,
+    # join
     lift(functor(rename_team_names)),
     lift(_add_season_start),
     lift(_build_matches),

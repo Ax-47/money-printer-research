@@ -95,21 +95,6 @@ class UnderstatPlayerRaw:
 
 
 @dataclass(frozen=True)
-class FBrefLineupRaw:
-    """data/raw/lineups/<season>.parquet (FBref read_lineup)."""
-
-    league: Column = Column("league", STR)
-    season: Column = Column("season", STR)  # "2425"
-    game: Column = Column("game", STR)  # "2024-08-16 Manchester Utd-Fulham"
-    jersey_number: Column = Column("jersey_number", INT)
-    player: Column = Column("player", STR)
-    team: Column = Column("team", STR)
-    is_starter: Column = Column("is_starter", BOOL)
-    position: Column = Column("position", STR, nullable=True)  # null for substitutes
-    minutes_played: Column = Column("minutes_played", INT)
-
-
-@dataclass(frozen=True)
 class TransfermarktGamesRaw:
     """<transfermarkt.out_dir>/games.parquet (export of the Transfermarkt DuckDB)."""
 
@@ -157,14 +142,12 @@ class TransfermarktCompetitionsRaw:
 
 XG = UnderstatScheduleRaw()
 PS = UnderstatPlayerRaw()
-FB = FBrefLineupRaw()
 TM_GAMES = TransfermarktGamesRaw()
 TM_COMPETITIONS = TransfermarktCompetitionsRaw()
 
 type RawSchema = (
     UnderstatScheduleRaw
     | UnderstatPlayerRaw
-    | FBrefLineupRaw
     | TransfermarktGamesRaw
     | TransfermarktCompetitionsRaw
 )
@@ -208,16 +191,6 @@ SELECTED: dict[type, tuple[Column, ...]] = {
         PS.yellow_cards,
         PS.red_cards,
     ),
-    FBrefLineupRaw: (
-        FB.league,
-        FB.season,
-        FB.game,
-        FB.team,
-        FB.player,
-        FB.is_starter,
-        FB.position,
-        FB.minutes_played,
-    ),
     TransfermarktGamesRaw: (
         TM_GAMES.game_id,
         TM_GAMES.competition_id,
@@ -248,7 +221,6 @@ def raw_files(cfg: Settings) -> list[tuple[Path, RawSchema]]:
         (cfg.transfermarkt.out_dir / "competitions.parquet", TM_COMPETITIONS),
     ]
     files += [(p, PS) for p in sorted(cfg.understat.out_dir.glob("*/*.parquet"))]
-    files += [(p, FB) for p in sorted(cfg.fbref.out_dir.glob("**/*.parquet"))]
     return files
 
 
@@ -295,7 +267,6 @@ def main() -> None:
 
 
 __all__ = [
-    "FB",
     "PS",
     "SELECTED",
     "TM_COMPETITIONS",

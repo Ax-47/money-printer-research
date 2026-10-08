@@ -1,9 +1,25 @@
+import traceback
+
+import pandas as pd
 import soccerdata as sd
 
 from money_printer_research.config import Settings
 from money_printer_research.config import settings as default_settings
 from money_printer_research.data_collection.checked import save_checked
 from money_printer_research.schema.raw import PS
+
+
+def _read_by_match(us: sd.Understat, league: str, season: str) -> pd.DataFrame:
+    """Read one match at a time, skipping matches Understat has no rosters for."""
+    schedule = us.read_schedule().reset_index()
+    frames, skipped = [], []
+    for game_id in schedule.loc[schedule["is_result"], "game_id"]:
+        try:
+            frames.append(us.read_player_match_stats(match_id=int(game_id)))
+        except AttributeError:
+            skipped.append(int(game_id))
+    print("skipped (no rosters)", league, season, skipped, flush=True)
+    return pd.concat(frames)
 
 
 def _collect_player_stats(settings: Settings = default_settings) -> None:
@@ -24,8 +40,14 @@ def _collect_player_stats(settings: Settings = default_settings) -> None:
                 continue
             try:
                 us = sd.Understat(leagues=league, seasons=[season], data_dir=cfg.cache_dir)
-                df = us.read_player_match_stats().reset_index()
+                try:
+                    df = us.read_player_match_stats()
+                except AttributeError:
+                    # One match with empty rosters breaks the whole season read.
+                    df = _read_by_match(us, league, season)
+                df = df.reset_index()
                 save_checked(df, out, PS)
                 print("saved", league, season, df.shape, flush=True)
             except Exception as e:
                 print("FAILED", league, season, repr(e), flush=True)
+                traceback.print_exc()
