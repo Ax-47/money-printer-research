@@ -20,6 +20,7 @@ from money_printer_research.clean_data.rename_team_names import (
 )
 from money_printer_research.config import Settings
 from money_printer_research.config import settings as default_settings
+from money_printer_research.schema.raw import PS, TM_COMPETITIONS, TM_GAMES, XG, read_selected
 
 type Frames = dict[str, pl.DataFrame]
 
@@ -47,19 +48,8 @@ KAGGLE_EXTRA = [
 NO_ALIAS_SOURCES = frozenset({"tm_games", "tm_competitions"})
 
 
-def _read_kaggle(settings: Settings) -> pl.DataFrame:
-    return pl.read_csv(settings.kaggle.output_dir / "epl_final.csv", try_parse_dates=True)
-
-
-def _read_fbref(settings: Settings) -> pl.DataFrame:
-    files = sorted(settings.fbref.out_dir.glob("*.parquet"))
-    if not files:
-        raise FileNotFoundError(f"No parquet files in {settings.fbref.out_dir}")
-    return pl.read_parquet(files)
-
-
 def _read_xg(settings: Settings) -> pl.DataFrame:
-    return pl.read_csv(settings.understat.schedule_file, try_parse_dates=True)
+    return read_selected(settings.understat.schedule_file, XG)
 
 
 def _read_player(settings: Settings) -> pl.DataFrame:
@@ -67,25 +57,18 @@ def _read_player(settings: Settings) -> pl.DataFrame:
     files = sorted(settings.understat.out_dir.glob("*/*.parquet"))
     if not files:
         raise FileNotFoundError(f"No parquet files in {settings.understat.out_dir}/<league>/")
-    return pl.read_parquet(files)
+    return read_selected(files, PS)
 
 
 def _read_all(settings: Settings) -> Frames:
+    """Raw sources, only the columns the pipeline uses (schema.raw.SELECTED)."""
+    tm_dir = settings.transfermarkt.out_dir
     return {
-        "kaggle": _read_kaggle(settings),
-        "fbref": _read_fbref(settings),
         "xg": _read_xg(settings),
         "player_stat": _read_player(settings),
-        "tm_games": pl.read_parquet(settings.transfermarkt.out_dir / "games.parquet"),
-        "tm_competitions": pl.read_parquet(
-            settings.transfermarkt.out_dir / "competitions.parquet"
-        ),
+        "tm_games": read_selected(tm_dir / "games.parquet", TM_GAMES),
+        "tm_competitions": read_selected(tm_dir / "competitions.parquet", TM_COMPETITIONS),
     }
-
-
-def _epl_only(df: pl.DataFrame) -> pl.DataFrame:
-    """Rows that must line up across sources. Other leagues come from Understat alone."""
-    return df.filter(pl.col("league") == EPL) if "league" in df.columns else df
 
 
 def _alias_frames(frames: Frames) -> Frames:
@@ -106,8 +89,6 @@ def _check_aliases(frames: Frames) -> Result[Frames]:
 _START_FROM_STR = 2000 + pl.col("season").str.slice(0, 2).cast(pl.Int32)
 
 SEASON_START = {
-    "kaggle": pl.col("season").str.slice(0, 4).cast(pl.Int32),
-    "fbref": _START_FROM_STR,
     "player_stat": _START_FROM_STR,
     "xg": (2000 + pl.col("season") // 100).cast(pl.Int32),
 }
@@ -241,6 +222,7 @@ clean = compose(
     lift(_read_all),
     lift(functor(snake_columns_pl)),
     _check_aliases,
+    # join
     lift(functor(rename_team_names)),
     lift(_add_season_start),
     lift(_build_matches),

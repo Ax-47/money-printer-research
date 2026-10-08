@@ -27,42 +27,13 @@ from money_printer_research.schema.column import (
     validate,
 )
 
-PLAYER_SLOT_FEATURES = ("xg90", "xa90", "form90", "prev_min")
+PLAYER_SLOT_FEATURES = ("xg90", "xa90", "form90", "prev_min", "fatigue_score")
 N_SLOTS = 11
 
 
 @dataclass(frozen=True)
-class KaggleCols:
-    """kaggle.csv: Kaggle EPL matches after snake_case and team-name cleaning."""
-
-    season: Column = Column("season", STR)  # "2000/01"
-    match_date: Column = Column("match_date", DATE)
-    home_team: Column = Column("home_team", STR)
-    away_team: Column = Column("away_team", STR)
-    full_time_home_goals: Column = Column("full_time_home_goals", INT)
-    full_time_away_goals: Column = Column("full_time_away_goals", INT)
-    full_time_result: Column = Column("full_time_result", STR)
-    half_time_home_goals: Column = Column("half_time_home_goals", INT)
-    half_time_away_goals: Column = Column("half_time_away_goals", INT)
-    half_time_result: Column = Column("half_time_result", STR)
-    home_shots: Column = Column("home_shots", INT)
-    away_shots: Column = Column("away_shots", INT)
-    home_shots_on_target: Column = Column("home_shots_on_target", INT)
-    away_shots_on_target: Column = Column("away_shots_on_target", INT)
-    home_corners: Column = Column("home_corners", INT)
-    away_corners: Column = Column("away_corners", INT)
-    home_fouls: Column = Column("home_fouls", INT)
-    away_fouls: Column = Column("away_fouls", INT)
-    home_yellow_cards: Column = Column("home_yellow_cards", INT)
-    away_yellow_cards: Column = Column("away_yellow_cards", INT)
-    home_red_cards: Column = Column("home_red_cards", INT)
-    away_red_cards: Column = Column("away_red_cards", INT)
-    season_start: Column = Column("season_start", INT)
-
-
-@dataclass(frozen=True)
 class ScheduleCols:
-    """xg.csv: Understat schedule with goals and xG."""
+    """xg.csv: Understat schedule, played matches only, with goals and xG."""
 
     league: Column = Column("league", STR)
     season: Column = Column("season", INT)  # 1415
@@ -77,29 +48,14 @@ class ScheduleCols:
     away_team: Column = Column("away_team", STR)
     away_team_code: Column = Column("away_team_code", STR)
     home_team_code: Column = Column("home_team_code", STR)
-    home_goals: Column = Column("home_goals", INT, nullable=True)  # null before kick-off
-    away_goals: Column = Column("away_goals", INT, nullable=True)
-    home_xg: Column = Column("home_xg", FLOAT, nullable=True)
-    away_xg: Column = Column("away_xg", FLOAT, nullable=True)
+    # Played matches only: unplayed fixtures are split off into fixtures.csv.
+    home_goals: Column = Column("home_goals", INT)
+    away_goals: Column = Column("away_goals", INT)
+    home_xg: Column = Column("home_xg", FLOAT)
+    away_xg: Column = Column("away_xg", FLOAT)
     is_result: Column = Column("is_result", BOOL)
     has_data: Column = Column("has_data", BOOL)
     url: Column = Column("url", STR)
-    season_start: Column = Column("season_start", INT)
-
-
-@dataclass(frozen=True)
-class FbrefCols:
-    """fbref.csv: FBref line-ups, one row per player per match."""
-
-    league: Column = Column("league", STR)
-    season: Column = Column("season", STR)  # "1516"; CSV reads it back as an integer
-    game: Column = Column("game", STR)
-    jersey_number: Column = Column("jersey_number", INT)
-    player: Column = Column("player", STR)
-    team: Column = Column("team", STR)
-    is_starter: Column = Column("is_starter", BOOL)
-    position: Column = Column("position", STR, nullable=True)  # null for substitutes
-    minutes_played: Column = Column("minutes_played", INT)
     season_start: Column = Column("season_start", INT)
 
 
@@ -176,39 +132,29 @@ class MatchCols:
     full_time_home_goals: Column = Column("full_time_home_goals", INT)
     full_time_away_goals: Column = Column("full_time_away_goals", INT)
     full_time_result: Column = Column("full_time_result", STR)
-    # Post-match statistics. Kaggle covers the Premier League only, so these are
-    # null for other leagues and for the matches Kaggle is missing.
-    half_time_home_goals: Column = Column("half_time_home_goals", INT, nullable=True)
-    half_time_away_goals: Column = Column("half_time_away_goals", INT, nullable=True)
-    half_time_result: Column = Column("half_time_result", STR, nullable=True)
-    home_shots: Column = Column("home_shots", INT, nullable=True)
-    away_shots: Column = Column("away_shots", INT, nullable=True)
-    home_shots_on_target: Column = Column("home_shots_on_target", INT, nullable=True)
-    away_shots_on_target: Column = Column("away_shots_on_target", INT, nullable=True)
-    home_corners: Column = Column("home_corners", INT, nullable=True)
-    away_corners: Column = Column("away_corners", INT, nullable=True)
-    home_fouls: Column = Column("home_fouls", INT, nullable=True)
-    away_fouls: Column = Column("away_fouls", INT, nullable=True)
-    home_yellow_cards: Column = Column("home_yellow_cards", INT, nullable=True)
-    away_yellow_cards: Column = Column("away_yellow_cards", INT, nullable=True)
-    home_red_cards: Column = Column("home_red_cards", INT, nullable=True)
-    away_red_cards: Column = Column("away_red_cards", INT, nullable=True)
     home_xg: Column = Column("home_xg", FLOAT)
     away_xg: Column = Column("away_xg", FLOAT)
     # Pre-match features
     elo_home: Column = Column("elo_home", FLOAT)
     elo_away: Column = Column("elo_away", FLOAT)
     elo_diff: Column = Column("elo_diff", FLOAT)
-    h_fatigue: Column = Column("h_fatigue", FLOAT)
-    a_fatigue: Column = Column("a_fatigue", FLOAT)
-    h_min_7d: Column = Column("h_min_7d", INT)
-    a_min_7d: Column = Column("a_min_7d", INT)
-    fatigue_diff: Column = Column("fatigue_diff", FLOAT)
+    # Player-based features below are null for the two matches Understat has no
+    # line-ups for (2016/17 Bastia-Lyon, abandoned; one Bundesliga 2024/25 game).
+    h_fatigue: Column = Column("h_fatigue", FLOAT, nullable=True)
+    a_fatigue: Column = Column("a_fatigue", FLOAT, nullable=True)
+    h_min_7d: Column = Column("h_min_7d", INT, nullable=True)
+    a_min_7d: Column = Column("a_min_7d", INT, nullable=True)
+    fatigue_diff: Column = Column("fatigue_diff", FLOAT, nullable=True)
+
+    # Missing regulars (build_absence.team_absence)
+    h_missing_q: Column = Column("h_missing_q", FLOAT, nullable=True)
+    a_missing_q: Column = Column("a_missing_q", FLOAT, nullable=True)
+    h_missing_regulars: Column = Column("h_missing_regulars", INT, nullable=True)
+    a_missing_regulars: Column = Column("a_missing_regulars", INT, nullable=True)
+    missing_q_diff: Column = Column("missing_q_diff", FLOAT, nullable=True)
 
 
-KAGGLE = KaggleCols()
 SCHEDULE = ScheduleCols()
-FBREF = FbrefCols()
 PLAYER_STAT = PlayerStatCols()
 PM = PlayerMatchCols()
 M = MatchCols()
@@ -222,7 +168,8 @@ def slot_column(side: str, slot: int, feature: str) -> str:
 def slot_columns() -> list[Column]:
     """The 88 generated player slot columns of matches.csv."""
     return [
-        Column(slot_column(side, slot, feat), FLOAT)
+        # nullable: no line-up data, or fewer than 11 starters recorded
+        Column(slot_column(side, slot, feat), FLOAT, nullable=True)
         for side in ("h", "a")
         for slot in range(1, N_SLOTS + 1)
         for feat in PLAYER_SLOT_FEATURES
@@ -231,9 +178,7 @@ def slot_columns() -> list[Column]:
 
 # File name (without .csv) -> every column expected in that file.
 CLEAN_FILES: dict[str, list[Column]] = {
-    "kaggle": columns(KAGGLE),
     "xg": columns(SCHEDULE),
-    "fbref": columns(FBREF),
     "player_stat": columns(PLAYER_STAT),
     "player_matches": columns(PM),
     "matches": columns(M) + slot_columns(),
@@ -268,8 +213,6 @@ def main() -> None:
 
 
 __all__ = [
-    "FBREF",
-    "KAGGLE",
     "M",
     "PLAYER_STAT",
     "PM",

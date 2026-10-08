@@ -6,6 +6,10 @@ involving a club from the configured leagues since `first_season`, and every
 appearance by a player who played in those leagues (cups, Europe and
 national-team tournaments included). The dataset stopped updating in July 2026,
 so both steps are skipped once their files exist; delete them to force a refresh.
+
+Each table is written to <name>.part.parquet and checked against its raw schema
+before it replaces <name>.parquet, so a table that fails the check leaves no file
+and the next run exports it again.
 """
 
 import urllib.request
@@ -14,8 +18,11 @@ from pathlib import Path
 import duckdb
 
 from money_printer_research.config import Settings
+from money_printer_research.schema.raw import TM_COMPETITIONS, TM_GAMES, RawSchema, check_collected
 
 TABLES = ("competitions", "games", "appearances")
+# Raw schema of each table the clean pipeline reads; appearances has none yet.
+SCHEMAS: dict[str, RawSchema] = {"competitions": TM_COMPETITIONS, "games": TM_GAMES}
 
 # Transfermarkt stores season as text; compare its first four characters as a year.
 SEASON_YEAR = "TRY_CAST(left(CAST(games.season AS VARCHAR), 4) AS INTEGER)"
@@ -80,7 +87,15 @@ def export(db_file: Path, out_dir: Path, league_ids: list[str], first_season: in
         }
         for name, sql in queries.items():
             path = out_dir / f"{name}.parquet"
-            con.execute(f"COPY ({sql}) TO '{path}' (FORMAT PARQUET)")
+            tmp = out_dir / f"{name}.part.parquet"
+            con.execute(f"COPY ({sql}) TO '{tmp}' (FORMAT PARQUET)")
+            try:
+                if name in SCHEMAS:
+                    check_collected(tmp, SCHEMAS[name])
+            except ValueError:
+                tmp.unlink()
+                raise
+            tmp.replace(path)
             row = con.execute(f"SELECT count(*) FROM '{path}'").fetchone()
             print(f"saved {name:13s} {row[0] if row else 0:>9,} rows", flush=True)
     finally:

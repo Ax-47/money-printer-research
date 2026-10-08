@@ -63,6 +63,7 @@ def lift[A, B](f: Morphism[A, B]) -> ContextMorphism[A, B]:
         except Exception as e:
             return Err(f"{name}: {e!r}", cause=e)
 
+    context_morphism.__name__ = name
     return context_morphism
 
 
