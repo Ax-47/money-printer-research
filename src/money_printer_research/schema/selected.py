@@ -15,7 +15,7 @@ import pandera.polars as pa
 import polars as pl
 from pandera.typing import FieldType as F
 
-from money_printer_research.schema.raw import LEAGUE_INFO, MATCH_INFO, MATCH_STAT, PS
+from money_printer_research.schema.raw import LEAGUE_INFO, MATCH_INFO, MATCH_STAT, PLAYER_STAT
 
 
 class UnderstatSchedule(pa.DataFrameModel):
@@ -245,7 +245,7 @@ class TransfermarktCompetitions(pa.DataFrameModel):
 # column, copy its block from the raw model into the selected one.
 SELECTED: dict[type[pa.DataFrameModel], type[pa.DataFrameModel]] = {
     MATCH_STAT: UnderstatSchedule,
-    PS: UnderstatPlayer,
+    PLAYER_STAT: UnderstatPlayer,
     MATCH_INFO: TransfermarktGames,
     LEAGUE_INFO: TransfermarktCompetitions,
 }

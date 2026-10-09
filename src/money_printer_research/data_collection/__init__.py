@@ -12,4 +12,3 @@ def collect_data() -> None:
     _collect_schedule(settings)  # Understat schedule, one request per league-season
     _collect_player_stats(settings)  # Understat, one page per match
     _collect_transfermarkt(settings)
-    # _collect_lineups(settings)

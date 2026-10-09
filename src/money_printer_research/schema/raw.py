@@ -413,7 +413,7 @@ class TransfermarktCompetitionsRaw(pa.DataFrameModel):
 
 
 MATCH_STAT = UnderstatScheduleRaw
-PS = UnderstatPlayerRaw
+PLAYER_STAT = UnderstatPlayerRaw
 MATCH_INFO = TransfermarktGamesRaw
 LEAGUE_INFO = TransfermarktCompetitionsRaw
 
@@ -425,4 +425,4 @@ type RawSchema = (
 )
 
 
-__all__ = ["LEAGUE_INFO", "MATCH_INFO", "MATCH_STAT", "PS", "RawSchema"]
+__all__ = ["LEAGUE_INFO", "MATCH_INFO", "MATCH_STAT", "PLAYER_STAT", "RawSchema"]

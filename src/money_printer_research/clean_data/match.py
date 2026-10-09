@@ -1,3 +1,5 @@
+"""Understat schedule + Transfermarkt league games -> stat_matches (StatMatchCols)."""
+
 import polars as pl
 from pandera.typing.polars import DataFrame
 
@@ -5,6 +7,7 @@ from money_printer_research.cool_stuff import returns
 from money_printer_research.schema import CLEANED_MATCH as CM
 from money_printer_research.schema import CLEANED_MATCH_STAT as S
 from money_printer_research.schema import CLUB_MAP as C
+from money_printer_research.schema import FORMATION_COLUMNS
 from money_printer_research.schema import MATCH_LEAGUE as L
 
 
@@ -17,7 +20,8 @@ def join_match_w_stat(
     Keyed on league, season and both teams rather than the date: a fixture is
     played once per season, and postponed or resumed games can sit days apart
     in the two sources (Udinese-Roma 2024: 14 April vs 25 April). Transfermarkt
-    columns get a tm_ prefix so Understat's goals and date keep their names.
+    columns get a tm_ prefix so Understat's goals and date keep their names; the
+    encoded formation columns (FormationCols) keep theirs, which only std_tm has.
     """
     club_team = clubs.filter(~pl.col(C.duplicate)).select(C.club_id, C.team)
     tm_league = (
@@ -40,6 +44,7 @@ def join_match_w_stat(
             pl.col(L.away_formation).alias(CM.away_formation),
             pl.col(L.home_goals).alias(CM.tm_home_goals),
             pl.col(L.away_goals).alias(CM.tm_away_goals),
+            pl.col(*FORMATION_COLUMNS),  # same names in L and CM, both from FormationCols
         )
     )
     # L.league / L.season_start have the same names as in S.

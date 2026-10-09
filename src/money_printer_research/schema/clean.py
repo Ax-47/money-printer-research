@@ -1,8 +1,8 @@
 """Clean single-source frames: each from one source, cleaned but not yet joined.
 
-xg.csv (ScheduleCols), std_tm.csv (TmGameCols) and player_stat.csv (PlayerStatCols).
+xg.csv (ScheduleCols), std_tm.csv (MatchLeaguesCols) and player_stat.csv (PlayerStatCols).
 The Understat models keep the selected raw columns (schema/selected.py) with the
-same descriptions and add season_start; TmGameCols is standardize_games' output.
+same descriptions and add season_start; MatchLeaguesCols is join_match_w_league's output.
 Joined outputs are in schema/join.py.
 """
 
@@ -11,6 +11,8 @@ import datetime
 import pandera.polars as pa
 import polars as pl
 from pandera.typing import FieldType as F
+
+from money_printer_research.schema.formation import FormationCols
 
 
 class ScheduleCols(pa.DataFrameModel):
@@ -84,9 +86,12 @@ class ScheduleCols(pa.DataFrameModel):
     )
 
 
-class MatchLeaguesCols(pa.DataFrameModel):
-    """std_tm.csv: Transfermarkt games from build_team_calendar.standardize_games.
+class MatchLeaguesCols(FormationCols):
+    """std_tm.csv: Transfermarkt games from clean_data.match_leagues.join_match_w_league.
 
+    GameFormationCols (games.parquet after encode_formation) left-joined to the
+    competitions on competition_id, renamed, with comp_type and the Understat league
+    added. Inherits the encoded formation columns and their check from FormationCols.
     Every competition the clubs play, not only the leagues. Key: tm_game_id.
     """
 
@@ -104,8 +109,8 @@ class MatchLeaguesCols(pa.DataFrameModel):
     comp_type: F[str] = pa.Field(
         isin=["league", "domestic_cup", "europe", "other"],
         description=(
-            "league: the five Understat leagues (TM_LEAGUE). europe: UEFA club competitions"
-            " and their qualifying (CL, CLQ, EL, ELQ, UCOL, ECLQ, USC), set by "
+            "league: the five Understat leagues (LEAGUE in match_leagues). europe: UEFA club"
+            " competitions and their qualifying (CL, CLQ, EL, ELQ, UCOL, ECLQ, USC), set by "
             "competition_id because Transfermarkt files EL and UCOL under type other. "
             "domestic_cup: Transfermarkt type domestic_cup, plus CGB (EFL Cup), which "
             "competitions.parquet does not list. other: domestic super cups (GBCS, SUC, "
@@ -149,7 +154,11 @@ class MatchLeaguesCols(pa.DataFrameModel):
 
     home_formation: F[str] = pa.Field(
         nullable=True,
-        description='Home starting formation: "4-2-3-1". Null when Transfermarkt has no line-up.',
+        description=(
+            'Home starting formation as Transfermarkt writes it: "4-3-3 Attacking". Null when'
+            " Transfermarkt has no line-up. Encoded in home_shape, home_variant and the line"
+            " counts (FormationCols)."
+        ),
     )
 
     away_formation: F[str] = pa.Field(
@@ -248,13 +257,13 @@ class PlayerStatCols(pa.DataFrameModel):
 
 CLEANED_MATCH_STAT = ScheduleCols
 MATCH_LEAGUE = MatchLeaguesCols
-PLAYER_STAT = PlayerStatCols
+CLEANED_PLAYER_STAT = PlayerStatCols
 
 __all__ = [
     "CLEANED_MATCH_STAT",
-    "PLAYER_STAT",
     "MATCH_LEAGUE",
+    "CLEANED_PLAYER_STAT",
+    "MatchLeaguesCols",
     "PlayerStatCols",
     "ScheduleCols",
-    "MatchLeaguesCols",
 ]

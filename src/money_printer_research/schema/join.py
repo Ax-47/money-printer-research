@@ -1,8 +1,11 @@
 """Joined outputs: frames built from more than one clean frame.
 
-player_matches.csv (PlayerMatchCols) and matches.csv (MatchCols plus the 88 player
-slot columns from slot_columns()). The single-source frames they are built from
-are in schema/clean.py.
+    player_matches.csv  PlayerMatchCols
+    matches.csv         MatchCols, plus the 88 player slot columns from slot_columns()
+    clubs.csv           ClubMapCols
+    stat_matches.csv    StatMatchCols
+
+The single-source frames they are built from are in schema/clean.py.
 """
 
 import datetime
@@ -11,8 +14,8 @@ import pandera.polars as pa
 import polars as pl
 from pandera.typing import FieldType as F
 
-from money_printer_research.schema import ScheduleCols
-from money_printer_research.schema.clean import PlayerStatCols
+from money_printer_research.schema.clean import PlayerStatCols, ScheduleCols
+from money_printer_research.schema.formation import FormationCols
 
 PLAYER_SLOT_FEATURES = ("xg90", "xa90", "form90", "prev_min", "fatigue_score")
 N_SLOTS = 11
@@ -65,51 +68,6 @@ class PlayerMatchCols(PlayerStatCols):
         description=(
             "0 to 100, weighting min_7d, rest_days, streak_prev and min_7d against min_28d;"
             " weights in player_fatigue."
-        )
-    )
-
-
-class ClubMapCols(pa.DataFrameModel):
-    """clubs.csv: Transfermarkt club_id -> Understat team, from build_team_calendar.map_clubs.
-
-    Learned from league fixtures (same league, score and date), not from names, so
-    it holds even where the two sources spell a club differently. Key: club_id.
-    """
-
-    club_id: F[pl.Int32] = pa.Field(
-        unique=True,
-        description="Transfermarkt club id (home_club_id / away_club_id in std_tm.csv). Unique.",
-    )
-
-    team: F[str] = pa.Field(
-        description="Understat team name the club pairs with most often, after rename_team_names."
-    )
-
-    n: F[pl.UInt32] = pa.Field(
-        description=(
-            "League fixtures that back the pairing: Transfermarkt games whose league, score"
-            " and date (within max_day_shift days) match an Understat game with this team "
-            "on the same side."
-        )
-    )
-
-    games: F[pl.UInt32] = pa.Field(
-        description="All the club's Transfermarkt league games, home and away."
-    )
-
-    coverage: F[float] = pa.Field(
-        ge=0.0,
-        le=1.0,
-        description=(
-            "n / games, rounded to 3 places. Close to 1.0 when the pairing is right; "
-            "_join_club_w_team rejects below 0.9 once games >= 10."
-        ),
-    )
-
-    duplicate: F[bool] = pa.Field(
-        description=(
-            "True when another club_id pairs with the same team; _join_club_w_team rejects "
-            "any True row."
         )
     )
 
@@ -202,13 +160,14 @@ class MatchCols(pa.DataFrameModel):
     )
 
 
-class CleanedMatchCols(ScheduleCols):
+class CleanedMatchCols(ScheduleCols, FormationCols):
     """stat_matches.csv: xg.csv rows with their Transfermarkt league game (join_match_w_stat).
 
     Left join on league, season_start, home_team and away_team (club ids mapped to
     teams through clubs.csv), not on the date: postponed or resumed games can sit days
     apart in the two sources. Same rows as xg.csv, one per game_id; the Transfermarkt
-    columns are null where no game matched. Key: game_id.
+    columns, the encoded formations of FormationCols included, are null where no game
+    matched. Key: game_id.
     """
 
     tm_game_id: F[str] = pa.Field(
@@ -230,8 +189,9 @@ class CleanedMatchCols(ScheduleCols):
     home_formation: F[str] = pa.Field(
         nullable=True,
         description=(
-            'Home starting formation from Transfermarkt: "4-2-3-1". Null when unmatched or '
-            "Transfermarkt has no line-up."
+            'Home starting formation from Transfermarkt: "4-3-3 Attacking". Null when '
+            "unmatched or Transfermarkt has no line-up. Encoded in home_shape, home_variant "
+            "and the line counts (FormationCols)."
         ),
     )
 
@@ -250,6 +210,51 @@ class CleanedMatchCols(ScheduleCols):
     tm_away_goals: F[int] = pa.Field(
         nullable=True,
         description="Away goals in Transfermarkt's official result; see tm_home_goals.",
+    )
+
+
+class ClubMapCols(pa.DataFrameModel):
+    """clubs.csv: Transfermarkt club_id -> Understat team, from build_team_calendar.map_clubs.
+
+    Learned from league fixtures (same league, score and date), not from names, so
+    it holds even where the two sources spell a club differently. Key: club_id.
+    """
+
+    club_id: F[pl.Int32] = pa.Field(
+        unique=True,
+        description="Transfermarkt club id (home_club_id / away_club_id in std_tm.csv). Unique.",
+    )
+
+    team: F[str] = pa.Field(
+        description="Understat team name the club pairs with most often, after rename_team_names."
+    )
+
+    n: F[pl.UInt32] = pa.Field(
+        description=(
+            "League fixtures that back the pairing: Transfermarkt games whose league, score"
+            " and date (within max_day_shift days) match an Understat game with this team "
+            "on the same side."
+        )
+    )
+
+    games: F[pl.UInt32] = pa.Field(
+        description="All the club's Transfermarkt league games, home and away."
+    )
+
+    coverage: F[float] = pa.Field(
+        ge=0.0,
+        le=1.0,
+        description=(
+            "n / games, rounded to 3 places. Close to 1.0 when the pairing is right; "
+            "_join_club_w_team rejects below 0.9 once games >= 10."
+        ),
+    )
+
+    duplicate: F[bool] = pa.Field(
+        description=(
+            "True when another club_id pairs with the same team; _join_club_w_team rejects "
+            "any True row."
+        )
     )
 
 
@@ -284,16 +289,16 @@ def slot_columns() -> dict[str, pa.Column]:
 
 
 __all__ = [
+    "CLUB_MAP",
     "M",
     "N_SLOTS",
-    "CLUB_MAP",
     "PLAYER_SLOT_FEATURES",
-    "ClubMapCols",
     "PM",
-    "MatchCols",
     "CLEANED_MATCH",
-    "CleanedMatchCols",
+    "ClubMapCols",
+    "MatchCols",
     "PlayerMatchCols",
+    "CleanedMatchCols",
     "slot_column",
     "slot_columns",
 ]

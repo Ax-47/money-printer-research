@@ -1,40 +1,34 @@
 from dataclasses import dataclass, fields
+from functools import partial
 from pathlib import Path
 
 import polars as pl
 from pandera.typing.polars import DataFrame
 
+from money_printer_research.clean_data.formation import encode_formation
 from money_printer_research.clean_data.map_club_team import map_club_w_team
 from money_printer_research.clean_data.match import join_match_w_stat
-from money_printer_research.clean_data.match_leagues import curry_match_join_match_w_league
+from money_printer_research.clean_data.match_leagues import join_match_w_league
 from money_printer_research.clean_data.match_stat import match_stat_monad
+from money_printer_research.clean_data.player_stat import player_stat_monad
 from money_printer_research.clean_data.read import (
     read_league_info,
     read_match_info,
     read_match_stat,
+    read_player_stat,
 )
-
-MAX_UNMATCHED_SHARE = 0.01
-# from money_printer_research.clean_data.build_elo import add_elo
-# from money_printer_research.clean_data.build_fatigue import player_fatigue, team_fatigue
-# from money_printer_research.clean_data.build_player import build_player_feat, player_form
-# from money_printer_research.clean_data.build_team_calendar import (
-#     join_match_w_stat,
-#     map_clubs,
-#     standardize_games,
-#     team_schedule_features,
-# )
 from money_printer_research.clean_data.rename_team_names import (
     find_missing_aliases,
     format_alias_lines,
-    rename_team_names,
 )
 from money_printer_research.config import Settings
 from money_printer_research.config import settings as default_settings
-from money_printer_research.cool_stuff import Err, Ok, Result, all_ok, check, functor, monad
-from money_printer_research.schema import CLEANED_MATCH, CLEANED_MATCH_STAT, CLUB_MAP, MATCH_LEAGUE
+from money_printer_research.cool_stuff import Err, Ok, Result, all_ok, check, monad
+from money_printer_research.schema import CLEANED_MATCH, CLEANED_PLAYER_STAT, CLUB_MAP
 from money_printer_research.schema.selected import TransfermarktCompetitions as C
 from money_printer_research.schema.selected import TransfermarktGames as G
+
+MAX_UNMATCHED_SHARE = 0.01
 
 # # from money_printer_research.schema.raw import PS, TM_COMPETITIONS, TM_GAMES, XG, validate_lazy
 # from money_printer_research.schema.selected import UnderstatPlayer, UnderstatSchedule
@@ -42,14 +36,6 @@ from money_printer_research.schema.selected import TransfermarktGames as G
 type Frames = dict[str, pl.DataFrame]
 
 NO_ALIAS_SOURCES = frozenset({"tm_games", "tm_competitions"})
-
-
-# def _read_player(settings: Settings) -> pl.DataFrame:
-#     # One sub-folder per league: <out_dir>/<league>/<season>.parquet
-#     files = sorted(settings.understat.out_dir.glob("*/*.parquet"))
-#     if not files:
-#         raise FileNotFoundError(f"No parquet files in {settings.understat.out_dir}/<league>/")
-#     return read_selected(files, PS)
 
 
 def _alias_frames(frames: Frames) -> Frames:
@@ -67,16 +53,6 @@ def check_aliases[T: pl.DataFrame](df: T) -> Result[T]:
     return Ok(df)
 
 
-# @pa.check_types(lazy=True)
-# def clean_player_stat(df: DataFrame[UnderstatPlayer]) -> DataFrame[PlayerStatCols]:
-#     """Player match stats with season_start: "1415" -> 2014."""
-#     out = df.with_columns(
-#         (2000 + pl.col("season").str.slice(0, 2).cast(pl.Int32)).alias("season_start")
-#     )
-#     return cast(DataFrame[PlayerStatCols], out)
-#
-#
-#
 # def _season_label(start: pl.Expr) -> pl.Expr:
 #     """2014 -> "2014/15"."""
 #     return pl.concat_str(
@@ -213,10 +189,9 @@ def save_frames(frames: Frames, out_dir: Path) -> list[Path]:
 class Cleaned:
     """The clean outputs, one per CSV in settings.clean.out_dir (<field name>.csv)."""
 
-    xg: DataFrame[CLEANED_MATCH_STAT]
-    std_tm: DataFrame[MATCH_LEAGUE]
     clubs: DataFrame[CLUB_MAP]
-    stat_matches: DataFrame[CLEANED_MATCH]
+    cleaned_matches: DataFrame[CLEANED_MATCH]
+    player_stat: DataFrame[CLEANED_PLAYER_STAT]
 
     def save(self, out_dir: Path) -> list[Path]:
         """Write each field to <out_dir>/<field name>.csv."""
@@ -232,23 +207,19 @@ class Cleaned:
 @monad
 def clean(settings: Settings) -> Result[Cleaned]:
     """Run every step; Ok(Cleaned) or the first failing step's Err."""
-    raw_match_stat = (Ok(settings) >> read_match_stat).if_err()
-    cleaned_match_stat = match_stat_monad(raw_match_stat).if_err()
-    xg = (
-        Ok(cleaned_match_stat) >> check_aliases >> rename_team_names >> check(CLEANED_MATCH_STAT)
-    ).if_err()  # 1
 
-    selected_match, selected_league = all_ok(
-        Ok(settings) >> read_match_info >> check(G), Ok(settings) >> read_league_info >> check(C)
-    ).if_err()
+    cleaned_match_stat = read_match_stat(settings).and_then(match_stat_monad).if_err()
+    player_stat = read_player_stat(settings).and_then(player_stat_monad).if_err()
     match_leagues = (
-        Ok(selected_league)
-        >> curry_match_join_match_w_league(selected_match)
-        >> check(MATCH_LEAGUE)  # 2
-    ).if_err()
-
-    clubs = map_club_w_team(match_leagues, xg).if_err()
-    cleaned_matches = join_match_w_stat(match_leagues, clubs, xg).if_err()
+        all_ok(
+            read_match_info(settings) >> check(G) >> encode_formation,
+            read_league_info(settings) >> check(C),
+        )
+        .and_then(lambda pair: join_match_w_league(*pair))
+        .if_err()
+    )
+    clubs = map_club_w_team(match_leagues, cleaned_match_stat).if_err()
+    cleaned_matches = join_match_w_stat(match_leagues, clubs, cleaned_match_stat).if_err()
 
     unmatched = cleaned_matches[CLEANED_MATCH.tm_game_id].null_count()
     if unmatched > MAX_UNMATCHED_SHARE * cleaned_matches.height:  # 3
@@ -257,7 +228,7 @@ def clean(settings: Settings) -> Result[Cleaned]:
             "have no Transfermarkt game"
         )
 
-    return Ok(Cleaned(xg=xg, std_tm=match_leagues, clubs=clubs, stat_matches=cleaned_matches))
+    return Ok(Cleaned(clubs=clubs, cleaned_matches=cleaned_matches, player_stat=player_stat))
 
 
 def clean_data(settings: Settings = default_settings) -> Cleaned:
