@@ -16,9 +16,9 @@ import polars as pl
 from pandera.typing.polars import DataFrame
 
 from ..cool_stuff import returns
-from ..schema.formation import GAME_FORMATION as GF
-from ..schema.formation import OUTFIELD
-from ..schema.selected import TransfermarktGames as G
+from ..schema.match.formation import GameFormationCols
+from ..schema.match.formation import OUTFIELD
+from ..schema.match.selected import TransfermarktGames
 
 _SHAPE = r"^(\d(?:-\d)+)"
 
@@ -36,22 +36,22 @@ class Side(NamedTuple):
 
 
 HOME = Side(
-    G.home_club_formation,
-    GF.home_shape,
-    GF.home_variant,
-    GF.home_defenders,
-    GF.home_midfielders,
-    GF.home_forwards,
-    GF.home_lines,
+    TransfermarktGames.home_club_formation,
+    GameFormationCols.home_shape,
+    GameFormationCols.home_variant,
+    GameFormationCols.home_defenders,
+    GameFormationCols.home_midfielders,
+    GameFormationCols.home_forwards,
+    GameFormationCols.home_lines,
 )
 AWAY = Side(
-    G.away_club_formation,
-    GF.away_shape,
-    GF.away_variant,
-    GF.away_defenders,
-    GF.away_midfielders,
-    GF.away_forwards,
-    GF.away_lines,
+    TransfermarktGames.away_club_formation,
+    GameFormationCols.away_shape,
+    GameFormationCols.away_variant,
+    GameFormationCols.away_defenders,
+    GameFormationCols.away_midfielders,
+    GameFormationCols.away_forwards,
+    GameFormationCols.away_lines,
 )
 
 
@@ -78,13 +78,13 @@ def formation_exprs(side: Side) -> list[pl.Expr]:
     ]
 
 
-@returns(GF)
-def encode_formation(games: DataFrame[G]) -> pl.DataFrame:
+@returns(GameFormationCols)
+def encode_formation(games: DataFrame[TransfermarktGames]) -> pl.DataFrame:
     """Add both sides' encoded formation columns, checked against GameFormationCols."""
     return games.with_columns(*formation_exprs(HOME), *formation_exprs(AWAY))
 
 
-def unknown_formations(games: DataFrame[G]) -> pl.DataFrame:
+def unknown_formations(games: DataFrame[TransfermarktGames]) -> pl.DataFrame:
     """List formations that do not parse or whose lines do not sum to 10 outfield players."""
     raw = (
         pl.concat(

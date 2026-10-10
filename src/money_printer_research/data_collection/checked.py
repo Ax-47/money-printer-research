@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from money_printer_research.schema.raw import RawSchema, check_collected
+from money_printer_research.schema.collected import RawSchema, check_collected
 
 
 def save_checked(df: pd.DataFrame, out: Path, schema: RawSchema) -> None:

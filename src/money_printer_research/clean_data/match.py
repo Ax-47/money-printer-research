@@ -1,19 +1,21 @@
-"""Understat schedule + Transfermarkt league games -> stat_matches (StatMatchCols)."""
+"""Understat schedule + Transfermarkt league games -> cleaned_matches (CleanedMatchCols)."""
 
 import polars as pl
 from pandera.typing.polars import DataFrame
 
 from ..cool_stuff import returns
-from ..schema import CLEANED_MATCH as CM
-from ..schema import CLEANED_MATCH_STAT as S
-from ..schema import CLUB_MAP as C
+from ..schema import CleanedMatchCols
+from ..schema import ScheduleCols
+from ..schema import ClubMapCols
 from ..schema import FORMATION_COLUMNS
-from ..schema import MATCH_LEAGUE as L
+from ..schema import MatchLeaguesCols
 
 
-@returns(CM)
+@returns(CleanedMatchCols)
 def join_match_w_stat(
-    tm: DataFrame[L], clubs: DataFrame[C], schedule: DataFrame[S]
+    tm: DataFrame[MatchLeaguesCols],
+    clubs: DataFrame[ClubMapCols],
+    schedule: DataFrame[ScheduleCols],
 ) -> pl.DataFrame:
     """Understat schedule rows with their Transfermarkt league game (left join).
 
@@ -21,32 +23,51 @@ def join_match_w_stat(
     played once per season, and postponed or resumed games can sit days apart
     in the two sources (Udinese-Roma 2024: 14 April vs 25 April). Transfermarkt
     columns get a tm_ prefix so Understat's goals and date keep their names; the
-    encoded formation columns (FormationCols) keep theirs, which only std_tm has.
+    encoded formation columns (FormationCols) keep theirs, which only match_leagues has.
     """
-    club_team = clubs.filter(~pl.col(C.duplicate)).select(C.club_id, C.team)
+    club_team = clubs.filter(~pl.col(ClubMapCols.duplicate)).select(
+        ClubMapCols.club_id, ClubMapCols.team
+    )
     tm_league = (
-        tm.filter(pl.col(L.comp_type) == "league")
+        tm.filter(pl.col(MatchLeaguesCols.comp_type) == "league")
         .join(
-            club_team.rename({C.club_id: L.home_club_id, C.team: S.home_team}), on=L.home_club_id
+            club_team.rename(
+                {
+                    ClubMapCols.club_id: MatchLeaguesCols.home_club_id,
+                    ClubMapCols.team: ScheduleCols.home_team,
+                }
+            ),
+            on=MatchLeaguesCols.home_club_id,
         )
         .join(
-            club_team.rename({C.club_id: L.away_club_id, C.team: S.away_team}), on=L.away_club_id
+            club_team.rename(
+                {
+                    ClubMapCols.club_id: MatchLeaguesCols.away_club_id,
+                    ClubMapCols.team: ScheduleCols.away_team,
+                }
+            ),
+            on=MatchLeaguesCols.away_club_id,
         )
         .select(
-            L.league,
-            L.season_start,
-            S.home_team,
-            S.away_team,
-            pl.col(L.tm_game_id).alias(CM.tm_game_id),
-            pl.col(L.season).alias(CM.tm_season),
-            pl.col(L.round).alias(CM.tm_round),
-            pl.col(L.home_formation).alias(CM.home_formation),
-            pl.col(L.away_formation).alias(CM.away_formation),
-            pl.col(L.home_goals).alias(CM.tm_home_goals),
-            pl.col(L.away_goals).alias(CM.tm_away_goals),
+            MatchLeaguesCols.league,
+            MatchLeaguesCols.season_start,
+            ScheduleCols.home_team,
+            ScheduleCols.away_team,
+            pl.col(MatchLeaguesCols.tm_game_id).alias(CleanedMatchCols.tm_game_id),
+            pl.col(MatchLeaguesCols.season).alias(CleanedMatchCols.tm_season),
+            pl.col(MatchLeaguesCols.round).alias(CleanedMatchCols.tm_round),
+            pl.col(MatchLeaguesCols.home_formation).alias(CleanedMatchCols.home_formation),
+            pl.col(MatchLeaguesCols.away_formation).alias(CleanedMatchCols.away_formation),
+            pl.col(MatchLeaguesCols.home_goals).alias(CleanedMatchCols.tm_home_goals),
+            pl.col(MatchLeaguesCols.away_goals).alias(CleanedMatchCols.tm_away_goals),
             pl.col(*FORMATION_COLUMNS),  # same names in L and CM, both from FormationCols
         )
     )
     # L.league / L.season_start have the same names as in S.
-    keys = [S.league, S.season_start, S.home_team, S.away_team]
+    keys = [
+        ScheduleCols.league,
+        ScheduleCols.season_start,
+        ScheduleCols.home_team,
+        ScheduleCols.away_team,
+    ]
     return schedule.join(tm_league, on=keys, how="left", validate="1:1")

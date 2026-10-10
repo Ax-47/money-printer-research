@@ -1,25 +1,20 @@
 # About This Project
 
-Welcome to money-printer-research! ...
+money-printer-research builds a match-outcome (home / draw / away) dataset for the
+five big European leagues and measures which pre-match features carry signal.
 
-## Project Goals
+## Sources
 
-- ...
-- ...
-- ...
+- **Understat**: match schedule with goals and xG, and per-player match stats.
+- **Transfermarkt** (dcaribou/transfermarkt-datasets): every club's full calendar,
+  including cups and European games, and the formations each side used.
 
-## Contributing
+## Features
 
-We welcome contributions from the community!
+Pre-match Elo ratings, team and player fatigue, schedule congestion (rest days,
+games in the last 7 and 14 days, European trips) and per-player form slots.
 
 ## License
 
-This project is licensed under the MIT license. See the [LICENSE](Ax-47/money-printer-research/blob/main/LICENSE) file for more details.
-
-## Contact
-
-If you have any questions or feedback, please feel free to reach out via [GitHub](Ax-47/money-printer-research/issues).
-
-## Acknowledgments
-
-Thank you for using money-printer-research!
+This project is licensed under the MIT license. See the
+[LICENSE](https://github.com/Ax-47/money-printer-research/blob/main/LICENSE) file for more details.

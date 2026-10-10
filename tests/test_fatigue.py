@@ -4,7 +4,7 @@ import polars as pl
 import pytest
 from pandera.typing.polars import DataFrame
 
-from money_printer_research.exact_features.fatigue import player_fatigue, team_fatigue
+from money_printer_research.features.fatigue import player_fatigue, team_fatigue
 from money_printer_research.schema import FatigueInputCols
 
 DAY0 = datetime.date(2020, 1, 1)

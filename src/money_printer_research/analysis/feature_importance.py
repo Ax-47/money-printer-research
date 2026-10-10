@@ -51,6 +51,7 @@ def feature_group(col: str) -> str:
 
 
 def load(path: Path) -> tuple[pl.DataFrame, list[str]]:
+    """Read the matches table; return it with every feature cast to float, and the features."""
     df = pl.read_csv(path, infer_schema_length=None).with_columns(
         pl.col("league").cast(pl.Categorical).to_physical().alias("league_code")
     )
@@ -59,29 +60,63 @@ def load(path: Path) -> tuple[pl.DataFrame, list[str]]:
     return df, feats
 
 
-def permutation_loss(model, x: np.ndarray, y: np.ndarray, cols: list[int], rng) -> float:
-    x_perm = x.copy()
-    idx = rng.permutation(len(x))
-    x_perm[:, cols] = x[idx][:, cols]  # same permutation for the whole group
-    return float(log_loss(y, model.predict_proba(x_perm), labels=CLASSES))
+def split_by_season(df: pl.DataFrame) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """(train, test): seasons before TEST_FROM, and the rest."""
+    return (
+        df.filter(pl.col("season_start") < TEST_FROM),
+        df.filter(pl.col("season_start") >= TEST_FROM),
+    )
 
 
-def main(path: Path) -> None:
-    df, feats = load(path)
-    train = df.filter(pl.col("season_start") < TEST_FROM)
-    test = df.filter(pl.col("season_start") >= TEST_FROM)
-    x_tr, y_tr = train.select(feats).to_numpy(), train[TARGET].to_numpy()
-    x_te, y_te = test.select(feats).to_numpy(), test[TARGET].to_numpy()
-
+def fit_model(x: np.ndarray, y: np.ndarray, feats: list[str]) -> HistGradientBoostingClassifier:
+    """Gradient-boosted H/D/A classifier, with the league code as its categorical feature."""
     categorical: Any = [feats.index("league_code")]
-    model = HistGradientBoostingClassifier(
+    return HistGradientBoostingClassifier(
         learning_rate=0.05,
         max_iter=300,
         max_leaf_nodes=15,
         l2_regularization=1.0,
         categorical_features=categorical,
         random_state=SEED,
-    ).fit(x_tr, y_tr)
+    ).fit(x, y)
+
+
+def column_groups(feats: list[str]) -> dict[str, list[int]]:
+    """Feature group (see feature_group) -> indices of its columns in `feats`."""
+    groups: dict[str, list[int]] = {}
+    for i, c in enumerate(feats):
+        groups.setdefault(feature_group(c), []).append(i)
+    return groups
+
+
+def permutation_loss(model, x: np.ndarray, y: np.ndarray, cols: list[int], rng) -> float:
+    """Log loss after shuffling the rows of `cols`, all with the same permutation."""
+    x_perm = x.copy()
+    idx = rng.permutation(len(x))
+    x_perm[:, cols] = x[idx][:, cols]  # same permutation for the whole group
+    return float(log_loss(y, model.predict_proba(x_perm), labels=CLASSES))
+
+
+def permutation_importance(
+    model, x: np.ndarray, y: np.ndarray, groups: dict[str, list[int]], base: float, rng
+) -> pl.DataFrame:
+    """Mean and std rise in log loss over N_REPEATS shuffles of each group, largest first."""
+    rows = []
+    for name, cols in groups.items():
+        d = [permutation_loss(model, x, y, cols, rng) - base for _ in range(N_REPEATS)]
+        rows.append((name, len(cols), float(np.mean(d)), float(np.std(d))))
+    return pl.DataFrame(
+        rows, schema=["feature", "n_cols", "loss_increase", "std"], orient="row"
+    ).sort("loss_increase", descending=True)
+
+
+def main(path: Path) -> None:
+    """Fit on the training seasons, then print test log loss and permutation importance."""
+    df, feats = load(path)
+    train, test = split_by_season(df)
+    x_tr, y_tr = train.select(feats).to_numpy(), train[TARGET].to_numpy()
+    x_te, y_te = test.select(feats).to_numpy(), test[TARGET].to_numpy()
+    model = fit_model(x_tr, y_tr, feats)
 
     prior = train[TARGET].value_counts(normalize=True).sort(TARGET)["proportion"].to_numpy()
     base = float(log_loss(y_te, model.predict_proba(x_te), labels=CLASSES))
@@ -90,25 +125,12 @@ def main(path: Path) -> None:
     print(f"test log loss: model {base:.4f} | class prior {naive:.4f} | gain {naive - base:.4f}\n")
 
     rng = np.random.default_rng(SEED)
-
-    def importance(groups: dict[str, list[int]]) -> pl.DataFrame:
-        rows = []
-        for name, cols in groups.items():
-            d = [permutation_loss(model, x_te, y_te, cols, rng) - base for _ in range(N_REPEATS)]
-            rows.append((name, len(cols), float(np.mean(d)), float(np.std(d))))
-        return pl.DataFrame(
-            rows, schema=["feature", "n_cols", "loss_increase", "std"], orient="row"
-        ).sort("loss_increase", descending=True)
-
-    groups: dict[str, list[int]] = {}
-    for i, c in enumerate(feats):
-        groups.setdefault(feature_group(c), []).append(i)
-
+    single_columns = {c: [i] for i, c in enumerate(feats)}
     with pl.Config(tbl_rows=60, float_precision=5):
         print("Grouped permutation importance (higher = more useful):")
-        print(importance(groups))
+        print(permutation_importance(model, x_te, y_te, column_groups(feats), base, rng))
         print("\nTop 20 single columns:")
-        print(importance({c: [i] for i, c in enumerate(feats)}).head(20))
+        print(permutation_importance(model, x_te, y_te, single_columns, base, rng).head(20))
 
 
 def exec_feature_importance() -> None:

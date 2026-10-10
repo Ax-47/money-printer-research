@@ -1,17 +1,4 @@
 # Application configuration settings
-[fbref]
-leagues = [
-  "ENG-Premier League",
-  "ESP-La Liga",
-  "GER-Bundesliga",
-  "ITA-Serie A",
-  "FRA-Ligue 1",
-  # "RUS-Premier League",
-]
-start_year = 2015
-end_year = 2026
-out_dir = "data/raw/lineups"
-cache_dir = "data/FBref"
 [transfermarkt]
 first_season = 2014
 
@@ -38,6 +25,7 @@ cache_dir = "data/Understat"
 
 [clean]
 out_dir = "data/clean"
+# Not read yet: reserved for the planned API (issue #6).
 [api_settings]
 host = "0.0.0.0"
 port = 8000

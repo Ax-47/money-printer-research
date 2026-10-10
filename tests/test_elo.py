@@ -5,7 +5,7 @@ import polars as pl
 import pytest
 from pandera.typing.polars import DataFrame
 
-from money_printer_research.exact_features.elo import (
+from money_printer_research.features.elo import (
     DEFAULT_ELO,
     PROMOTED_GAP,
     _goal_multiplier,  # pyright: ignore[reportPrivateUsage]

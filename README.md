@@ -1,78 +1,43 @@
 # money-printer-research
 
-[![Release](https://img.shields.io/github/v/release/Ax-47/money-printer-research)](https://img.shields.io/github/v/release/Ax-47/money-printer-research)
-[![Build status](https://img.shields.io/github/actions/workflow/status/Ax-47/money-printer-research/main.yml?branch=main)](https://github.com/Ax-47/money-printer-research/actions/workflows/main.yml?query=branch%3Amain)
 [![codecov](https://codecov.io/gh/Ax-47/money-printer-research/branch/main/graph/badge.svg)](https://codecov.io/gh/Ax-47/money-printer-research)
-[![Commit activity](https://img.shields.io/github/commit-activity/m/Ax-47/money-printer-research)](https://img.shields.io/github/commit-activity/m/Ax-47/money-printer-research)
 [![License](https://img.shields.io/github/license/Ax-47/money-printer-research)](https://img.shields.io/github/license/Ax-47/money-printer-research)
 
-A short description of the project.
+Collect, clean and model football match data from Understat and Transfermarkt.
 
 - **Github repository**: <https://github.com/Ax-47/money-printer-research/>
 - **Documentation** <https://Ax-47.github.io/money-printer-research/>
 
-## Getting started with your project
-
-### 1. Create a New Repository
-
-First, create a repository on GitHub with the same name as this project, and then run the following commands locally:
+## Setup
 
 ```bash
-git init -b main
-git add .
-git commit -m "init commit"
-git remote add origin git@github.com:Ax-47/money-printer-research.git
-git push -u origin main
+make install        # uv sync --all-groups
+make install-hooks  # pre-commit hooks
 ```
 
-### 2. Set Up Your Development Environment
+Paths, leagues and seasons live in `settings.toml`; any value can be overridden
+with an environment variable such as `UNDERSTAT__START_YEAR=2018`.
 
-Then, install the environment and optional run tools depending on your cookiecutter choices.
+## Pipeline
 
 ```bash
-make install
+uv run collect_data        # Understat schedule and player stats, Transfermarkt tables -> data/raw
+uv run clean_data          # cleaned tables and pre-match features -> data/clean
+uv run feature_importance  # permutation importance for the H/D/A model
+uv run notebook            # JupyterLab at the project root
+uv run check_clean         # validate every CSV in data/clean against its schema
 ```
 
-This will also generate your `uv.lock` file
+`collect_data` skips files that already exist, so it can be stopped and resumed.
 
-### 3. Run the pre-commit hooks
-
-Initially, the CI pipeline might be failing due to formatting issues. To resolve those run:
+## Development
 
 ```bash
-uv run pre-commit run -a
+make check  # lock file, ruff, pyright, pre-commit
+make test   # pytest with coverage
+make help   # every target
 ```
-
-### 4. Commit the changes
-
-Lastly, commit the changes made by the two steps above to your repository.
-
-```bash
-git add .
-git commit -m 'Fix formatting issues'
-git push origin main
-```
-
-You are now ready to start development on your project!
-The CI pipeline will be triggered when you open a pull request, merge to main, or when you create a new release.
-
-To finalize the set-up for publishing to PyPI, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/publishing/#set-up-for-pypi).
-For activating the automatic documentation with MkDocs, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/mkdocs/#enabling-the-documentation-on-github).
-To enable the code coverage reports, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/codecov/).
-
-## Releasing a new version
-
-<!--  -->
-
-- Create an API Token on [PyPI](https://pypi.org/).
-- Add the API Token to your projects secrets with the name `PYPI_TOKEN` by visiting [this page](https://github.com/Ax-47/money-printer-research/settings/secrets/actions/new).
-- Create a [new release](https://github.com/Ax-47/money-printer-research/releases/new) on Github.
-- Create a new tag in the form `*.*.*`.
-
-For more details, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/cicd/#how-to-trigger-a-release).
-<!--  -->
 
 ---
 
 Repository initiated with [tiefenthaler/uv-datascience-project-template](https://github.com/tiefenthaler/uv-datascience-project-template).
-# money-printer-research

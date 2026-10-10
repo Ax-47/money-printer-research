@@ -2,7 +2,7 @@
 
 A raw name is cleaned (lowercase, no dots, trimmed) and looked up in ALIASES.
 ALIASES is also the allowlist: a cleaned name that is not a key is unknown, so
-rename_team_names raises on it (an Err under auto lift) instead of letting a new
+norm_team_names raises on it (an Err under auto lift) instead of letting a new
 spelling silently split one club in two.
 
 When a new season brings new names:
@@ -13,7 +13,7 @@ and paste them into _TABLE below, pointing any alias at its canonical name.
 import polars as pl
 
 from money_printer_research.cool_stuff import Err, Ok, Result
-from money_printer_research.schema import CLEANED_MATCH_STAT as S
+from money_printer_research.schema import ScheduleCols
 
 from .aliases_team import ALIASES, TEAM_COLUMNS
 
@@ -80,14 +80,14 @@ def norm_team_names(df: pl.DataFrame) -> pl.DataFrame:
 def alias_block(schedule: pl.DataFrame) -> str:
     """Paste-ready ALIASES lines for every schedule team not yet known, by league."""
     missing = (
-        _team_keys(schedule, S.league)
+        _team_keys(schedule, ScheduleCols.league)
         .filter(~pl.col("key").is_in(list(ALIASES)))
-        .select(S.league, "key")
+        .select(ScheduleCols.league, "key")
         .unique()
-        .sort(S.league, "key")
+        .sort(ScheduleCols.league, "key")
     )
     lines: list[str] = []
-    for (league,), group in missing.group_by(S.league, maintain_order=True):
+    for (league,), group in missing.group_by(ScheduleCols.league, maintain_order=True):
         lines.append(f"    # {league}")
         lines += [f'    "{k}": "{k}",' for k in group["key"].to_list()]
     return "\n".join(lines)

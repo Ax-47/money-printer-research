@@ -1,20 +1,25 @@
-"""Join the exact features onto the matches: one row per Understat game_id."""
+"""Join the extracted features onto the matches: one row per Understat game_id."""
 
 import polars as pl
 from pandera.typing.polars import DataFrame
 
 from ..cool_stuff import returns
-from ..schema import CLEANED_MATCH, MATCH_FEATURES, EloCols, TeamFatigueCols, TeamScheduleCols
+from ..schema import (
+    CleanedMatchCols,
+    MatchFeaturesCols,
+    EloCols,
+    TeamFatigueCols,
+    TeamScheduleCols,
+)
 
-E = EloCols
 
 # Elo has no game_id; a team plays at most once a day, so date and both teams name a game.
-ELO_KEYS = (E.match_date, E.home_team, E.away_team)
+ELO_KEYS = (EloCols.match_date, EloCols.home_team, EloCols.away_team)
 
 
-@returns(MATCH_FEATURES)
+@returns(MatchFeaturesCols)
 def join_features(
-    matches: DataFrame[CLEANED_MATCH],
+    matches: DataFrame[CleanedMatchCols],
     elo: DataFrame[EloCols],
     fatigue: DataFrame[TeamFatigueCols],
     schedule: DataFrame[TeamScheduleCols],
@@ -26,13 +31,15 @@ def join_features(
     source has no value for the game (fatigue and the player slots for the two games
     without Understat line-ups). players is get_player_features' output (PLAYER_SLOTS).
     """
-    elo_cols = elo.select(*ELO_KEYS, E.full_time_result, E.elo_home, E.elo_away, E.elo_diff)
+    elo_cols = elo.select(
+        *ELO_KEYS, EloCols.full_time_result, EloCols.elo_home, EloCols.elo_away, EloCols.elo_diff
+    )
     return (
-        matches.with_columns(pl.col(CLEANED_MATCH.date).dt.date().alias(E.match_date))
+        matches.with_columns(pl.col(CleanedMatchCols.date).dt.date().alias(EloCols.match_date))
         .join(elo_cols, on=list(ELO_KEYS), how="left", validate="1:1")
-        .join(fatigue, on=CLEANED_MATCH.game_id, how="left", validate="1:1")
-        .join(schedule, on=CLEANED_MATCH.game_id, how="left", validate="1:1")
-        .join(players, on=CLEANED_MATCH.game_id, how="left", validate="1:1")
+        .join(fatigue, on=CleanedMatchCols.game_id, how="left", validate="1:1")
+        .join(schedule, on=CleanedMatchCols.game_id, how="left", validate="1:1")
+        .join(players, on=CleanedMatchCols.game_id, how="left", validate="1:1")
     )
 
 

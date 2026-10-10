@@ -48,20 +48,6 @@ class TransfermarktSettings(_Section):
     first_season: int = 2014
 
 
-class FBrefSettings(_Section):
-    leagues: list[str] = [
-        "ENG-Premier League",
-        "ESP-La Liga",
-        "GER-Bundesliga",
-        "ITA-Serie A",
-        "FRA-Ligue 1",
-    ]
-    start_year: int = 2015  # first season starts in this year
-    end_year: int = 2025  # exclusive: last season is 2024-25
-    out_dir: RootPath = Path("data/lineups")
-    cache_dir: RootPath = Path("data/FBref")
-
-
 class UnderstatSettings(_Section):
     leagues: list[str] = [
         "ENG-Premier League",
@@ -81,22 +67,16 @@ class CleanSettings(_Section):
     out_dir: RootPath = Path("data/clean")
 
 
-class TeamMapSettings(_Section):
-    out_file: RootPath = Path("data/team_map.csv")
-
-
 class Settings(BaseSettings):
     """Main settings. Priority: init args > env vars > settings.toml > defaults."""
 
     model_config = SettingsConfigDict(
         toml_file=ROOT / "settings.toml",
-        env_nested_delimiter="__",  # e.g. FBREF__START_YEAR=2018
+        env_nested_delimiter="__",  # e.g. UNDERSTAT__START_YEAR=2018
         extra="ignore",
     )
 
-    fbref: FBrefSettings = Field(default_factory=FBrefSettings)
     understat: UnderstatSettings = Field(default_factory=UnderstatSettings)
-    team_map: TeamMapSettings = Field(default_factory=TeamMapSettings)
     clean: CleanSettings = Field(default_factory=CleanSettings)
     transfermarkt: TransfermarktSettings = Field(default_factory=TransfermarktSettings)
 

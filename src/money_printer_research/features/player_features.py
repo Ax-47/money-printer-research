@@ -11,8 +11,8 @@ from pandera.typing.polars import DataFrame
 
 from money_printer_research.cool_stuff import fallible
 from money_printer_research.schema import (
-    CLEANED_MATCH,
-    CLEANED_PLAYER_STAT,
+    CleanedMatchCols,
+    PlayerStatCols,
     N_SLOTS,
     PLAYER_SLOT_FEATURES,
     PLAYER_SLOTS,
@@ -23,7 +23,6 @@ from money_printer_research.schema import (
 
 from .fatigue import player_fatigue, player_matches
 
-FI = FatigueInputCols
 
 FORM_WINDOW = 10
 """Previous matches (any team, any season) that prev_xg, prev_xa and prev_min sum over."""
@@ -44,7 +43,7 @@ def _prev(col: str) -> pl.Expr:
         pl.col(col)
         .rolling_sum(FORM_WINDOW, min_samples=1)
         .shift(1)
-        .over(FI.player_id)
+        .over(FatigueInputCols.player_id)
         .fill_null(0)
     )
 
@@ -56,11 +55,13 @@ def player_form(fatigue: DataFrame[PlayerFatigueCols]) -> pl.DataFrame:
     """
     per90 = pl.when(pl.col("prev_min") >= MIN_PREV_MIN).then(90 / pl.col("prev_min"))
     return (
-        fatigue.sort(FI.player_id, FI.match_date, FI.game_id)
+        fatigue.sort(
+            FatigueInputCols.player_id, FatigueInputCols.match_date, FatigueInputCols.game_id
+        )
         .with_columns(
-            _prev(FI.xg).alias("prev_xg"),
-            _prev(FI.xa).alias("prev_xa"),
-            _prev(FI.minutes).alias("prev_min"),
+            _prev(FatigueInputCols.xg).alias("prev_xg"),
+            _prev(FatigueInputCols.xa).alias("prev_xa"),
+            _prev(FatigueInputCols.minutes).alias("prev_min"),
         )
         .with_columns(
             (pl.col("prev_xg") * per90).alias("xg90"),
@@ -73,32 +74,39 @@ def player_form(fatigue: DataFrame[PlayerFatigueCols]) -> pl.DataFrame:
 def player_slots(form: pl.DataFrame) -> pl.DataFrame:
     """One row per game_id: each side's starters, ordered GK first, as slot columns."""
     starters = (
-        form.filter(pl.col(FI.position) != "Sub")
+        form.filter(pl.col(FatigueInputCols.position) != "Sub")
         .with_columns(
-            pl.when(pl.col(FI.is_home)).then(pl.lit("h")).otherwise(pl.lit("a")).alias("side"),
-            pl.col(FI.position)
+            pl.when(pl.col(FatigueInputCols.is_home))
+            .then(pl.lit("h"))
+            .otherwise(pl.lit("a"))
+            .alias("side"),
+            pl.col(FatigueInputCols.position)
             .replace_strict({p: i for i, p in enumerate(POSITION_ORDER)})
             .alias("_order"),
         )
-        .sort(FI.game_id, "side", "_order", FI.player_id)
-        .with_columns((pl.int_range(pl.len()).over(FI.game_id, "side") + 1).alias("slot"))
+        .sort(FatigueInputCols.game_id, "side", "_order", FatigueInputCols.player_id)
+        .with_columns(
+            (pl.int_range(pl.len()).over(FatigueInputCols.game_id, "side") + 1).alias("slot")
+        )
         .filter(pl.col("slot") <= N_SLOTS)
     )
     long = starters.unpivot(
-        index=[FI.game_id, "side", "slot"], on=list(PLAYER_SLOT_FEATURES), variable_name="feature"
+        index=[FatigueInputCols.game_id, "side", "slot"],
+        on=list(PLAYER_SLOT_FEATURES),
+        variable_name="feature",
     ).with_columns(
         pl.format("{}_player{}_{}", "side", "slot", "feature").alias("column"),
         pl.col("value").cast(pl.Float64),
     )
-    wide = long.pivot(on="column", index=FI.game_id, values="value")
+    wide = long.pivot(on="column", index=FatigueInputCols.game_id, values="value")
     expected = list(slot_columns())
     missing = [pl.lit(None, pl.Float64).alias(c) for c in expected if c not in wide.columns]
-    return wide.with_columns(missing).select(FI.game_id, *expected)
+    return wide.with_columns(missing).select(FatigueInputCols.game_id, *expected)
 
 
 @fallible
 def get_player_features(
-    player_stat: DataFrame[CLEANED_PLAYER_STAT], matches: DataFrame[CLEANED_MATCH]
+    player_stat: DataFrame[PlayerStatCols], matches: DataFrame[CleanedMatchCols]
 ) -> pl.DataFrame:
     """Per Understat game_id: the slot columns for both sides' starters (PLAYER_SLOTS)."""
     pm = player_matches(player_stat, matches)
