@@ -2,7 +2,7 @@
 
 A raw name is cleaned (lowercase, no dots, trimmed) and looked up in ALIASES.
 ALIASES is also the allowlist: a cleaned name that is not a key is unknown, so
-rename_team_names raises on it (an Err under auto lift) instead of letting a new
+norm_team_names raises on it (an Err under auto lift) instead of letting a new
 spelling silently split one club in two.
 
 When a new season brings new names:

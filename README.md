@@ -25,6 +25,7 @@ uv run collect_data        # Understat schedule and player stats, Transfermarkt 
 uv run clean_data          # cleaned tables and pre-match features -> data/clean
 uv run feature_importance  # permutation importance for the H/D/A model
 uv run notebook            # JupyterLab at the project root
+uv run check_clean         # validate every CSV in data/clean against its schema
 ```
 
 `collect_data` skips files that already exist, so it can be stopped and resumed.

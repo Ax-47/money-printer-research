@@ -49,7 +49,7 @@ class UnderstatSchedule(pa.DataFrameModel):
     home_team: F[str] = pa.Field(
         description=(
             'Understat team name: "Arsenal", "Manchester United". Not the same spelling as '
-            "other sources; rename_team_names maps it through ALIASES."
+            "other sources; norm_team_names maps it through ALIASES."
         )
     )
 
@@ -191,7 +191,8 @@ class TransfermarktGames(pa.DataFrameModel):
 
     home_club_id: F[pl.Int32] = pa.Field(
         description=(
-            "Transfermarkt club id of the home side. map_clubs maps it to the Understat team name."
+            "Transfermarkt club id of the home side. map_club_w_team maps it to the Understat"
+            " team name."
         )
     )
 

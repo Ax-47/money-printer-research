@@ -2,9 +2,9 @@
 
 The models live in modules by stage, and are re-exported here:
 
-    schema/clean.py      single-source frames: xg, match_leagues (std_tm), player_stat
-    schema/join.py       joined frames: player_matches, matches, clubs, cleaned_matches,
-                         match_features, and PLAYER_SLOTS (the player slot columns)
+    schema/clean.py      single-source frames: the cleaned schedule, match_leagues, player_stat
+    schema/join.py       joined frames: clubs, cleaned_matches, match_features, and
+                         PLAYER_SLOTS (players.csv, the player slot columns)
     schema/formation.py  FormationCols, the encoded formation columns match_leagues and
                          cleaned_matches inherit, and GameFormationCols (games + formations)
     schema/elo.py        EloInputCols, EloCols, PredictionCols (Elo and the Poisson model)
@@ -58,13 +58,9 @@ from money_printer_research.schema.join import (
     N_SLOTS,
     PLAYER_SLOT_FEATURES,
     PLAYER_SLOTS,
-    PM,
     CleanedMatchCols,
     ClubMapCols,
-    M,
-    MatchCols,
     MatchFeaturesCols,
-    PlayerMatchCols,
     match_features_schema,
     slot_column,
     slot_columns,
@@ -77,7 +73,7 @@ from money_printer_research.schema.selected import (
     UnderstatPlayer,
     UnderstatSchedule,
 )
-from money_printer_research.schema.utils import as_, validate_lazy
+from money_printer_research.schema.utils import validate_lazy
 
 
 def dtype(model: type[pa.DataFrameModel], name: str) -> pl.DataType:
@@ -110,7 +106,7 @@ def read_clean(out_dir: Path, name: str) -> pl.DataFrame:
     return validate_lazy(df, schema, name)
 
 
-def main() -> None:
+def check_clean() -> None:
     """Entry point `check_clean`: validate every clean CSV; exit 1 if any fails."""
     out = settings.clean.out_dir
     failed = 0
@@ -146,7 +142,6 @@ __all__ = [
     "PLAYER_SLOTS",
     "PLAYER_SLOT_FEATURES",
     "PLAYER_STAT",
-    "PM",
     "SELECTED",
     "SHAPE_PATTERN",
     "CleanedMatchCols",
@@ -157,13 +152,10 @@ __all__ = [
     "FatigueInputCols",
     "FormationCols",
     "GameFormationCols",
-    "M",
-    "MatchCols",
     "MatchFeaturesCols",
     "MatchLeaguesCols",
     "MatchSideCols",
     "PlayerFatigueCols",
-    "PlayerMatchCols",
     "PlayerStatCols",
     "PredictionCols",
     "ScheduleCols",
@@ -173,9 +165,8 @@ __all__ = [
     "TransfermarktGames",
     "UnderstatPlayer",
     "UnderstatSchedule",
-    "as_",
     "dtype",
-    "main",
+    "check_clean",
     "match_features_schema",
     "read_clean",
     "slot_column",

@@ -36,6 +36,7 @@ collect_data = "money_printer_research:collect_data"
 clean_data = "money_printer_research:clean_data"
 feature_importance = "money_printer_research:exec_feature_importance"
 notebook = "money_printer_research:exec_notebook"
+check_clean = "money_printer_research.schema:check_clean"
 # DEV SETTING
 [dependency-groups]
 dev = [

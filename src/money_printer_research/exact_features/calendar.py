@@ -1,10 +1,10 @@
 """Plan A: every club's full match calendar (league, cups, Europe) from Transfermarkt.
 
 Understat only has league games, so a team that played in Europe on Wednesday
-looks rested for Saturday. Transfermarkt games (std_tm) have all competitions.
+looks rested for Saturday. Transfermarkt games (match_leagues) have all competitions.
 club_calendar computes pre-match schedule features on that full calendar, and
 team_schedule_features attaches them to each Understat game as h_* / a_* columns,
-through the tm_game_id that join_match_w_stat put on stat_matches.
+through the tm_game_id that join_match_w_stat put on cleaned_matches.
 
 All features use only games before the match, except the look-ahead ones
 (days_to_next_all, next_is_europe), which use fixtures already scheduled.
@@ -86,10 +86,10 @@ def club_calendar(tm: DataFrame[MATCH_LEAGUE]) -> DataFrame[ClubCalendarCols]:
 
 @returns(TeamScheduleCols)
 def team_schedule_features(
-    tm: DataFrame[MATCH_LEAGUE], stat_matches: DataFrame[CLEANED_MATCH]
+    tm: DataFrame[MATCH_LEAGUE], cleaned_matches: DataFrame[CLEANED_MATCH]
 ) -> DataFrame[TeamScheduleCols]:
     """Per Understat game_id: h_* and a_* schedule features from the full calendar."""
-    game_map = stat_matches.select(CLEANED_MATCH.game_id, CLEANED_MATCH.tm_game_id).drop_nulls()
+    game_map = cleaned_matches.select(CLEANED_MATCH.game_id, CLEANED_MATCH.tm_game_id).drop_nulls()
     cal = club_calendar(tm).join(game_map, on=CC.tm_game_id, how="inner", validate="m:1")
 
     def side(is_home: bool, prefix: str) -> pl.DataFrame:

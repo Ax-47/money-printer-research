@@ -1,6 +1,7 @@
 """Clean single-source frames: each from one source, cleaned but not yet joined.
 
-xg.csv (ScheduleCols), std_tm.csv (MatchLeaguesCols) and player_stat.csv (PlayerStatCols).
+The cleaned Understat schedule (ScheduleCols, kept in memory), match_leagues.csv
+(MatchLeaguesCols) and player_stat.csv (PlayerStatCols).
 The Understat models keep the selected raw columns (schema/selected.py) with the
 same descriptions and add season_start; MatchLeaguesCols is join_match_w_league's output.
 Joined outputs are in schema/join.py.
@@ -16,7 +17,7 @@ from money_printer_research.schema.formation import FormationCols
 
 
 class ScheduleCols(pa.DataFrameModel):
-    """xg.csv: Understat schedule, played matches only, with goals and xG. Key: game_id."""
+    """Cleaned Understat schedule: played matches only, with goals and xG. Key: game_id."""
 
     league: F[str] = pa.Field(
         description=(
@@ -46,7 +47,7 @@ class ScheduleCols(pa.DataFrameModel):
     home_team: F[str] = pa.Field(
         description=(
             'Understat team name: "Arsenal", "Manchester United". Not the same spelling as '
-            "other sources; rename_team_names maps it through ALIASES."
+            "other sources; norm_team_names maps it through ALIASES."
         )
     )
 
@@ -87,7 +88,7 @@ class ScheduleCols(pa.DataFrameModel):
 
 
 class MatchLeaguesCols(FormationCols):
-    """std_tm.csv: Transfermarkt games from clean_data.match_leagues.join_match_w_league.
+    """match_leagues.csv: Transfermarkt games from clean_data.match_leagues.join_match_w_league.
 
     GameFormationCols (games.parquet after encode_formation) left-joined to the
     competitions on competition_id, renamed, with comp_type and the Understat league
@@ -122,7 +123,7 @@ class MatchLeaguesCols(FormationCols):
         nullable=True,
         description=(
             'Understat league name for league games ("ENG-Premier League"), so they line up'
-            " with xg.csv. Null for every other competition."
+            " with the Understat schedule. Null for every other competition."
         ),
     )
 
@@ -130,7 +131,8 @@ class MatchLeaguesCols(FormationCols):
 
     home_club_id: F[pl.Int32] = pa.Field(
         description=(
-            "Transfermarkt club id of the home side; map_clubs maps it to the Understat team name."
+            "Transfermarkt club id of the home side; map_club_w_team maps it to the Understat"
+            " team name."
         )
     )
 

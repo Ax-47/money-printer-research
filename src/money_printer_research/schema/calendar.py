@@ -12,7 +12,9 @@ COMP_TYPES = ["league", "domestic_cup", "europe", "other"]
 class ClubCalendarCols(pa.DataFrameModel):
     """club_calendar: one row per club per Transfermarkt game, any competition."""
 
-    tm_game_id: F[str] = pa.Field(description="Transfermarkt game id (std_tm.csv tm_game_id).")
+    tm_game_id: F[str] = pa.Field(
+        description="Transfermarkt game id (match_leagues.csv tm_game_id)."
+    )
     date: F[datetime.date] = pa.Field(description="Match date.")
     comp_type: F[str] = pa.Field(isin=COMP_TYPES, description="See MatchLeaguesCols.comp_type.")
     club_id: F[pl.Int32] = pa.Field(description="Transfermarkt club id of this side.")

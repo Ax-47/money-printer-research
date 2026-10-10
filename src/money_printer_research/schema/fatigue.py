@@ -22,7 +22,7 @@ class MatchSideCols(pa.DataFrameModel):
 
     game_id: F[int] = pa.Field(unique=True, description="Understat match id.")
     match_date: F[datetime.date] = pa.Field(description="Date part of the kick-off.")
-    home_team: F[str] = pa.Field(description="Home side, after rename_team_names.")
+    home_team: F[str] = pa.Field(description="Home side, after norm_team_names.")
 
 
 class FatigueInputCols(PlayerStatCols):

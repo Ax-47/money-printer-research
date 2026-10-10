@@ -9,16 +9,16 @@ OUTCOMES = ("H", "D", "A")
 
 
 class EloInputCols(pa.DataFrameModel):
-    """What add_elo reads: one row per played match (matches.csv has these and more)."""
+    """What get_elo reads: one row per played match, built by to_elo_input."""
 
     season: F[str] = pa.Field(
         description='Season label: "2014/15". A change of season triggers promotion and regress.'
     )
     match_date: F[datetime.date] = pa.Field(
-        description="Match date; add_elo replays in this order."
+        description="Match date; get_elo replays in this order."
     )
-    home_team: F[str] = pa.Field(description="Home side, Understat name after rename_team_names.")
-    away_team: F[str] = pa.Field(description="Away side, Understat name after rename_team_names.")
+    home_team: F[str] = pa.Field(description="Home side, Understat name after norm_team_names.")
+    away_team: F[str] = pa.Field(description="Away side, Understat name after norm_team_names.")
     full_time_home_goals: F[int] = pa.Field(ge=0, description="Home goals at full time.")
     full_time_away_goals: F[int] = pa.Field(ge=0, description="Away goals at full time.")
     full_time_result: F[str] = pa.Field(
@@ -27,7 +27,7 @@ class EloInputCols(pa.DataFrameModel):
 
 
 class EloCols(EloInputCols):
-    """add_elo's output: the input plus pre-match ratings."""
+    """get_elo's output: the input plus pre-match ratings."""
 
     elo_home: F[float] = pa.Field(description="Home side's Elo rating before kick-off.")
     elo_away: F[float] = pa.Field(description="Away side's Elo rating before kick-off.")

@@ -87,12 +87,12 @@ def map_club_w_team(
 ) -> Result[DataFrame[C]]:
     """_map_clubs, as an Err when there is nothing to map or a pairing is doubtful.
 
-    Nothing to map usually means std_tm has no league games (comp_type); a doubtful
+    Nothing to map usually means match_leagues has no league games (comp_type); a doubtful
     pairing usually means a missing ALIASES entry.
     """
     league_games = tm.filter(pl.col(L.comp_type) == "league").height
     if league_games == 0:
-        return Err("map_club_w_team: std_tm has no league games (check comp_type)")
+        return Err("map_club_w_team: match_leagues has no league games (check comp_type)")
 
     clubs = _map_clubs(tm, schedule, max_day_shift).if_err()
     if clubs.height == 0:

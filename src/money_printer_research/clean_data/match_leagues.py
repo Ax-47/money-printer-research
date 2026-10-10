@@ -1,4 +1,4 @@
-"""Transfermarkt games + competitions -> std_tm (MatchLeaguesCols)."""
+"""Transfermarkt games + competitions -> match_leagues (MatchLeaguesCols)."""
 
 import polars as pl
 from pandera.typing.polars import DataFrame

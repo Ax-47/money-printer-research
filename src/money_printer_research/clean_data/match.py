@@ -1,4 +1,4 @@
-"""Understat schedule + Transfermarkt league games -> stat_matches (StatMatchCols)."""
+"""Understat schedule + Transfermarkt league games -> cleaned_matches (CleanedMatchCols)."""
 
 import polars as pl
 from pandera.typing.polars import DataFrame
@@ -21,7 +21,7 @@ def join_match_w_stat(
     played once per season, and postponed or resumed games can sit days apart
     in the two sources (Udinese-Roma 2024: 14 April vs 25 April). Transfermarkt
     columns get a tm_ prefix so Understat's goals and date keep their names; the
-    encoded formation columns (FormationCols) keep theirs, which only std_tm has.
+    encoded formation columns (FormationCols) keep theirs, which only match_leagues has.
     """
     club_team = clubs.filter(~pl.col(C.duplicate)).select(C.club_id, C.team)
     tm_league = (

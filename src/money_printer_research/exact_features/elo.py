@@ -93,7 +93,7 @@ def _teams_by_season(matches: DataFrame[EloInputCols]) -> dict[str, set[str]]:
 
 @returns(EloInputCols)
 def to_elo_input(matches: DataFrame[CLEANED_MATCH]) -> pl.DataFrame:
-    """stat_matches -> EloInputCols: season label, date only, full-time goals and result."""
+    """cleaned_matches -> EloInputCols: season label, date only, full-time goals and result."""
     ei = EloInputCols
     start = pl.col(CLEANED_MATCH.season_start)
     hg, ag = pl.col(CLEANED_MATCH.home_goals), pl.col(CLEANED_MATCH.away_goals)

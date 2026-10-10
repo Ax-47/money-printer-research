@@ -11,7 +11,7 @@ schema (MATCH_STAT.to_schema().columns["season"].description). Example values co
 from the files as collected for 2014/15 to 2025/26.
 
 Raw names are kept as they come from each source; snake_columns_pl turns them
-into the clean names used in schema.py.
+into the clean names used in schema/clean.py.
 
 Collection checks every column of these models (check_collected), so a source
 that changes shape fails at download time. The columns the clean pipeline reads
@@ -79,7 +79,7 @@ class UnderstatScheduleRaw(pa.DataFrameModel):
     home_team: F[str] = pa.Field(
         description=(
             'Understat team name: "Arsenal", "Manchester United". Not the same spelling as '
-            "other sources; rename_team_names maps it through ALIASES."
+            "other sources; norm_team_names maps it through ALIASES."
         )
     )
 
@@ -261,7 +261,8 @@ class TransfermarktGamesRaw(pa.DataFrameModel):
 
     home_club_id: F[pl.Int32] = pa.Field(
         description=(
-            "Transfermarkt club id of the home side. map_clubs maps it to the Understat team name."
+            "Transfermarkt club id of the home side. map_club_w_team maps it to the Understat"
+            " team name."
         )
     )
 
