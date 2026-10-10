@@ -1,7 +1,7 @@
 site_name: money-printer-research
 repo_url: https://github.com/Ax-47/money-printer-research
 site_url: https://Ax-47.github.io/money-printer-research
-site_description: A short description of the project.
+site_description: Collect, clean and model football match data from Understat, FBref and Transfermarkt.
 site_author: Mikhail Akhsakov
 edit_uri: edit/main/docs/
 repo_name: Ax-47/money-printer-research

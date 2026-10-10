@@ -36,11 +36,6 @@ test: ## Test the code with pytest
 	@echo "🚀 Testing code: Running pytest"
 	@uv run pytest --cov
 
-.PHONY: run-api
-run-api: ## Run the FastAPI application
-	@echo "🚀 Running the FastAPI application"
-	@uv run python -m money_printer_research.app_fastapi_autoencoder
-
 .PHONY: build
 build: clean-build ## Build wheel file
 	@echo "🚀 Creating wheel file"
@@ -51,7 +46,6 @@ clean-build: ## Clean build artifacts
 	@echo "🚀 Removing build artifacts"
 	@uv run python -c "import shutil; import os; shutil.rmtree('dist') if os.path.exists('dist') else None"
 
-# 
 .PHONY: publish
 publish: ## Publish a release to PyPI.
 	@echo "🚀 Publishing."
@@ -59,7 +53,7 @@ publish: ## Publish a release to PyPI.
 
 .PHONY: build-and-publish
 build-and-publish: build publish ## Build and publish.
-# 
+
 .PHONY: docs-build
 docs-build: ## Test if documentation can be built without warnings or errors
 	@uv run mkdocs build -s

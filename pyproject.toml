@@ -1,10 +1,10 @@
 [project]
 name = "money-printer-research"
 version = "0.0.1"
-description = "A short description of the project."
-authors = [{ name = "Mikhail Akhsakov", email = "your.email@example.com" }]
+description = "Collect, clean and model football match data from Understat, FBref and Transfermarkt."
+authors = [{ name = "Mikhail Akhsakov" }]
 readme = "README.md"
-keywords = ["python"]
+keywords = ["elo", "football", "sports-analytics", "understat", "xg"]
 classifiers = [
     "Intended Audience :: Developers",
     "Programming Language :: Python",
@@ -16,7 +16,6 @@ requires-python = ">=3.14"
 dependencies = [
     "duckdb>=1.5.6",
     "matplotlib>=3.11.2",
-    # Add your project dependencies here
     "pandera[polars]>=0.34.1",
     "polars>=1.44.2",
     "pyarrow>=25.0.1",
