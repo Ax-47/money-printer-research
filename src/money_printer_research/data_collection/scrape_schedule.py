@@ -4,7 +4,7 @@ import soccerdata as sd
 from money_printer_research.config import Settings
 from money_printer_research.config import settings as default_settings
 from money_printer_research.data_collection.checked import save_checked
-from money_printer_research.schema.raw import XG
+from money_printer_research.schema.raw import MATCH_STAT
 
 
 def _collect_schedule(settings: Settings = default_settings) -> None:
@@ -21,5 +21,5 @@ def _collect_schedule(settings: Settings = default_settings) -> None:
     seasons = [f"{y}-{str(y + 1)[-2:]}" for y in range(cfg.start_year, cfg.end_year)]
     us = sd.Understat(leagues=cfg.leagues, seasons=seasons, data_dir=cfg.cache_dir)
     sch = us.read_schedule().reset_index()
-    save_checked(sch, cfg.schedule_file, XG)
+    save_checked(sch, cfg.schedule_file, MATCH_STAT)
     print("saved", cfg.schedule_file.name, sch.shape, flush=True)

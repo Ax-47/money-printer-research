@@ -19,10 +19,13 @@ are in schema/selected.py.
 """
 
 import datetime
+from pathlib import Path
 
 import pandera.polars as pa
 import polars as pl
 from pandera.typing import FieldType as F
+
+from money_printer_research.schema.utils import validate_lazy
 
 
 class UnderstatScheduleRaw(pa.DataFrameModel):
@@ -425,4 +428,20 @@ type RawSchema = (
 )
 
 
-__all__ = ["LEAGUE_INFO", "MATCH_INFO", "MATCH_STAT", "PLAYER_STAT", "RawSchema"]
+def check_collected(path: Path, schema: RawSchema) -> None:
+    """Raise ValueError if the file at `path` does not match every column of `schema`."""
+    if path.suffix == ".parquet":
+        df = pl.read_parquet(path)
+    else:
+        df = pl.read_csv(path, try_parse_dates=True)
+    validate_lazy(df, schema.to_schema(), schema.__name__)
+
+
+__all__ = [
+    "LEAGUE_INFO",
+    "MATCH_INFO",
+    "MATCH_STAT",
+    "PLAYER_STAT",
+    "RawSchema",
+    "check_collected",
+]
