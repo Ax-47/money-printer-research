@@ -31,10 +31,7 @@ def _cell(text: str | None) -> str:
 
 
 def _table(path: str) -> str:
-    rows = [
-        "| Column | Type | Nullable | Description |",
-        "| --- | --- | --- | --- |",
-    ]
+    rows = ["| Column | Type | Nullable | Description |", "| --- | --- | --- | --- |"]
     for name, col in _load(path).columns.items():
         nullable = "yes" if col.nullable else ""
         rows.append(f"| `{name}` | `{col.dtype}` | {nullable} | {_cell(col.description)} |")
