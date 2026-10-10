@@ -15,6 +15,7 @@ classifiers = [
 requires-python = ">=3.14"
 dependencies = [
     "duckdb>=1.5.6",
+    "fastapi>=0.143.0",
     "matplotlib>=3.11.2",
     "pandera[polars]>=0.34.1",
     "polars>=1.44.2",
@@ -23,6 +24,7 @@ dependencies = [
     "pydantic-settings>=2.15.0",
     "scikit-learn>=1.9.1",
     "soccerdata>=1.9.1",
+    "uvicorn[standard]>=0.54.0",
 ]
 
 [project.urls]
@@ -36,6 +38,7 @@ clean_data = "money_printer_research:clean_data"
 feature_importance = "money_printer_research:exec_feature_importance"
 notebook = "money_printer_research:exec_notebook"
 check_clean = "money_printer_research.schema:check_clean"
+api = "money_printer_research:exec_api"
 [dependency-groups]
 dev = [
     "ipykernel>=6.29.5",
@@ -51,6 +54,7 @@ dev = [
     "ipywidgets>=8.1.9",
     "hypothesis>=6.168.5",
     "scipy-stubs>=1.18.1.1",
+    "httpx>=0.28.1",
 ]
 docs = [
     "mkdocs>=1.6.1",

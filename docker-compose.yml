@@ -1,0 +1,25 @@
+# docker compose up api                     serve the API on http://localhost:8000/docs
+# docker compose run --rm pipeline collect_data
+# docker compose run --rm pipeline clean_data
+services:
+  api:
+    build: .
+    image: money-printer-research
+    command: ["api"]
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  pipeline:
+    image: money-printer-research
+    build: .
+    profiles: ["pipeline"]
+    volumes:
+      - ./data:/app/data

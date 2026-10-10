@@ -67,6 +67,11 @@ class CleanSettings(_Section):
     out_dir: RootPath = Path("data/clean")
 
 
+class ApiSettings(_Section):
+    host: str = "127.0.0.1"
+    port: int = 8000
+
+
 class Settings(BaseSettings):
     """Main settings. Priority: init args > env vars > settings.toml > defaults."""
 
@@ -79,6 +84,7 @@ class Settings(BaseSettings):
     understat: UnderstatSettings = Field(default_factory=UnderstatSettings)
     clean: CleanSettings = Field(default_factory=CleanSettings)
     transfermarkt: TransfermarktSettings = Field(default_factory=TransfermarktSettings)
+    api_settings: ApiSettings = Field(default_factory=ApiSettings)
 
     @classmethod
     def settings_customise_sources(
