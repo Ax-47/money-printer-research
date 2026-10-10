@@ -1,4 +1,5 @@
-# Application configuration settings
+# Project settings. Every key, default and env override: docs/configuration.md
+# Print what is in effect: uv run show_config
 [transfermarkt]
 first_season = 2014
 
