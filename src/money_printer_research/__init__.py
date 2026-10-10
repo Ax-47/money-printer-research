@@ -9,6 +9,7 @@ from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from money_printer_research.api import exec_api
     from money_printer_research.analysis import exec_feature_importance
     from money_printer_research.clean_data import clean_data, exec_clean_data
     from money_printer_research.data_collection import collect_data
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
 
 # Entry point name -> module that defines it.
 _ENTRY_POINTS = {
+    "exec_api": "money_printer_research.api",
     "collect_data": "money_printer_research.data_collection",
     "clean_data": "money_printer_research.clean_data",
     "exec_clean_data": "money_printer_research.clean_data",
@@ -38,6 +40,7 @@ def __getattr__(name: str) -> Any:
 __all__ = [
     "clean_data",
     "collect_data",
+    "exec_api",
     "exec_clean_data",
     "exec_feature_importance",
     "exec_notebook",

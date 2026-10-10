@@ -66,8 +66,14 @@ uv run show_config
 | --- | --- | --- |
 | `out_dir` | `data/clean` | cleaned CSVs and features |
 
-Unknown keys inside these sections are errors. Other top-level sections, such as
-`[api_settings]`, belong to other parts of the project and are not read here.
+### `[api_settings]`
+
+| Key | Default | Notes |
+| --- | --- | --- |
+| `host` | `127.0.0.1` | address `uv run api` binds to; `settings.toml` sets `0.0.0.0` so Docker can reach it |
+| `port` | `8000` | 1 to 65535 |
+
+Unknown keys inside these sections are errors.
 
 ## Errors
 

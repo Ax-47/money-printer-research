@@ -161,6 +161,11 @@ class CleanSettings(_Section):
     out_dir: RootPath = Field(default=Path("data/clean"), description="Cleaned CSVs and features.")
 
 
+class ApiSettings(_Section):
+    host: str = Field(default="127.0.0.1", description="Address `api` binds to.")
+    port: int = Field(default=8000, ge=1, le=65535, description="Port `api` listens on.")
+
+
 class Settings(BaseSettings):
     """Main settings. Priority: init args > env vars > .env > settings.toml > defaults."""
 
@@ -176,6 +181,7 @@ class Settings(BaseSettings):
     understat: UnderstatSettings = Field(default_factory=UnderstatSettings)
     clean: CleanSettings = Field(default_factory=CleanSettings)
     transfermarkt: TransfermarktSettings = Field(default_factory=TransfermarktSettings)
+    api_settings: ApiSettings = Field(default_factory=ApiSettings)
 
     @classmethod
     def settings_customise_sources(

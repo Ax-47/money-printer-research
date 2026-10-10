@@ -1,0 +1,139 @@
+"""FastAPI app serving what clean_data wrote to settings.clean.out_dir.
+
+    GET /health                      liveness, and whether the clean tables exist
+    GET /tables                      the CSV tables in the clean directory
+    GET /tables/{name}               one table's rows, paged
+    GET /predictions/seasons         seasons the Elo model can predict
+    GET /predictions?season=...      walk_forward H/D/A probabilities for one season
+    GET /predictions/metrics?...     log loss, RPS and accuracy for that season
+
+Tables are read from disk on each request, so a new clean_data run shows up without a
+restart. Predictions are cached per season until elo.csv changes.
+"""
+
+from pathlib import Path
+from typing import Annotated, Any
+
+import polars as pl
+from fastapi import FastAPI, HTTPException, Query
+from pandera.typing.polars import DataFrame
+
+from money_printer_research.config import Settings
+from money_printer_research.config import settings as default_settings
+from money_printer_research.features.elo import evaluate, walk_forward
+from money_printer_research.schema import EloCols, PredictionCols
+
+ELO_TABLE = "elo"
+MAX_LIMIT = 1000
+
+
+def _rows(df: pl.DataFrame) -> list[dict[str, Any]]:
+    """Rows as dicts; NaN becomes null, since JSON has no NaN."""
+    return df.fill_nan(None).to_dicts()
+
+
+class _Tables:
+    """The clean CSVs, and the Elo predictions cached on elo.csv's mtime."""
+
+    def __init__(self, out_dir: Path) -> None:
+        self.out_dir = out_dir
+        self._elo_mtime: float | None = None
+        self._predictions: dict[tuple[str, bool], DataFrame[PredictionCols]] = {}
+
+    def names(self) -> list[str]:
+        if not self.out_dir.is_dir():
+            return []
+        return sorted(p.stem for p in self.out_dir.glob("*.csv"))
+
+    def path(self, name: str) -> Path:
+        # Only names listed in the directory, so a request cannot reach other files.
+        if name not in self.names():
+            raise HTTPException(404, f"no table {name!r}; see GET /tables")
+        return self.out_dir / f"{name}.csv"
+
+    def read(self, name: str) -> pl.DataFrame:
+        return pl.read_csv(self.path(name), infer_schema_length=None, try_parse_dates=True)
+
+    def elo(self) -> DataFrame[EloCols]:
+        return DataFrame[EloCols](EloCols.validate(self.read(ELO_TABLE)))
+
+    def seasons(self) -> list[str]:
+        """Every season but the first: walk_forward needs an earlier season to fit on."""
+        return sorted(self.elo()[EloCols.season].unique().to_list())[1:]
+
+    def predictions(self, season: str, dixon_coles: bool) -> DataFrame[PredictionCols]:
+        mtime = self.path(ELO_TABLE).stat().st_mtime
+        if mtime != self._elo_mtime:
+            self._elo_mtime, self._predictions = mtime, {}
+        key = (season, dixon_coles)
+        if key not in self._predictions:
+            elo = self.elo()
+            if season not in self.seasons():
+                raise HTTPException(
+                    404, f"no predictions for season {season!r}; see GET /predictions/seasons"
+                )
+            self._predictions[key] = walk_forward(elo, [season], dixon_coles)
+        return self._predictions[key]
+
+
+def create_app(settings: Settings = default_settings) -> FastAPI:
+    """The API over settings.clean.out_dir."""
+    app = FastAPI(
+        title="money-printer-research",
+        description="Clean football match tables and Elo-model H/D/A predictions.",
+    )
+    tables = _Tables(settings.clean.out_dir)
+
+    @app.get("/health")
+    def health() -> dict[str, Any]:
+        return {"status": "ok", "tables": len(tables.names())}
+
+    @app.get("/tables")
+    def list_tables() -> list[str]:
+        return tables.names()
+
+    @app.get("/tables/{name}")
+    def get_table(
+        name: str,
+        limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = 100,
+        offset: Annotated[int, Query(ge=0)] = 0,
+    ) -> dict[str, Any]:
+        df = tables.read(name)
+        return {
+            "name": name,
+            "total": df.height,
+            "offset": offset,
+            "limit": limit,
+            "columns": df.columns,
+            "rows": _rows(df.slice(offset, limit)),
+        }
+
+    @app.get("/predictions/seasons")
+    def prediction_seasons() -> list[str]:
+        return tables.seasons()
+
+    @app.get("/predictions")
+    def predictions(
+        season: str, team: str | None = None, dixon_coles: bool = True
+    ) -> list[dict[str, Any]]:
+        pred = tables.predictions(season, dixon_coles)
+        if team is not None:
+            pred = pred.filter(
+                (pl.col(PredictionCols.home_team) == team)
+                | (pl.col(PredictionCols.away_team) == team)
+            )
+        return _rows(pred)
+
+    @app.get("/predictions/metrics")
+    def prediction_metrics(season: str, dixon_coles: bool = True) -> dict[str, Any]:
+        return evaluate(tables.predictions(season, dixon_coles))
+
+    return app
+
+
+def exec_api() -> None:
+    """Entry point `api`: serve create_app() on settings.api_settings.host and port."""
+    import uvicorn
+
+    api = default_settings.api_settings
+    uvicorn.run(create_app(), host=api.host, port=api.port)
