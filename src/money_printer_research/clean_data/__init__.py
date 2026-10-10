@@ -23,8 +23,8 @@ from ..schema import (
     TeamFatigueCols,
     TeamScheduleCols,
 )
-from ..schema.selected import TransfermarktCompetitions as C
-from ..schema.selected import TransfermarktGames as G
+from ..schema.competition.selected import TransfermarktCompetitions as C
+from ..schema.match.selected import TransfermarktGames as G
 from ..utils import SavesFrames
 from .formation import encode_formation
 from .join import join_features

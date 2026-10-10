@@ -16,9 +16,9 @@ import polars as pl
 from pandera.typing.polars import DataFrame
 
 from ..cool_stuff import returns
-from ..schema.formation import GAME_FORMATION as GF
-from ..schema.formation import OUTFIELD
-from ..schema.selected import TransfermarktGames as G
+from ..schema.match.formation import GAME_FORMATION as GF
+from ..schema.match.formation import OUTFIELD
+from ..schema.match.selected import TransfermarktGames as G
 
 _SHAPE = r"^(\d(?:-\d)+)"
 

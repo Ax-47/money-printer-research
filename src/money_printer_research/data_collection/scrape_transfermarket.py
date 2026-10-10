@@ -18,7 +18,9 @@ from pathlib import Path
 import duckdb
 
 from money_printer_research.config import Settings
-from money_printer_research.schema.raw import LEAGUE_INFO, MATCH_INFO, RawSchema, check_collected
+from money_printer_research.schema.collected import RawSchema, check_collected
+from money_printer_research.schema.competition.raw import LEAGUE_INFO
+from money_printer_research.schema.match.raw import MATCH_INFO
 
 TABLES = ("competitions", "games", "appearances")
 # Raw schema of each table the clean pipeline reads; appearances has none yet.

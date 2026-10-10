@@ -5,7 +5,7 @@ from money_printer_research.config import Settings, UnderstatSettings
 from money_printer_research.config import settings as default_settings
 from money_printer_research.data_collection.checked import save_checked
 from money_printer_research.data_collection.seasons import season_label, understat_season_code
-from money_printer_research.schema.raw import MATCH_STAT
+from money_printer_research.schema.match.raw import MATCH_STAT
 
 
 def _has_every_season(cfg: UnderstatSettings) -> bool:

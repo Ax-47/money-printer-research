@@ -7,7 +7,7 @@ from money_printer_research.config import Settings
 from money_printer_research.config import settings as default_settings
 from money_printer_research.data_collection.checked import save_checked
 from money_printer_research.data_collection.seasons import season_files
-from money_printer_research.schema.raw import PLAYER_STAT
+from money_printer_research.schema.player.raw import PLAYER_STAT
 
 
 def _read_match_by_match(understat: sd.Understat, league: str, season: str) -> pd.DataFrame:

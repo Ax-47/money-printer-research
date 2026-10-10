@@ -5,7 +5,7 @@ from ..clean_data.normalize import add_season_start
 from ..clean_data.rename_team_names import check_aliases, norm_team_names
 from ..cool_stuff import K, check, returns
 from ..schema import CLEANED_MATCH_STAT
-from ..schema.raw import MATCH_STAT
+from ..schema.match.raw import MATCH_STAT
 
 
 @returns(MATCH_STAT)

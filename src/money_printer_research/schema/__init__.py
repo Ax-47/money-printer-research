@@ -1,18 +1,21 @@
-"""Column names and dtypes of the clean outputs in settings.clean.out_dir, as pandera models.
+"""Column names, dtypes and descriptions of every frame, as pandera models, by entity.
 
-The models live in modules by stage, and are re-exported here:
+    match/        one row per match: the Understat schedule, Transfermarkt games,
+                  and the pre-match features joined onto them
+    player/       one row per player per match: Understat player stats and load
+    club/         the Transfermarkt club -> Understat team map, and each club's calendar
+    competition/  Transfermarkt competitions and how they are grouped (COMP_TYPES)
 
-    schema/clean.py      single-source frames: the cleaned schedule, match_leagues, player_stat
-    schema/join.py       joined frames: clubs, cleaned_matches, match_features, and
-                         PLAYER_SLOTS (players.csv, the player slot columns)
-    schema/formation.py  FormationCols, the encoded formation columns match_leagues and
-                         cleaned_matches inherit, and GameFormationCols (games + formations)
-    schema/elo.py        EloInputCols, EloCols, PredictionCols (Elo and the Poisson model)
-    schema/fatigue.py    player and team fatigue
-    schema/calendar.py   full-calendar schedule features
+Inside each entity, one module per stage, in pipeline order (an entity has only
+the stages it needs):
 
-(Raw files are in schema/raw.py, the raw columns the pipeline reads in
-schema/selected.py.)
+    raw.py        every column of a collected file; collected.py explains raw vs selected
+    selected.py   the raw columns the clean pipeline reads
+    clean.py      cleaned frames, written as CSV to settings.clean.out_dir
+    features.py   pre-match features built from the clean frames
+
+Everything is re-exported here, so `from money_printer_research.schema import ...`
+works for any model.
 
 Every column is F[...] (pandera FieldType) with a description, so
 pl.col(CLEANED_MATCH_STAT.season) works and pyright types it as str. The dtypes
@@ -27,53 +30,59 @@ import pandera.polars as pa
 import polars as pl
 
 from money_printer_research.config import settings
-from money_printer_research.schema.calendar import COMP_TYPES, ClubCalendarCols, TeamScheduleCols
-from money_printer_research.schema.clean import (
+from money_printer_research.schema.club import CLUB_MAP, ClubCalendarCols, ClubMapCols
+from money_printer_research.schema.collected import SELECTED, RawSchema, check_collected
+from money_printer_research.schema.competition import (
+    COMP_TYPES,
+    LEAGUE_INFO,
+    TransfermarktCompetitions,
+    TransfermarktCompetitionsRaw,
+)
+from money_printer_research.schema.match import (
+    CLEANED_MATCH,
     CLEANED_MATCH_STAT,
-    CLEANED_PLAYER_STAT,
-    MATCH_LEAGUE,
-    MatchLeaguesCols,
-    PlayerStatCols,
-    ScheduleCols,
-)
-from money_printer_research.schema.elo import OUTCOMES, EloCols, EloInputCols, PredictionCols
-from money_printer_research.schema.fatigue import (
-    FatigueInputCols,
-    MatchSideCols,
-    PlayerFatigueCols,
-    TeamFatigueCols,
-)
-from money_printer_research.schema.formation import (
     FORMATION_COLUMNS,
     GAME_FORMATION,
-    OUTFIELD,
-    SHAPE_PATTERN,
-    FormationCols,
-    GameFormationCols,
-)
-from money_printer_research.schema.join import (
-    CLEANED_MATCH,
-    CLUB_MAP,
     MATCH_FEATURES,
+    MATCH_INFO,
+    MATCH_LEAGUE,
+    MATCH_STAT,
     N_SLOTS,
+    OUTCOMES,
+    OUTFIELD,
     PLAYER_SLOT_FEATURES,
     PLAYER_SLOTS,
+    SHAPE_PATTERN,
     CleanedMatchCols,
-    ClubMapCols,
+    EloCols,
+    EloInputCols,
+    FormationCols,
+    GameFormationCols,
     MatchFeaturesCols,
+    MatchLeaguesCols,
+    MatchSideCols,
+    PredictionCols,
+    ScheduleCols,
+    TeamFatigueCols,
+    TeamScheduleCols,
+    TransfermarktGames,
+    TransfermarktGamesRaw,
+    UnderstatSchedule,
+    UnderstatScheduleRaw,
     match_features_schema,
     slot_column,
     slot_columns,
 )
-from money_printer_research.schema.raw import PLAYER_STAT
-from money_printer_research.schema.selected import (
-    SELECTED,
-    TransfermarktCompetitions,
-    TransfermarktGames,
+from money_printer_research.schema.player import (
+    CLEANED_PLAYER_STAT,
+    PLAYER_STAT,
+    FatigueInputCols,
+    PlayerFatigueCols,
+    PlayerStatCols,
     UnderstatPlayer,
-    UnderstatSchedule,
+    UnderstatPlayerRaw,
 )
-from money_printer_research.schema.utils import validate_lazy
+from money_printer_research.schema.validation import validate_lazy
 
 
 def dtype(model: type[pa.DataFrameModel], name: str) -> pl.DataType:
@@ -134,8 +143,11 @@ __all__ = [
     "COMP_TYPES",
     "FORMATION_COLUMNS",
     "GAME_FORMATION",
+    "LEAGUE_INFO",
     "MATCH_FEATURES",
+    "MATCH_INFO",
     "MATCH_LEAGUE",
+    "MATCH_STAT",
     "N_SLOTS",
     "OUTCOMES",
     "OUTFIELD",
@@ -158,15 +170,21 @@ __all__ = [
     "PlayerFatigueCols",
     "PlayerStatCols",
     "PredictionCols",
+    "RawSchema",
     "ScheduleCols",
     "TeamFatigueCols",
     "TeamScheduleCols",
     "TransfermarktCompetitions",
+    "TransfermarktCompetitionsRaw",
     "TransfermarktGames",
+    "TransfermarktGamesRaw",
     "UnderstatPlayer",
+    "UnderstatPlayerRaw",
     "UnderstatSchedule",
-    "dtype",
+    "UnderstatScheduleRaw",
     "check_clean",
+    "check_collected",
+    "dtype",
     "match_features_schema",
     "read_clean",
     "slot_column",

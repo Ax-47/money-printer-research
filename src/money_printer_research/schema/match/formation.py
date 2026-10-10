@@ -5,10 +5,12 @@ import polars as pl
 from pandera.polars import PolarsData
 from pandera.typing import FieldType as F
 
-from money_printer_research.schema.selected import TransfermarktGames
+from money_printer_research.schema.match.selected import TransfermarktGames
+
 
 OUTFIELD = 10
 """Outfield players in a formation: every shape's lines sum to this."""
+
 
 SHAPE_PATTERN = r"^\d(-\d)+$"
 """A shape is digits joined by "-": "4-2-3-1"."""
@@ -98,13 +100,15 @@ class GameFormationCols(TransfermarktGames, FormationCols):
 FORMATION_COLUMNS: tuple[str, ...] = tuple(FormationCols.to_schema().columns)
 """The encoded column names, in schema order: carry them with pl.col(*FORMATION_COLUMNS)."""
 
+
 GAME_FORMATION = GameFormationCols
+
 
 __all__ = [
     "FORMATION_COLUMNS",
+    "FormationCols",
     "GAME_FORMATION",
+    "GameFormationCols",
     "OUTFIELD",
     "SHAPE_PATTERN",
-    "FormationCols",
-    "GameFormationCols",
 ]

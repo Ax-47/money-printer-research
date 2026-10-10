@@ -1,0 +1,78 @@
+"""Match schemas: one row per match, from raw files to pre-match features."""
+
+from money_printer_research.schema.match.raw import (
+    UnderstatScheduleRaw,
+    TransfermarktGamesRaw,
+    MATCH_STAT,
+    MATCH_INFO,
+)
+from money_printer_research.schema.match.selected import UnderstatSchedule, TransfermarktGames
+from money_printer_research.schema.match.formation import (
+    OUTFIELD,
+    SHAPE_PATTERN,
+    FormationCols,
+    GameFormationCols,
+    FORMATION_COLUMNS,
+    GAME_FORMATION,
+)
+from money_printer_research.schema.match.clean import (
+    ScheduleCols,
+    MatchLeaguesCols,
+    CleanedMatchCols,
+    CLEANED_MATCH_STAT,
+    MATCH_LEAGUE,
+    CLEANED_MATCH,
+)
+from money_printer_research.schema.match.features import (
+    MatchSideCols,
+    OUTCOMES,
+    EloInputCols,
+    EloCols,
+    PredictionCols,
+    TeamFatigueCols,
+    TeamScheduleCols,
+    PLAYER_SLOT_FEATURES,
+    N_SLOTS,
+    slot_column,
+    slot_columns,
+    PLAYER_SLOTS,
+    MatchFeaturesCols,
+    MATCH_FEATURES,
+    match_features_schema,
+)
+
+__all__ = [
+    "CLEANED_MATCH",
+    "CLEANED_MATCH_STAT",
+    "CleanedMatchCols",
+    "EloCols",
+    "EloInputCols",
+    "FORMATION_COLUMNS",
+    "FormationCols",
+    "GAME_FORMATION",
+    "GameFormationCols",
+    "MATCH_FEATURES",
+    "MATCH_INFO",
+    "MATCH_LEAGUE",
+    "MATCH_STAT",
+    "MatchFeaturesCols",
+    "MatchLeaguesCols",
+    "MatchSideCols",
+    "N_SLOTS",
+    "OUTCOMES",
+    "OUTFIELD",
+    "PLAYER_SLOTS",
+    "PLAYER_SLOT_FEATURES",
+    "PredictionCols",
+    "SHAPE_PATTERN",
+    "ScheduleCols",
+    "TeamFatigueCols",
+    "TeamScheduleCols",
+    "TransfermarktGames",
+    "TransfermarktGamesRaw",
+    "UnderstatSchedule",
+    "UnderstatScheduleRaw",
+    "match_features_schema",
+    "slot_column",
+    "slot_columns",
+]

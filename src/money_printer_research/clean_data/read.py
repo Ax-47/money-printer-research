@@ -3,7 +3,7 @@ from pandera.typing.polars import DataFrame
 
 from ..config import Settings
 from ..cool_stuff import returns
-from ..schema.raw import LEAGUE_INFO, MATCH_INFO, MATCH_STAT, PLAYER_STAT
+from ..schema import LEAGUE_INFO, MATCH_INFO, MATCH_STAT, PLAYER_STAT
 
 
 @returns(MATCH_STAT)

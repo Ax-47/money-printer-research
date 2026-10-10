@@ -1,10 +1,8 @@
-"""Clean single-source frames: each from one source, cleaned but not yet joined.
+"""Cleaned matches: the Understat schedule, Transfermarkt games, and the two joined.
 
-The cleaned Understat schedule (ScheduleCols, kept in memory), match_leagues.csv
-(MatchLeaguesCols) and player_stat.csv (PlayerStatCols).
-The Understat models keep the selected raw columns (schema/selected.py) with the
-same descriptions and add season_start; MatchLeaguesCols is join_match_w_league's output.
-Joined outputs are in schema/join.py.
+ScheduleCols       the cleaned Understat schedule (kept in memory)
+MatchLeaguesCols   match_leagues.csv: Transfermarkt games, every competition
+CleanedMatchCols   cleaned_matches.csv: each Understat match with its Transfermarkt game
 """
 
 import datetime
@@ -13,7 +11,8 @@ import pandera.polars as pa
 import polars as pl
 from pandera.typing import FieldType as F
 
-from money_printer_research.schema.formation import FormationCols
+from money_printer_research.schema.competition.comp_type import COMP_TYPES
+from money_printer_research.schema.match.formation import FormationCols
 
 
 class ScheduleCols(pa.DataFrameModel):
@@ -108,7 +107,7 @@ class MatchLeaguesCols(FormationCols):
     )
 
     comp_type: F[str] = pa.Field(
-        isin=["league", "domestic_cup", "europe", "other"],
+        isin=COMP_TYPES,
         description=(
             "league: the five Understat leagues (LEAGUE in match_leagues). europe: UEFA club"
             " competitions and their qualifying (CL, CLQ, EL, ELQ, UCOL, ECLQ, USC), set by "
@@ -168,104 +167,75 @@ class MatchLeaguesCols(FormationCols):
     )
 
 
-class PlayerStatCols(pa.DataFrameModel):
-    """player_stat.csv: Understat player match stats, one row per player per match.
+class CleanedMatchCols(ScheduleCols, FormationCols):
+    """cleaned_matches.csv: each Understat match with its Transfermarkt league game.
 
-    Key: (game_id, player_id).
+    Built by join_match_w_stat from the cleaned schedule (ScheduleCols).
+
+    Left join on league, season_start, home_team and away_team (club ids mapped to
+    teams through clubs.csv), not on the date: postponed or resumed games can sit days
+    apart in the two sources. Same rows as the schedule, one per game_id; the Transfermarkt
+    columns, the encoded formations of FormationCols included, are null where no game
+    matched. Key: game_id.
     """
 
-    league: F[str] = pa.Field(
+    tm_game_id: F[str] = pa.Field(
+        nullable=True,
         description=(
-            'League in soccerdata form: "ENG-Premier League"; see UnderstatScheduleRaw.league.'
-        )
+            "Transfermarkt game id of the same fixture (match_leagues.csv tm_game_id). Null when "
+            "no Transfermarkt league game matched."
+        ),
     )
 
-    season: F[str] = pa.Field(
+    tm_season: F[str] = pa.Field(
+        nullable=True, description='Transfermarkt season: "2014". Null when unmatched.'
+    )
+
+    tm_round: F[str] = pa.Field(
+        nullable=True, description='Transfermarkt round: "1. Matchday". Null when unmatched.'
+    )
+
+    home_formation: F[str] = pa.Field(
+        nullable=True,
         description=(
-            'Season as start and end year, two digits each: "1415". A str here, an int in '
-            "UnderstatScheduleRaw."
-        )
+            'Home starting formation from Transfermarkt: "4-3-3 Attacking". Null when '
+            "unmatched or Transfermarkt has no line-up. Encoded in home_shape, home_variant "
+            "and the line counts (FormationCols)."
+        ),
     )
 
-    game: F[str] = pa.Field(
-        description=('Match label "<date> <home>-<away>", same as UnderstatScheduleRaw.game.')
+    away_formation: F[str] = pa.Field(
+        nullable=True, description="Away starting formation; see home_formation."
     )
 
-    team: F[str] = pa.Field(
+    tm_home_goals: F[int] = pa.Field(
+        nullable=True,
         description=(
-            "Understat name of the player's team: \"Manchester City\". Equals the schedule's "
-            "home_team or away_team for the match."
-        )
+            "Home goals in Transfermarkt's official result. Differs from home_goals (the "
+            "pitch score) for an overturned result. Null when unmatched."
+        ),
     )
 
-    player: F[str] = pa.Field(
-        description=('Player name as Understat writes it: "Alexis Sánchez".')
-    )
-
-    game_id: F[int] = pa.Field(
-        description="Understat match id; joins to UnderstatScheduleRaw.game_id."
-    )
-
-    team_id: F[int] = pa.Field(
-        description="Understat team id; same ids as the schedule's home_team_id and away_team_id."
-    )
-
-    player_id: F[int] = pa.Field(description="Understat player id, stable across seasons.")
-
-    position: F[str] = pa.Field(
-        description=(
-            "Position in the line-up: GK, DR, DC, DL, DMR, DML, DMC, MR, MC, ML, AMR, AMC, "
-            'AML, FWR, FW, FWL; "Sub" for a substitute. Starters are every non-"Sub" row.'
-        )
-    )
-
-    minutes: F[int] = pa.Field(description="Minutes played, at most 90.")
-
-    xg: F[float] = pa.Field(description="Expected goals from the player's shots.")
-
-    xa: F[float] = pa.Field(
-        description="Expected assists: xG of the shots that came from the player's passes."
-    )
-
-    goals: F[int] = pa.Field(description="Goals scored, own goals excluded.")
-
-    own_goals: F[int] = pa.Field(description="Own goals scored.")
-
-    shots: F[int] = pa.Field(description="Shots taken.")
-
-    xg_chain: F[float] = pa.Field(
-        description="xG of every possession the player touched that ended in a shot."
-    )
-
-    xg_buildup: F[float] = pa.Field(
-        description=(
-            "xg_chain without the possessions where the player shot or made the key pass, so "
-            "never above xg_chain."
-        )
-    )
-
-    assists: F[int] = pa.Field(description="Assists.")
-
-    key_passes: F[int] = pa.Field(description="Passes that led directly to a shot.")
-
-    yellow_cards: F[int] = pa.Field(description="Yellow cards, 0 or 1.")
-
-    red_cards: F[int] = pa.Field(description="Red cards, 0 or 1.")
-
-    season_start: F[pl.Int32] = pa.Field(
-        description='Season start year from season: "1415" -> 2014.'
+    tm_away_goals: F[int] = pa.Field(
+        nullable=True,
+        description="Away goals in Transfermarkt's official result; see tm_home_goals.",
     )
 
 
 CLEANED_MATCH_STAT = ScheduleCols
+
+
 MATCH_LEAGUE = MatchLeaguesCols
-CLEANED_PLAYER_STAT = PlayerStatCols
+
+
+CLEANED_MATCH = CleanedMatchCols
+
 
 __all__ = [
+    "CLEANED_MATCH",
     "CLEANED_MATCH_STAT",
+    "CleanedMatchCols",
     "MATCH_LEAGUE",
-    "CLEANED_PLAYER_STAT",
     "MatchLeaguesCols",
-    "PlayerStatCols",
     "ScheduleCols",
 ]

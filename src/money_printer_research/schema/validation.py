@@ -1,3 +1,5 @@
+"""Schema validation that reports every problem at once, as one ValueError."""
+
 import pandera.polars as pa
 import polars as pl
 from pandera.errors import SchemaErrors
