@@ -26,5 +26,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      # Pull requests only check that the docs build; the site is published from main.
+      - name: Build docs
+        if: github.event_name == 'pull_request'
+        run: uv run mkdocs build -s
+
       - name: Deploy docs
+        if: github.event_name == 'push'
         run: uv run mkdocs gh-deploy --force
