@@ -1,7 +1,7 @@
 [project]
 name = "money-printer-research"
 version = "0.0.1"
-description = "Collect, clean and model football match data from Understat, FBref and Transfermarkt."
+description = "Collect, clean and model football match data from Understat and Transfermarkt."
 authors = [{ name = "Mikhail Akhsakov" }]
 readme = "README.md"
 keywords = ["elo", "football", "sports-analytics", "understat", "xg"]

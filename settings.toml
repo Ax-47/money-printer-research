@@ -1,17 +1,4 @@
 # Application configuration settings
-[fbref]
-leagues = [
-  "ENG-Premier League",
-  "ESP-La Liga",
-  "GER-Bundesliga",
-  "ITA-Serie A",
-  "FRA-Ligue 1",
-  # "RUS-Premier League",
-]
-start_year = 2015
-end_year = 2026
-out_dir = "data/raw/lineups"
-cache_dir = "data/FBref"
 [transfermarkt]
 first_season = 2014
 

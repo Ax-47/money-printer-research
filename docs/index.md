@@ -2,4 +2,4 @@
 
 Welcome to the documentation for money-printer-research.
 
-Collect, clean and model football match data from Understat, FBref and Transfermarkt.
+Collect, clean and model football match data from Understat and Transfermarkt.

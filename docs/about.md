@@ -8,7 +8,6 @@ five big European leagues and measures which pre-match features carry signal.
 - **Understat**: match schedule with goals and xG, and per-player match stats.
 - **Transfermarkt** (dcaribou/transfermarkt-datasets): every club's full calendar,
   including cups and European games, and the formations each side used.
-- **FBref**: line-ups (optional; slowest to scrape).
 
 ## Features
 

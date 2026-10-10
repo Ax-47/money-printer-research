@@ -3,7 +3,7 @@
 [![codecov](https://codecov.io/gh/Ax-47/money-printer-research/branch/main/graph/badge.svg)](https://codecov.io/gh/Ax-47/money-printer-research)
 [![License](https://img.shields.io/github/license/Ax-47/money-printer-research)](https://img.shields.io/github/license/Ax-47/money-printer-research)
 
-Collect, clean and model football match data from Understat, FBref and Transfermarkt.
+Collect, clean and model football match data from Understat and Transfermarkt.
 
 - **Github repository**: <https://github.com/Ax-47/money-printer-research/>
 - **Documentation** <https://Ax-47.github.io/money-printer-research/>
@@ -16,7 +16,7 @@ make install-hooks  # pre-commit hooks
 ```
 
 Paths, leagues and seasons live in `settings.toml`; any value can be overridden
-with an environment variable such as `FBREF__START_YEAR=2018`.
+with an environment variable such as `UNDERSTAT__START_YEAR=2018`.
 
 ## Pipeline
 
