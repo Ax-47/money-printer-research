@@ -67,10 +67,6 @@ class CleanSettings(_Section):
     out_dir: RootPath = Path("data/clean")
 
 
-class TeamMapSettings(_Section):
-    out_file: RootPath = Path("data/team_map.csv")
-
-
 class Settings(BaseSettings):
     """Main settings. Priority: init args > env vars > settings.toml > defaults."""
 
@@ -81,7 +77,6 @@ class Settings(BaseSettings):
     )
 
     understat: UnderstatSettings = Field(default_factory=UnderstatSettings)
-    team_map: TeamMapSettings = Field(default_factory=TeamMapSettings)
     clean: CleanSettings = Field(default_factory=CleanSettings)
     transfermarkt: TransfermarktSettings = Field(default_factory=TransfermarktSettings)
 

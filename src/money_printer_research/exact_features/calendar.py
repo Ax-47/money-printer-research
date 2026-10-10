@@ -23,7 +23,6 @@ from money_printer_research.schema import (
 
 L = MATCH_LEAGUE
 CC = ClubCalendarCols
-TS = TeamScheduleCols
 
 MAX_GAP_DAYS = 30
 """Cap on rest_days_all and days_to_next_all: beyond a month every club is fully rested,

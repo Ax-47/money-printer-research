@@ -22,7 +22,6 @@ dependencies = [
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
     "scikit-learn>=1.9.1",
-    "scipy-stubs>=1.18.1.1",
     "soccerdata>=1.9.1",
 ]
 
@@ -37,7 +36,6 @@ clean_data = "money_printer_research:clean_data"
 feature_importance = "money_printer_research:exec_feature_importance"
 notebook = "money_printer_research:exec_notebook"
 check_clean = "money_printer_research.schema:check_clean"
-# DEV SETTING
 [dependency-groups]
 dev = [
     "ipykernel>=6.29.5",
@@ -52,6 +50,7 @@ dev = [
     "basedpyright>=1.40.2",
     "ipywidgets>=8.1.9",
     "hypothesis>=6.168.5",
+    "scipy-stubs>=1.18.1.1",
 ]
 docs = [
     "mkdocs>=1.6.1",
@@ -62,39 +61,16 @@ docs = [
     "pymdown-extensions>=10.14.3",
 ]
 
-# DEV SETTING
 [tool.uv]
 default-groups = ["dev"]
 
 [[tool.uv.index]]
 url = "https://pypi.tuna.tsinghua.edu.cn/simple"
 default = true
-[tool.ruff.lint.per-file-ignores]
-"notebooks/*" = ["E501", "F821"]
-"src/money_printer_research/clean_data/rename_team_names.py" = ["F601"]
-"src/money_printer_research/data_collection/__init__.py" = ["F401"]
-"src/money_printer_research/schema/__init__.py" = ["D402"]
-"src/money_printer_research/schema/column.py" = ["D102"]
-# DEV SETTING
-# ruff.toml file is used.
-[tool.ruff]
-
-# DEV SETTING
-# pytest.ini file is used.
-[tool.pytest]
-
-# DEV SETTING
-# .coveragerc file is used. A pytest fixture in .conftest.py is used to create coverage file/report directory.
-[tool.coverage]
-
-# DEV SETTING
-# pyrightconfig.json file is used. NOTE: Ensure to set the python version correctly.
-[tool.pyright]
 
 [tool.basedpyright]
 reportAny = false
 
-# DEV SETTING
 # NOTE: to sort, run: "uv run toml-sort pyproject.toml"
 [tool.tomlsort]
 in_place = true
