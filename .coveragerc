@@ -17,9 +17,7 @@ omit =
 # Overall report settings.
 [report]
 fail_under = 0
-
-# Terminal report settings.
-[term]
+# List the uncovered lines; the PR coverage comment reads them as its Missing column.
 show_missing = True
 
 # HTML report settings.
