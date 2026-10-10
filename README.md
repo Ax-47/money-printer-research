@@ -15,8 +15,10 @@ make install        # uv sync --all-groups
 make install-hooks  # pre-commit hooks
 ```
 
-Paths, leagues and seasons live in `settings.toml`; any value can be overridden
-with an environment variable such as `UNDERSTAT__START_YEAR=2018`.
+Paths, leagues and seasons live in `settings.toml` and are validated when loaded.
+Any value can be overridden with an environment variable such as
+`UNDERSTAT__START_YEAR=2018` or a `.env` file; `uv run show_config` prints the values
+in effect. See [Configuration](docs/configuration.md).
 
 ## Pipeline
 
@@ -26,6 +28,7 @@ uv run clean_data          # cleaned tables and pre-match features -> data/clean
 uv run feature_importance  # permutation importance for the H/D/A model
 uv run notebook            # JupyterLab at the project root
 uv run check_clean         # validate every CSV in data/clean against its schema
+uv run show_config         # print the settings in effect
 ```
 
 `collect_data` skips files that already exist, so it can be stopped and resumed.

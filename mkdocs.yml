@@ -10,6 +10,7 @@ nav:
   - Home:
     - index.md
     - About: about.md
+    - Configuration: configuration.md
   - Source Code API Reference:
     - api/index.md
 theme:
