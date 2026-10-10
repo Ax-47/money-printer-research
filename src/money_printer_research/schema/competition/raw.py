@@ -77,7 +77,4 @@ class TransfermarktCompetitionsRaw(pa.DataFrameModel):
     url: F[str] = pa.Field(nullable=True, description="Competition page on transfermarkt.co.uk.")
 
 
-LEAGUE_INFO = TransfermarktCompetitionsRaw
-
-
-__all__ = ["LEAGUE_INFO", "TransfermarktCompetitionsRaw"]
+__all__ = ["TransfermarktCompetitionsRaw"]

@@ -7,7 +7,7 @@ from money_printer_research.config import Settings
 from money_printer_research.config import settings as default_settings
 from money_printer_research.data_collection.checked import save_checked
 from money_printer_research.data_collection.seasons import season_files
-from money_printer_research.schema.player.raw import PLAYER_STAT
+from money_printer_research.schema.player.raw import UnderstatPlayerRaw
 
 
 def _read_match_by_match(understat: sd.Understat, league: str, season: str) -> pd.DataFrame:
@@ -48,7 +48,7 @@ def collect_player_stats(settings: Settings = default_settings) -> None:
         try:
             understat = sd.Understat(leagues=league, seasons=[season], data_dir=cfg.cache_dir)
             stats = _read_season(understat, league, season).reset_index()
-            save_checked(stats, out, PLAYER_STAT)
+            save_checked(stats, out, UnderstatPlayerRaw)
             print("saved", league, season, stats.shape, flush=True)
         except Exception as e:
             print("FAILED", league, season, repr(e), flush=True)

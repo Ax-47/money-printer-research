@@ -94,7 +94,4 @@ class PlayerStatCols(pa.DataFrameModel):
     )
 
 
-CLEANED_PLAYER_STAT = PlayerStatCols
-
-
-__all__ = ["CLEANED_PLAYER_STAT", "PlayerStatCols"]
+__all__ = ["PlayerStatCols"]

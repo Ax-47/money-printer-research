@@ -14,17 +14,17 @@ from ..exact_features import (
     to_elo_input,
 )
 from ..schema import (
-    CLEANED_MATCH,
-    CLEANED_PLAYER_STAT,
-    CLUB_MAP,
-    MATCH_FEATURES,
-    MATCH_LEAGUE,
+    CleanedMatchCols,
+    PlayerStatCols,
+    ClubMapCols,
+    MatchFeaturesCols,
+    MatchLeaguesCols,
     EloCols,
     TeamFatigueCols,
     TeamScheduleCols,
 )
-from ..schema.competition.selected import TransfermarktCompetitions as C
-from ..schema.match.selected import TransfermarktGames as G
+from ..schema.competition.selected import TransfermarktCompetitions
+from ..schema.match.selected import TransfermarktGames
 from ..utils import SavesFrames
 from .formation import encode_formation
 from .join import join_features
@@ -42,10 +42,10 @@ MAX_UNMATCHED_SHARE = 0.01
 class Cleaned(SavesFrames):
     """The clean outputs, one per CSV in settings.clean.out_dir (<field name>.csv)."""
 
-    match_leagues: DataFrame[MATCH_LEAGUE]
-    clubs: DataFrame[CLUB_MAP]
-    cleaned_matches: DataFrame[CLEANED_MATCH]
-    player_stat: DataFrame[CLEANED_PLAYER_STAT]
+    match_leagues: DataFrame[MatchLeaguesCols]
+    clubs: DataFrame[ClubMapCols]
+    cleaned_matches: DataFrame[CleanedMatchCols]
+    player_stat: DataFrame[PlayerStatCols]
 
 
 @dataclass(frozen=True)
@@ -56,7 +56,7 @@ class ExactFeatures(SavesFrames):
     fatigue: DataFrame[TeamFatigueCols]
     schedule: DataFrame[TeamScheduleCols]
     players: pl.DataFrame
-    match_features: DataFrame[MATCH_FEATURES]
+    match_features: DataFrame[MatchFeaturesCols]
 
 
 @monad
@@ -66,8 +66,8 @@ def clean(settings: Settings) -> Result[Cleaned]:
     player_stat = read_player_stat(settings).and_then(clean_player_stat).if_err()
     match_leagues = (
         all_ok(
-            read_match_info(settings) >> check(G) >> encode_formation,
-            read_league_info(settings) >> check(C),
+            read_match_info(settings) >> check(TransfermarktGames) >> encode_formation,
+            read_league_info(settings) >> check(TransfermarktCompetitions),
         )
         .and_then(lambda pair: join_match_w_league(*pair))
         .if_err()
@@ -75,7 +75,7 @@ def clean(settings: Settings) -> Result[Cleaned]:
     clubs = map_club_w_team(match_leagues, cleaned_match_stat).if_err()
     cleaned_matches = join_match_w_stat(match_leagues, clubs, cleaned_match_stat).if_err()
 
-    unmatched = cleaned_matches[CLEANED_MATCH.tm_game_id].null_count()
+    unmatched = cleaned_matches[CleanedMatchCols.tm_game_id].null_count()
     if unmatched > MAX_UNMATCHED_SHARE * cleaned_matches.height:
         return Err(
             f"join_match_w_stat: {unmatched:,} of {cleaned_matches.height:,} matches "

@@ -52,7 +52,4 @@ class ClubMapCols(pa.DataFrameModel):
     )
 
 
-CLUB_MAP = ClubMapCols
-
-
-__all__ = ["CLUB_MAP", "ClubMapCols"]
+__all__ = ["ClubMapCols"]

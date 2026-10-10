@@ -227,10 +227,4 @@ class TransfermarktGamesRaw(pa.DataFrameModel):
     )
 
 
-MATCH_STAT = UnderstatScheduleRaw
-
-
-MATCH_INFO = TransfermarktGamesRaw
-
-
-__all__ = ["MATCH_INFO", "MATCH_STAT", "TransfermarktGamesRaw", "UnderstatScheduleRaw"]
+__all__ = ["TransfermarktGamesRaw", "UnderstatScheduleRaw"]

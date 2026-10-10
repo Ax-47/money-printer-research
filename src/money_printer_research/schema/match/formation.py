@@ -101,14 +101,4 @@ FORMATION_COLUMNS: tuple[str, ...] = tuple(FormationCols.to_schema().columns)
 """The encoded column names, in schema order: carry them with pl.col(*FORMATION_COLUMNS)."""
 
 
-GAME_FORMATION = GameFormationCols
-
-
-__all__ = [
-    "FORMATION_COLUMNS",
-    "FormationCols",
-    "GAME_FORMATION",
-    "GameFormationCols",
-    "OUTFIELD",
-    "SHAPE_PATTERN",
-]
+__all__ = ["FORMATION_COLUMNS", "FormationCols", "GameFormationCols", "OUTFIELD", "SHAPE_PATTERN"]

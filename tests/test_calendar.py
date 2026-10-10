@@ -5,13 +5,13 @@ import polars as pl
 from pandera.typing.polars import DataFrame
 
 from money_printer_research.exact_features.calendar import MAX_GAP_DAYS, club_calendar
-from money_printer_research.schema import MATCH_LEAGUE
+from money_printer_research.schema import MatchLeaguesCols
 
 
-def _games(rows: list[tuple[str, int, str, int, int]]) -> DataFrame[MATCH_LEAGUE]:
+def _games(rows: list[tuple[str, int, str, int, int]]) -> DataFrame[MatchLeaguesCols]:
     """The std_tm columns club_calendar reads, from (tm_game_id, day, comp_type, home, away).
 
-    Only those columns, so the frame is cast rather than validated against MATCH_LEAGUE.
+    Only those columns, so the frame is cast rather than validated against MatchLeaguesCols.
     """
     day0 = datetime.date(2020, 1, 1)
     frame = pl.DataFrame(
@@ -23,7 +23,7 @@ def _games(rows: list[tuple[str, int, str, int, int]]) -> DataFrame[MATCH_LEAGUE
             "away_club_id": pl.Series([r[4] for r in rows], dtype=pl.Int32),
         }
     )
-    return cast(DataFrame[MATCH_LEAGUE], frame)
+    return cast(DataFrame[MatchLeaguesCols], frame)
 
 
 def test_club_calendar_counts_every_competition() -> None:

@@ -3,28 +3,33 @@ from pandera.typing.polars import DataFrame
 
 from ..config import Settings
 from ..cool_stuff import returns
-from ..schema import LEAGUE_INFO, MATCH_INFO, MATCH_STAT, PLAYER_STAT
+from ..schema import (
+    TransfermarktCompetitionsRaw,
+    TransfermarktGamesRaw,
+    UnderstatScheduleRaw,
+    UnderstatPlayerRaw,
+)
 
 
-@returns(MATCH_STAT)
-def read_match_stat(settings: Settings) -> DataFrame[MATCH_STAT]:
+@returns(UnderstatScheduleRaw)
+def read_match_stat(settings: Settings) -> DataFrame[UnderstatScheduleRaw]:
     df = pl.read_csv(settings.understat.schedule_file, try_parse_dates=True)
-    return MATCH_STAT.validate(df, lazy=True)
+    return UnderstatScheduleRaw.validate(df, lazy=True)
 
 
-@returns(MATCH_INFO)
-def read_match_info(settings: Settings) -> DataFrame[MATCH_INFO]:
+@returns(TransfermarktGamesRaw)
+def read_match_info(settings: Settings) -> DataFrame[TransfermarktGamesRaw]:
     df = pl.read_parquet(settings.transfermarkt.out_dir / "games.parquet")
-    return MATCH_INFO.validate(df, lazy=True)
+    return TransfermarktGamesRaw.validate(df, lazy=True)
 
 
-@returns(LEAGUE_INFO)
-def read_league_info(settings: Settings) -> DataFrame[LEAGUE_INFO]:
+@returns(TransfermarktCompetitionsRaw)
+def read_league_info(settings: Settings) -> DataFrame[TransfermarktCompetitionsRaw]:
     df = pl.read_parquet(settings.transfermarkt.out_dir / "competitions.parquet")
-    return LEAGUE_INFO.validate(df, lazy=True)
+    return TransfermarktCompetitionsRaw.validate(df, lazy=True)
 
 
-@returns(PLAYER_STAT)
+@returns(UnderstatPlayerRaw)
 def read_player_stat(settings: Settings) -> pl.DataFrame:
     files = sorted(settings.understat.out_dir.glob("*/*.parquet"))
     if not files:

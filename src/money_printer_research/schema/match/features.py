@@ -198,9 +198,6 @@ class MatchFeaturesCols(CleanedMatchCols, TeamFatigueCols, TeamScheduleCols):
     )
 
 
-MATCH_FEATURES = MatchFeaturesCols
-
-
 def match_features_schema() -> pa.DataFrameSchema:
     """MatchFeaturesCols plus the player slot columns: the whole of match_features.csv."""
     return MatchFeaturesCols.to_schema().add_columns(slot_columns())
@@ -209,7 +206,6 @@ def match_features_schema() -> pa.DataFrameSchema:
 __all__ = [
     "EloCols",
     "EloInputCols",
-    "MATCH_FEATURES",
     "MatchFeaturesCols",
     "MatchSideCols",
     "N_SLOTS",

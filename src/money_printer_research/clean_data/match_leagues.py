@@ -5,9 +5,9 @@ from pandera.typing.polars import DataFrame
 
 from ..cool_stuff import returns
 from ..schema import FORMATION_COLUMNS
-from ..schema import GAME_FORMATION as GF
-from ..schema import MATCH_LEAGUE as ML
-from ..schema import TransfermarktCompetitions as C
+from ..schema import GameFormationCols
+from ..schema import MatchLeaguesCols
+from ..schema import TransfermarktCompetitions
 from ..schema import dtype
 
 # UEFA club competitions, by id: Transfermarkt files EL and UCOL under type "other".
@@ -24,14 +24,19 @@ LEAGUE = {
 EXTRA_DOMESTIC_CUP = ("CGB",)
 
 
-@returns(ML)
-def join_match_w_league(matches: DataFrame[GF], leagues: DataFrame[C]) -> pl.DataFrame:
+@returns(MatchLeaguesCols)
+def join_match_w_league(
+    matches: DataFrame[GameFormationCols], leagues: DataFrame[TransfermarktCompetitions]
+) -> pl.DataFrame:
     """Transfermarkt games -> MatchLeaguesCols, with comp_type, Understat league and formations.
 
     comp_type: league / domestic_cup / europe / other.
     """
-    cid = pl.col(GF.competition_id)
-    comp = leagues.select(C.competition_id, pl.col(C.type).alias("tm_type"))
+    cid = pl.col(GameFormationCols.competition_id)
+    comp = leagues.select(
+        TransfermarktCompetitions.competition_id,
+        pl.col(TransfermarktCompetitions.type).alias("tm_type"),
+    )
     comp_type = (
         pl.when(cid.is_in(list(LEAGUE)))
         .then(pl.lit("league"))
@@ -42,23 +47,31 @@ def join_match_w_league(matches: DataFrame[GF], leagues: DataFrame[C]) -> pl.Dat
         .otherwise(pl.lit("other"))
     )
     return (
-        matches.join(comp, on=GF.competition_id, how="left")
+        matches.join(comp, on=GameFormationCols.competition_id, how="left")
         .select(
-            pl.col(GF.game_id).alias(ML.tm_game_id),
-            pl.col(GF.competition_id).alias(ML.competition_id),
-            comp_type.alias(ML.comp_type),
-            cid.replace_strict(LEAGUE, default=None).alias(ML.league),
-            pl.col(GF.date).cast(dtype(ML, ML.date)).alias(ML.date),
-            pl.col(GF.home_club_id).alias(ML.home_club_id),
-            pl.col(GF.away_club_id).alias(ML.away_club_id),
-            pl.col(GF.home_club_goals).cast(dtype(ML, ML.home_goals)).alias(ML.home_goals),
-            pl.col(GF.away_club_goals).cast(dtype(ML, ML.away_goals)).alias(ML.away_goals),
-            pl.col(GF.season).alias(ML.season),
-            pl.col(GF.season).cast(dtype(ML, ML.season_start)).alias(ML.season_start),
-            pl.col(GF.round).alias(ML.round),
-            pl.col(GF.home_club_formation).alias(ML.home_formation),
-            pl.col(GF.away_club_formation).alias(ML.away_formation),
+            pl.col(GameFormationCols.game_id).alias(MatchLeaguesCols.tm_game_id),
+            pl.col(GameFormationCols.competition_id).alias(MatchLeaguesCols.competition_id),
+            comp_type.alias(MatchLeaguesCols.comp_type),
+            cid.replace_strict(LEAGUE, default=None).alias(MatchLeaguesCols.league),
+            pl.col(GameFormationCols.date)
+            .cast(dtype(MatchLeaguesCols, MatchLeaguesCols.date))
+            .alias(MatchLeaguesCols.date),
+            pl.col(GameFormationCols.home_club_id).alias(MatchLeaguesCols.home_club_id),
+            pl.col(GameFormationCols.away_club_id).alias(MatchLeaguesCols.away_club_id),
+            pl.col(GameFormationCols.home_club_goals)
+            .cast(dtype(MatchLeaguesCols, MatchLeaguesCols.home_goals))
+            .alias(MatchLeaguesCols.home_goals),
+            pl.col(GameFormationCols.away_club_goals)
+            .cast(dtype(MatchLeaguesCols, MatchLeaguesCols.away_goals))
+            .alias(MatchLeaguesCols.away_goals),
+            pl.col(GameFormationCols.season).alias(MatchLeaguesCols.season),
+            pl.col(GameFormationCols.season)
+            .cast(dtype(MatchLeaguesCols, MatchLeaguesCols.season_start))
+            .alias(MatchLeaguesCols.season_start),
+            pl.col(GameFormationCols.round).alias(MatchLeaguesCols.round),
+            pl.col(GameFormationCols.home_club_formation).alias(MatchLeaguesCols.home_formation),
+            pl.col(GameFormationCols.away_club_formation).alias(MatchLeaguesCols.away_formation),
             pl.col(*FORMATION_COLUMNS),  # same names in GF and ML, both from FormationCols
         )
-        .filter(pl.col(ML.date).is_not_null())
+        .filter(pl.col(MatchLeaguesCols.date).is_not_null())
     )

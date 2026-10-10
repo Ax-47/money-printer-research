@@ -100,7 +100,4 @@ class UnderstatPlayerRaw(pa.DataFrameModel):
     red_cards: F[int] = pa.Field(description="Red cards, 0 or 1.")
 
 
-PLAYER_STAT = UnderstatPlayerRaw
-
-
-__all__ = ["PLAYER_STAT", "UnderstatPlayerRaw"]
+__all__ = ["UnderstatPlayerRaw"]

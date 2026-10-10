@@ -19,12 +19,15 @@ import duckdb
 
 from money_printer_research.config import Settings
 from money_printer_research.schema.collected import RawSchema, check_collected
-from money_printer_research.schema.competition.raw import LEAGUE_INFO
-from money_printer_research.schema.match.raw import MATCH_INFO
+from money_printer_research.schema.competition.raw import TransfermarktCompetitionsRaw
+from money_printer_research.schema.match.raw import TransfermarktGamesRaw
 
 TABLES = ("competitions", "games", "appearances")
 # Raw schema of each table the clean pipeline reads; appearances has none yet.
-SCHEMAS: dict[str, RawSchema] = {"competitions": LEAGUE_INFO, "games": MATCH_INFO}
+SCHEMAS: dict[str, RawSchema] = {
+    "competitions": TransfermarktCompetitionsRaw,
+    "games": TransfermarktGamesRaw,
+}
 
 # Transfermarkt stores season as text; compare its first four characters as a year.
 SEASON_YEAR = "TRY_CAST(left(CAST(games.season AS VARCHAR), 4) AS INTEGER)"

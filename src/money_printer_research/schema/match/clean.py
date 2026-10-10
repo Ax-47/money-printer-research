@@ -222,20 +222,4 @@ class CleanedMatchCols(ScheduleCols, FormationCols):
     )
 
 
-CLEANED_MATCH_STAT = ScheduleCols
-
-
-MATCH_LEAGUE = MatchLeaguesCols
-
-
-CLEANED_MATCH = CleanedMatchCols
-
-
-__all__ = [
-    "CLEANED_MATCH",
-    "CLEANED_MATCH_STAT",
-    "CleanedMatchCols",
-    "MATCH_LEAGUE",
-    "MatchLeaguesCols",
-    "ScheduleCols",
-]
+__all__ = ["CleanedMatchCols", "MatchLeaguesCols", "ScheduleCols"]

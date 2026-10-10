@@ -18,7 +18,7 @@ Everything is re-exported here, so `from money_printer_research.schema import ..
 works for any model.
 
 Every column is F[...] (pandera FieldType) with a description, so
-pl.col(CLEANED_MATCH_STAT.season) works and pyright types it as str. The dtypes
+pl.col(ScheduleCols.season) works and pyright types it as str. The dtypes
 are the ones the pipeline produces in memory. CSV loses some of them (season
 "1516" comes back as an integer), so read the CSVs with read_clean(), which applies
 the schema's dtypes, then validates.
@@ -30,23 +30,15 @@ import pandera.polars as pa
 import polars as pl
 
 from money_printer_research.config import settings
-from money_printer_research.schema.club import CLUB_MAP, ClubCalendarCols, ClubMapCols
+from money_printer_research.schema.club import ClubCalendarCols, ClubMapCols
 from money_printer_research.schema.collected import SELECTED, RawSchema, check_collected
 from money_printer_research.schema.competition import (
     COMP_TYPES,
-    LEAGUE_INFO,
     TransfermarktCompetitions,
     TransfermarktCompetitionsRaw,
 )
 from money_printer_research.schema.match import (
-    CLEANED_MATCH,
-    CLEANED_MATCH_STAT,
     FORMATION_COLUMNS,
-    GAME_FORMATION,
-    MATCH_FEATURES,
-    MATCH_INFO,
-    MATCH_LEAGUE,
-    MATCH_STAT,
     N_SLOTS,
     OUTCOMES,
     OUTFIELD,
@@ -74,8 +66,6 @@ from money_printer_research.schema.match import (
     slot_columns,
 )
 from money_printer_research.schema.player import (
-    CLEANED_PLAYER_STAT,
-    PLAYER_STAT,
     FatigueInputCols,
     PlayerFatigueCols,
     PlayerStatCols,
@@ -94,10 +84,10 @@ def dtype(model: type[pa.DataFrameModel], name: str) -> pl.DataType:
 # ExactFeatures in clean_data, which SavesFrames.save writes as <field name>.csv.
 CLEAN_FILES: dict[str, pa.DataFrameSchema] = {
     # Cleaned
-    "match_leagues": MATCH_LEAGUE.to_schema(),
-    "clubs": CLUB_MAP.to_schema(),
-    "cleaned_matches": CLEANED_MATCH.to_schema(),
-    "player_stat": CLEANED_PLAYER_STAT.to_schema(),
+    "match_leagues": MatchLeaguesCols.to_schema(),
+    "clubs": ClubMapCols.to_schema(),
+    "cleaned_matches": CleanedMatchCols.to_schema(),
+    "player_stat": PlayerStatCols.to_schema(),
     # ExactFeatures
     "elo": EloCols.to_schema(),
     "fatigue": TeamFatigueCols.to_schema(),
@@ -135,25 +125,14 @@ def check_clean() -> None:
 
 
 __all__ = [
-    "CLEANED_MATCH",
-    "CLEANED_MATCH_STAT",
-    "CLEANED_PLAYER_STAT",
     "CLEAN_FILES",
-    "CLUB_MAP",
     "COMP_TYPES",
     "FORMATION_COLUMNS",
-    "GAME_FORMATION",
-    "LEAGUE_INFO",
-    "MATCH_FEATURES",
-    "MATCH_INFO",
-    "MATCH_LEAGUE",
-    "MATCH_STAT",
     "N_SLOTS",
     "OUTCOMES",
     "OUTFIELD",
     "PLAYER_SLOTS",
     "PLAYER_SLOT_FEATURES",
-    "PLAYER_STAT",
     "SELECTED",
     "SHAPE_PATTERN",
     "CleanedMatchCols",

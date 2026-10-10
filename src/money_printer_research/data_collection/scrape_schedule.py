@@ -5,7 +5,7 @@ from money_printer_research.config import Settings, UnderstatSettings
 from money_printer_research.config import settings as default_settings
 from money_printer_research.data_collection.checked import save_checked
 from money_printer_research.data_collection.seasons import season_label, understat_season_code
-from money_printer_research.schema.match.raw import MATCH_STAT
+from money_printer_research.schema.match.raw import UnderstatScheduleRaw
 
 
 def _has_every_season(cfg: UnderstatSettings) -> bool:
@@ -28,5 +28,5 @@ def collect_schedule(settings: Settings = default_settings) -> None:
     seasons = [season_label(y) for y in range(cfg.start_year, cfg.end_year)]
     understat = sd.Understat(leagues=cfg.leagues, seasons=seasons, data_dir=cfg.cache_dir)
     schedule = understat.read_schedule().reset_index()
-    save_checked(schedule, cfg.schedule_file, MATCH_STAT)
+    save_checked(schedule, cfg.schedule_file, UnderstatScheduleRaw)
     print("saved", cfg.schedule_file.name, schedule.shape, flush=True)
