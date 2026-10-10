@@ -15,6 +15,14 @@ jobs:
         python-version: ["3.14"]
 
     steps:
-      - uses: jakebailey/pyright-action@v2
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python ${{ matrix.python-version }} with uv
+        uses: ./.github/actions/setup-python-with-uv
         with:
           python-version: ${{ matrix.python-version }}
+
+      # Uses pyrightconfig.json and the project's .venv.
+      - name: Type check
+        run: uv run pyright
