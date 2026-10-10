@@ -46,7 +46,7 @@ extend-exclude = ["[{][{]cookiecutter.repo_name[}][}]"]
 line-length = 99
 
 # Specify the target Python version for linting.
-target-version = "py312"
+target-version = "py314"
 
 [lint]
 # Enable specific linting rules.

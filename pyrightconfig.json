@@ -2,7 +2,7 @@
     // Pyright Configuration File
     // This file configures Pyright, a static type checker for Python.
 
-    "pythonVersion": "3.12", // Specify the Python version to use for type checking.
+    "pythonVersion": "3.14", // Specify the Python version to use for type checking.
     "pythonPlatform": "All", // Target platform for the Python code (e.g., Windows, Linux, macOS).
     "venvPath": ".", // Path to the directory containing virtual environments.
     "venv": ".venv", // Name of the virtual environment to use.
