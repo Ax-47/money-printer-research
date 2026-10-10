@@ -31,8 +31,8 @@ from .join import join_features
 from .map_club_team import map_club_w_team
 from .match import join_match_w_stat
 from .match_leagues import join_match_w_league
-from .match_stat import match_stat_monad
-from .player_stat import player_stat_monad
+from .match_stat import clean_match_stat
+from .player_stat import clean_player_stat
 from .read import read_league_info, read_match_info, read_match_stat, read_player_stat
 
 MAX_UNMATCHED_SHARE = 0.01
@@ -62,8 +62,8 @@ class ExactFeatures(SavesFrames):
 @monad
 def clean(settings: Settings) -> Result[Cleaned]:
     """Run every step; Ok(Cleaned) or the first failing step's Err."""
-    cleaned_match_stat = read_match_stat(settings).and_then(match_stat_monad).if_err()
-    player_stat = read_player_stat(settings).and_then(player_stat_monad).if_err()
+    cleaned_match_stat = read_match_stat(settings).and_then(clean_match_stat).if_err()
+    player_stat = read_player_stat(settings).and_then(clean_player_stat).if_err()
     match_leagues = (
         all_ok(
             read_match_info(settings) >> check(G) >> encode_formation,

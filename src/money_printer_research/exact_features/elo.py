@@ -113,6 +113,37 @@ def to_elo_input(matches: DataFrame[CLEANED_MATCH]) -> pl.DataFrame:
     )
 
 
+def _expected_home_score(home_rating: float, away_rating: float, home_adv: float) -> float:
+    """Home side's expected score (win 1, draw 0.5) from the ratings and home advantage."""
+    return 1 / (1 + 10 ** (-(home_rating + home_adv - away_rating) / ELO_SCALE))
+
+
+def _actual_home_score(home_goals: int, away_goals: int) -> float:
+    """1 for a home win, 0.5 for a draw, 0 for an away win."""
+    return 1.0 if home_goals > away_goals else 0.5 if home_goals == away_goals else 0.0
+
+
+def _start_season(
+    rating: dict[str, float],
+    last_season_teams: set[str],
+    this_season_teams: set[str],
+    params: EloParams,
+) -> None:
+    """Rate the promoted teams and pull every rating toward base, in place.
+
+    Promoted teams start at the mean rating of the teams that went down, or
+    PROMOTED_GAP below base when none did (the first season).
+    """
+    relegated = last_season_teams - this_season_teams
+    promoted_start = (
+        float(np.mean([rating[t] for t in relegated])) if relegated else params.base - PROMOTED_GAP
+    )
+    for team in this_season_teams - last_season_teams:
+        rating[team] = promoted_start
+    for team in this_season_teams:
+        rating[team] = params.base + (rating[team] - params.base) * (1 - params.season_regress)
+
+
 def get_elo(
     matches: DataFrame[EloInputCols], params: EloParams = DEFAULT_ELO
 ) -> DataFrame[EloCols]:
@@ -124,40 +155,32 @@ def get_elo(
     df = DataFrame[EloInputCols](matches.sort(E.match_date))
     teams_by_season = _teams_by_season(df)
     rating: dict[str, float] = {}
-    prev_teams: set[str] = set()
+    last_season_teams: set[str] = set()
     current_season: str | None = None
-    elo_h: list[float] = []
-    elo_a: list[float] = []
+    elo_home: list[float] = []
+    elo_away: list[float] = []
 
     rows = df.select(E.season, E.home_team, E.away_team, HOME_GOALS, AWAY_GOALS).iter_rows()
-    for season, home, away, hg, ag in rows:
+    for season, home, away, home_goals, away_goals in rows:
         if season != current_season:
-            this_season = teams_by_season[season]
-            relegated = prev_teams - this_season
-            promoted_start = (
-                float(np.mean([rating[t] for t in relegated]))
-                if relegated
-                else params.base - PROMOTED_GAP
-            )
-            for t in this_season - prev_teams:
-                rating[t] = promoted_start
-            for t in this_season:
-                rating[t] = params.base + (rating[t] - params.base) * (1 - params.season_regress)
-            prev_teams, current_season = this_season, season
+            this_season_teams = teams_by_season[season]
+            _start_season(rating, last_season_teams, this_season_teams, params)
+            last_season_teams, current_season = this_season_teams, season
 
-        rh, ra = rating[home], rating[away]
-        elo_h.append(rh)
-        elo_a.append(ra)
+        home_rating, away_rating = rating[home], rating[away]
+        elo_home.append(home_rating)
+        elo_away.append(away_rating)
 
-        expected = 1 / (1 + 10 ** (-(rh + params.home_adv - ra) / ELO_SCALE))
-        score = 1.0 if hg > ag else 0.5 if hg == ag else 0.0
-        delta = params.k * _goal_multiplier(hg - ag) * (score - expected)
-        rating[home] = rh + delta
-        rating[away] = ra - delta
+        expected = _expected_home_score(home_rating, away_rating, params.home_adv)
+        actual = _actual_home_score(home_goals, away_goals)
+        margin = _goal_multiplier(home_goals - away_goals)
+        delta = params.k * margin * (actual - expected)
+        rating[home] = home_rating + delta
+        rating[away] = away_rating - delta
 
-    out = df.with_columns(pl.Series(E.elo_home, elo_h), pl.Series(E.elo_away, elo_a)).with_columns(
-        (pl.col(E.elo_home) - pl.col(E.elo_away)).alias(E.elo_diff)
-    )
+    out = df.with_columns(
+        pl.Series(E.elo_home, elo_home), pl.Series(E.elo_away, elo_away)
+    ).with_columns((pl.col(E.elo_home) - pl.col(E.elo_away)).alias(E.elo_diff))
     return EloCols.validate(out, lazy=True)
 
 
@@ -222,41 +245,47 @@ def _goals(df: pl.DataFrame, col: str) -> IntArray:
     return df[col].to_numpy().astype(np.int64)
 
 
+def _predict_season(train: pl.DataFrame, test: pl.DataFrame, dixon_coles: bool) -> pl.DataFrame:
+    """Fit home and away goal models on `train`; add rates and H/D/A probabilities to `test`."""
+    x_train, x_test = _features(train), _features(test)
+    home_goals, away_goals = _goals(train, HOME_GOALS), _goals(train, AWAY_GOALS)
+    home_model = PoissonRegressor(alpha=0).fit(x_train, home_goals)
+    away_model = PoissonRegressor(alpha=0).fit(x_train, away_goals)
+
+    rho = 0.0
+    if dixon_coles:
+        rho = _fit_rho(
+            _as_float(home_model.predict(x_train)),
+            _as_float(away_model.predict(x_train)),
+            home_goals,
+            away_goals,
+        )
+
+    lam = _as_float(home_model.predict(x_test))
+    mu = _as_float(away_model.predict(x_test))
+    probs = outcome_probs(score_grid(lam, mu, rho))
+    return test.with_columns(
+        pl.Series(P.lam_home, lam),
+        pl.Series(P.lam_away, mu),
+        pl.Series(P.p_home, probs[:, 0]),
+        pl.Series(P.p_draw, probs[:, 1]),
+        pl.Series(P.p_away, probs[:, 2]),
+        pl.lit(rho).alias(P.rho),
+    )
+
+
 def walk_forward(
     df: DataFrame[EloCols], test_seasons: list[str], dixon_coles: bool = True
 ) -> DataFrame[PredictionCols]:
     """Predict each test season with a model fitted on all earlier seasons."""
     seasons = sorted(df[E.season].unique().to_list())
-    out: list[pl.DataFrame] = []
+    predictions: list[pl.DataFrame] = []
     for season in test_seasons:
-        train = df.filter(pl.col(E.season).is_in([s for s in seasons if s < season]))
+        earlier = [s for s in seasons if s < season]
+        train = df.filter(pl.col(E.season).is_in(earlier))
         test = df.filter(pl.col(E.season) == season)
-        x_tr, x_te = _features(train), _features(test)
-        hg_tr, ag_tr = _goals(train, HOME_GOALS), _goals(train, AWAY_GOALS)
-
-        home_m = PoissonRegressor(alpha=0).fit(x_tr, hg_tr)
-        away_m = PoissonRegressor(alpha=0).fit(x_tr, ag_tr)
-
-        rho = 0.0
-        if dixon_coles:
-            rho = _fit_rho(
-                _as_float(home_m.predict(x_tr)), _as_float(away_m.predict(x_tr)), hg_tr, ag_tr
-            )
-
-        lam = _as_float(home_m.predict(x_te))
-        mu = _as_float(away_m.predict(x_te))
-        probs = outcome_probs(score_grid(lam, mu, rho))
-        out.append(
-            test.with_columns(
-                pl.Series(P.lam_home, lam),
-                pl.Series(P.lam_away, mu),
-                pl.Series(P.p_home, probs[:, 0]),
-                pl.Series(P.p_draw, probs[:, 1]),
-                pl.Series(P.p_away, probs[:, 2]),
-                pl.lit(rho).alias(P.rho),
-            )
-        )
-    return PredictionCols.validate(pl.concat(out), lazy=True)
+        predictions.append(_predict_season(train, test, dixon_coles))
+    return PredictionCols.validate(pl.concat(predictions), lazy=True)
 
 
 def evaluate(pred: DataFrame[PredictionCols]) -> dict[str, float]:

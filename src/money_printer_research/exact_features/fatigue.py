@@ -66,20 +66,42 @@ def _prev_window(col: pl.Expr, window: str) -> pl.Expr:
     )
 
 
+TEAM_GAME_NO = "_team_game_no"
+NEW_STREAK = "_new_streak"
+STREAK_ID = "_streak_id"
+
+
 def _team_game_index(pm: DataFrame[FatigueInputCols]) -> pl.DataFrame:
     """Order of each game within a team's season: 0, 1, 2, ..."""
     return (
         pm.select(FI.team_id, FI.season_start, FI.game_id, FI.match_date)
         .unique()
         .sort(FI.team_id, FI.match_date)
-        .with_columns(pl.int_range(pl.len()).over(FI.team_id, FI.season_start).alias("tidx"))
-        .select(FI.team_id, FI.game_id, "tidx")
+        .with_columns(pl.int_range(pl.len()).over(FI.team_id, FI.season_start).alias(TEAM_GAME_NO))
+        .select(FI.team_id, FI.game_id, TEAM_GAME_NO)
     )
+
+
+def _fatigue_score() -> pl.Expr:
+    """Fatigue from 0 to 100, from the load columns. Hand-set weights, not fitted.
+
+    Each term is scaled to 0-1: minutes in the last 7 days (180 is full),
+    short rest, games in a row, and the acute:chronic workload ratio above 1.
+    """
+    chronic_week = pl.when(pl.col(PF.min_28d) > 0).then(pl.col(PF.min_28d) / 4)
+    acwr = (pl.col(PF.min_7d) / chronic_week).clip(0, 3).fill_null(1)
+    return (
+        0.35 * (pl.col(PF.min_7d) / 180).clip(0, 1)
+        + 0.25 * ((7 - pl.col(PF.rest_days).fill_null(7)) / 5).clip(0, 1)
+        + 0.20 * (pl.col(PF.streak_prev) / 6).clip(0, 1)
+        + 0.20 * (acwr - 1).clip(0, 1)
+    ) * 100
 
 
 def player_fatigue(player_matches: DataFrame[FatigueInputCols]) -> DataFrame[PlayerFatigueCols]:
     """player_matches plus pre-match fatigue columns (see FATIGUE_COLS)."""
     minutes = pl.col(FI.minutes)
+    played = minutes.is_not_null().cast(pl.Int64)
     pm = (
         player_matches.join(
             _team_game_index(player_matches), on=[FI.team_id, FI.game_id], validate="m:1"
@@ -88,27 +110,22 @@ def player_fatigue(player_matches: DataFrame[FatigueInputCols]) -> DataFrame[Pla
         .with_columns(
             pl.col(FI.match_date).diff().dt.total_days().over(FI.player_id).alias(PF.rest_days),
             _prev_window(minutes, "7d").alias(PF.min_7d),
-            _prev_window(minutes.is_not_null().cast(pl.Int64), "7d").alias(PF.n_7d),
+            _prev_window(played, "7d").alias(PF.n_7d),
             _prev_window(minutes, "28d").alias(PF.min_28d),
             # A new streak starts when the player missed the team's previous game,
             # or at his first game for a team (a transfer starts a new run).
-            (pl.col("tidx").diff().over(_STREAK_KEYS) != 1).fill_null(True).alias("_brk"),
+            (pl.col(TEAM_GAME_NO).diff().over(_STREAK_KEYS) != 1)
+            .fill_null(True)
+            .alias(NEW_STREAK),
         )
-        .with_columns(pl.col("_brk").cast(pl.Int32).cum_sum().over(_STREAK_KEYS).alias("_streak"))
-        .with_columns(pl.int_range(pl.len()).over(*_STREAK_KEYS, "_streak").alias(PF.streak_prev))
+        .with_columns(
+            pl.col(NEW_STREAK).cast(pl.Int32).cum_sum().over(_STREAK_KEYS).alias(STREAK_ID)
+        )
+        .with_columns(pl.int_range(pl.len()).over(*_STREAK_KEYS, STREAK_ID).alias(PF.streak_prev))
     )
-
-    # Hand-set weights, not fitted. Each term is scaled to 0-1.
-    chronic_week = pl.when(pl.col(PF.min_28d) > 0).then(pl.col(PF.min_28d) / 4)
-    acwr = (pl.col(PF.min_7d) / chronic_week).clip(0, 3).fill_null(1)
-    score = (
-        0.35 * (pl.col(PF.min_7d) / 180).clip(0, 1)
-        + 0.25 * ((7 - pl.col(PF.rest_days).fill_null(7)) / 5).clip(0, 1)
-        + 0.20 * (pl.col(PF.streak_prev) / 6).clip(0, 1)
-        + 0.20 * (acwr - 1).clip(0, 1)
-    ) * 100
-
-    out = pm.with_columns(score.round(1).alias(PF.fatigue_score)).drop("tidx", "_brk", "_streak")
+    out = pm.with_columns(_fatigue_score().round(1).alias(PF.fatigue_score)).drop(
+        TEAM_GAME_NO, NEW_STREAK, STREAK_ID
+    )
     return PlayerFatigueCols.validate(out, lazy=True)
 
 

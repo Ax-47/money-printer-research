@@ -16,7 +16,7 @@ def to_snake(name: str) -> str:
     return name.strip("_").lower()
 
 
-def _mapping(columns: list[str]) -> dict[str, str]:
+def _snake_case_mapping(columns: list[str]) -> dict[str, str]:
     mapping = {c: to_snake(c) for c in columns}
     seen: dict[str, str] = {}
     for old, new in mapping.items():
@@ -29,8 +29,8 @@ def _mapping(columns: list[str]) -> dict[str, str]:
 
 
 def snake_columns_pl(df: pl.DataFrame) -> pl.DataFrame:
-    return df.rename(_mapping(df.columns))
+    return df.rename(_snake_case_mapping(df.columns))
 
 
 def snake_columns_pd(df: pd.DataFrame) -> pd.DataFrame:
-    return df.rename(columns=_mapping(list(df.columns)))
+    return df.rename(columns=_snake_case_mapping(list(df.columns)))

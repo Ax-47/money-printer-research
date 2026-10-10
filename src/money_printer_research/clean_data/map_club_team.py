@@ -12,37 +12,9 @@ MIN_COVERAGE = 0.9
 MIN_GAMES_FOR_COVERAGE = 10
 
 
-@returns(C)
-def _map_clubs(tm: DataFrame[L], schedule: DataFrame[S], max_day_shift: int = 1) -> pl.DataFrame:
-    """Transfermarkt club_id -> Understat team, learned from league fixtures.
-
-    coverage: share of the club's Transfermarkt league games that back the pairing
-              (close to 1.0 when correct). duplicate: two club ids map to one team.
-    """
-    tm_league = tm.filter(pl.col(L.comp_type) == "league")
-    us = schedule.select(
-        S.league,
-        pl.col(S.date).cast(pl.Date).alias("us_date"),
-        S.home_team,
-        S.away_team,
-        S.home_goals,
-        S.away_goals,
-    )
-    # L.league / L.home_goals / L.away_goals have the same names as in S.
-    pairs = tm_league.join(us, on=[L.league, L.home_goals, L.away_goals]).filter(
-        (pl.col(L.date) - pl.col("us_date")).dt.total_days().abs() <= max_day_shift
-    )
-    long = pl.concat(
-        [
-            pairs.select(
-                pl.col(L.home_club_id).alias(C.club_id), pl.col(S.home_team).alias(C.team)
-            ),
-            pairs.select(
-                pl.col(L.away_club_id).alias(C.club_id), pl.col(S.away_team).alias(C.team)
-            ),
-        ]
-    )
-    games = (
+def _league_games_per_club(tm_league: pl.DataFrame) -> pl.DataFrame:
+    """club_id -> number of Transfermarkt league games (C.games)."""
+    return (
         pl.concat(
             [
                 tm_league.select(pl.col(L.home_club_id).alias(C.club_id)),
@@ -52,13 +24,57 @@ def _map_clubs(tm: DataFrame[L], schedule: DataFrame[S], max_day_shift: int = 1)
         .group_by(C.club_id)
         .len(C.games)
     )
+
+
+def _same_fixture_pairs(
+    tm_league: pl.DataFrame, schedule: DataFrame[S], max_day_shift: int
+) -> pl.DataFrame:
+    """(club_id, team) once per side of every fixture both sources agree on.
+
+    Fixtures agree when league and score match and the dates are at most
+    max_day_shift days apart.
+    """
+    us = schedule.select(
+        S.league,
+        pl.col(S.date).cast(pl.Date).alias("us_date"),
+        S.home_team,
+        S.away_team,
+        S.home_goals,
+        S.away_goals,
+    )
+    # L.league / L.home_goals / L.away_goals have the same names as in S.
+    fixtures = tm_league.join(us, on=[L.league, L.home_goals, L.away_goals]).filter(
+        (pl.col(L.date) - pl.col("us_date")).dt.total_days().abs() <= max_day_shift
+    )
+    return pl.concat(
+        [
+            fixtures.select(
+                pl.col(L.home_club_id).alias(C.club_id), pl.col(S.home_team).alias(C.team)
+            ),
+            fixtures.select(
+                pl.col(L.away_club_id).alias(C.club_id), pl.col(S.away_team).alias(C.team)
+            ),
+        ]
+    )
+
+
+@returns(C)
+def _map_clubs(tm: DataFrame[L], schedule: DataFrame[S], max_day_shift: int = 1) -> pl.DataFrame:
+    """Transfermarkt club_id -> Understat team, learned from league fixtures.
+
+    Each club gets the team it was paired with most often. coverage: share of the
+    club's Transfermarkt league games that back the pairing (close to 1.0 when
+    correct). duplicate: two club ids map to one team.
+    """
+    tm_league = tm.filter(pl.col(L.comp_type) == "league")
+    pairs = _same_fixture_pairs(tm_league, schedule, max_day_shift)
     return (
-        long.group_by(C.club_id, C.team)
+        pairs.group_by(C.club_id, C.team)
         .len()
         .sort("len", descending=True)
         .group_by(C.club_id, maintain_order=True)
         .agg(pl.col(C.team).first(), pl.col("len").first().alias(C.n))
-        .join(games, on=C.club_id)
+        .join(_league_games_per_club(tm_league), on=C.club_id)
         .with_columns((pl.col(C.n) / pl.col(C.games)).round(3).alias(C.coverage))
         .with_columns(pl.len().over(C.team).gt(1).alias(C.duplicate))
         .sort(C.team)
