@@ -1,4 +1,4 @@
-"""Join the exact features onto the matches: one row per Understat game_id."""
+"""Join the extracted features onto the matches: one row per Understat game_id."""
 
 import polars as pl
 from pandera.typing.polars import DataFrame

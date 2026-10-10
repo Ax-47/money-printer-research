@@ -81,14 +81,14 @@ def dtype(model: type[pa.DataFrameModel], name: str) -> pl.DataType:
 
 
 # File name (without .csv) -> the schema of that file: the fields of Cleaned and
-# ExactFeatures in clean_data, which SavesFrames.save writes as <field name>.csv.
+# ExtractedFeatures in clean_data, which SavesFrames.save writes as <field name>.csv.
 CLEAN_FILES: dict[str, pa.DataFrameSchema] = {
     # Cleaned
     "match_leagues": MatchLeaguesCols.to_schema(),
     "clubs": ClubMapCols.to_schema(),
     "cleaned_matches": CleanedMatchCols.to_schema(),
     "player_stat": PlayerStatCols.to_schema(),
-    # ExactFeatures
+    # ExtractedFeatures
     "elo": EloCols.to_schema(),
     "fatigue": TeamFatigueCols.to_schema(),
     "schedule": TeamScheduleCols.to_schema(),

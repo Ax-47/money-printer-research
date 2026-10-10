@@ -4,7 +4,7 @@ from typing import cast
 import polars as pl
 from pandera.typing.polars import DataFrame
 
-from money_printer_research.exact_features.calendar import MAX_GAP_DAYS, club_calendar
+from money_printer_research.features.calendar import MAX_GAP_DAYS, club_calendar
 from money_printer_research.schema import MatchLeaguesCols
 
 

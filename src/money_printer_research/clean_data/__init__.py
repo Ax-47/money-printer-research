@@ -6,7 +6,7 @@ from pandera.typing.polars import DataFrame
 from ..config import Settings
 from ..config import settings as default_settings
 from ..cool_stuff import Err, Ok, Result, all_ok, check, monad
-from ..exact_features import (
+from ..features import (
     get_elo,
     get_fatigue,
     get_player_features,
@@ -49,7 +49,7 @@ class Cleaned(SavesFrames):
 
 
 @dataclass(frozen=True)
-class ExactFeatures(SavesFrames):
+class ExtractedFeatures(SavesFrames):
     """Pre-match features, and the matches with all of them joined on."""
 
     elo: DataFrame[EloCols]
@@ -93,7 +93,7 @@ def clean(settings: Settings) -> Result[Cleaned]:
 
 
 @monad
-def exact_features(cleaned: Cleaned) -> Result[ExactFeatures]:
+def extract_features(cleaned: Cleaned) -> Result[ExtractedFeatures]:
     """Elo, fatigue, schedule and player-slot features, joined onto the matches.
 
     The four features are computed independently, so every failure among them comes
@@ -112,7 +112,7 @@ def exact_features(cleaned: Cleaned) -> Result[ExactFeatures]:
     ).if_err()
     match_features = join_features(cleaned_matches, elo, fatigue, schedule, players).if_err()
     return Ok(
-        ExactFeatures(
+        ExtractedFeatures(
             elo=elo,
             fatigue=fatigue,
             schedule=schedule,
@@ -122,8 +122,8 @@ def exact_features(cleaned: Cleaned) -> Result[ExactFeatures]:
     )
 
 
-def clean_data(settings: Settings = default_settings) -> tuple[Cleaned, ExactFeatures]:
-    """Entry point `clean_data`: clean, then exact features; raise on Err, write both as CSV.
+def clean_data(settings: Settings = default_settings) -> tuple[Cleaned, ExtractedFeatures]:
+    """Entry point `clean_data`: clean, then extract features; raise on Err, write both as CSV.
 
     The clean outputs are written before the features run, so a feature failure
     leaves them on disk.
@@ -133,7 +133,7 @@ def clean_data(settings: Settings = default_settings) -> tuple[Cleaned, ExactFea
     for path in cleaned.save(out_dir):
         print("saved", path, flush=True)
 
-    features = exact_features(cleaned).expect("exact_features")
+    features = extract_features(cleaned).expect("extract_features")
     for path in features.save(out_dir):
         print("saved", path, flush=True)
     return cleaned, features
