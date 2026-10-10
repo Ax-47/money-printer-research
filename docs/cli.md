@@ -7,10 +7,12 @@ everything they read comes from the [settings](configuration.md).
 | Command | Entry point | What it does |
 | --- | --- | --- |
 | `collect_data` | `data_collection.collect_data` | Download the Understat schedule, Understat player stats and the Transfermarkt tables. See [Collect](pipeline/collect.md). |
-| `clean_data` | `clean_data.clean_data` | Clean the collected files and build the pre-match features; write nine CSVs. See [Clean](pipeline/clean.md) and [Features](pipeline/features.md). |
+| `clean_data` | `clean_data.exec_clean_data` | Clean the collected files and build the pre-match features; write nine CSVs. See [Clean](pipeline/clean.md) and [Features](pipeline/features.md). |
 | `check_clean` | `schema.check_clean` | Validate every CSV in the clean output folder against its schema. |
 | `feature_importance` | `analysis.exec_feature_importance` | Permutation importance of the features for the home / draw / away model. |
 | `notebook` | `notebook.exec_notebook` | Open JupyterLab at the project root with the project's environment. |
+| `show_config` | `config.show_config` | Print the settings in effect and the file they came from. See [Configuration](configuration.md). |
+| `api` | `api.exec_api` | Start the HTTP API. See [Docker and API](docker-api.md). |
 
 Entry points are imported only when called, so importing the package (for
 example `money_printer_research.clean_data` in a notebook) does not load the
