@@ -1,0 +1,104 @@
+# 3. Features
+
+`extract_features` in `money_printer_research.clean_data` builds the pre-match
+features from the [clean tables](clean.md) and joins them onto the matches.
+`uv run clean_data` runs it after `clean` and writes five more CSVs.
+
+Every feature uses only what was known at kick-off: rolling windows exclude the
+current match, and Elo ratings are taken before the match is played. The two
+exceptions are noted under [Schedule](#schedule).
+
+| Output | Schema | Built by |
+| --- | --- | --- |
+| `elo.csv` | [`EloCols`](../schema/match.md) | `features.get_elo` |
+| `fatigue.csv` | [`TeamFatigueCols`](../schema/match.md) | `features.get_fatigue` |
+| `schedule.csv` | [`TeamScheduleCols`](../schema/match.md) | `features.team_schedule_features` |
+| `players.csv` | `PLAYER_SLOTS` | `features.get_player_features` |
+| `match_features.csv` | [`MatchFeaturesCols`](../schema/match.md) | `clean_data.join.join_features` |
+
+The first four are computed independently, so if several fail, every error comes
+back together.
+
+## Elo
+
+`get_elo` replays every league match in date order and records each side's
+rating before kick-off as `elo_home` and `elo_away`, with
+`elo_diff = elo_home - elo_away`.
+
+- Update size `k = 15`, home advantage of 40 points in the expectation, base
+  rating 1500. These were tuned by walk-forward log loss; the surface is flat.
+- The update is scaled by goal difference: 1 for one goal, 1.5 for two, then
+  `(11 + gd) / 8`.
+- Promoted teams start each season at the mean end-of-season rating of the teams
+  that went down, which keeps the league average stable.
+- Every team starts level in 2014/15, so treat that season as warm-up.
+
+`features.elo` also holds a double Poisson match model driven by `elo_diff`
+(`walk_forward`, `evaluate`), with an optional Dixon-Coles correction. It
+predicts each season with a model fitted only on earlier seasons.
+
+## Fatigue
+
+`get_fatigue` works per player, then summarises each side's starters.
+
+For every player and match, `player_fatigue` computes the load before kick-off:
+rest days, matches and minutes in the last 7 days, minutes in the last 28 days,
+and consecutive team games played. These combine into a `fatigue_score` from 0
+to 100, with hand-set weights:
+
+| Weight | Term (each scaled to 0 to 1) |
+| --- | --- |
+| 0.35 | Minutes in the last 7 days (180 is full) |
+| 0.25 | Short rest |
+| 0.20 | Consecutive games played |
+| 0.20 | Acute to chronic workload ratio above 1 |
+
+`team_fatigue` then gives each match the mean starter score per side
+(`h_fatigue`, `a_fatigue`), the starters' summed 7-day minutes, and
+`fatigue_diff`. A side with no recorded starters gets nulls.
+
+!!! note
+    Understat covers league matches only, so player rest is overstated for clubs
+    that also play cups or European games. The schedule features below cover that
+    gap at team level.
+
+## Schedule
+
+`club_calendar` builds every club's full calendar from Transfermarkt
+(`match_leagues`, all competitions), and `team_schedule_features` attaches it to
+each Understat match as `h_*` and `a_*` columns:
+
+- `rest_days_all`: days since the previous game in any competition, capped at 30.
+- `games_7d_all`, `games_14d_all`: games in the previous 7 and 14 days.
+- `non_league_14d`: cup, European or other games in the previous 14 days.
+- `prev_europe_away`: the previous game was an away European tie.
+- `days_to_next_all`, `next_is_europe`: look-ahead features, from fixtures
+  already scheduled. `days_to_next_all` uses the date the next game was actually
+  played, which for a postponed game was not known at kick-off.
+
+A side whose club has no matched Transfermarkt game gets nulls.
+
+## Players
+
+`get_player_features` gives each starter a form line and spreads the eleven
+starters of each side into slot columns, ordered by line-up position from the
+goalkeeper forward. For each side (`h`, `a`), slot (1 to 11) and feature, the
+column is `<side>_player<slot>_<feature>`, for example `h_player1_xg90`:
+
+| Feature | Meaning |
+| --- | --- |
+| `xg90`, `xa90` | xG and xA per 90 minutes over the player's previous 10 matches |
+| `form90` | xG plus xA per 90 over the same window: expected goal involvement |
+| `prev_min` | Minutes played over the same window |
+| `fatigue_score` | The player's fatigue score (see [Fatigue](#fatigue)) |
+
+That makes 110 columns. Per-90 rates are null below 270 previous minutes, so a
+newcomer's numbers are not noise.
+
+## Join
+
+`join_features` left-joins Elo, fatigue, schedule and the player slots onto
+`cleaned_matches`, one to one, so every match keeps its row. Elo has no
+`game_id`, so it joins on the match date and both teams. A feature is null where
+its source has no value for the game. The result is `match_features.csv`, the
+modelling table.

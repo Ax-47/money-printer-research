@@ -9,10 +9,30 @@ copyright: Maintained by <a href="https://Ax-47.com">Ax-47</a>.
 nav:
   - Home:
     - index.md
+    - Getting started: getting-started.md
+    - Commands: cli.md
+    - Data pipeline:
+      - pipeline/index.md
+      - 1. Collect: pipeline/collect.md
+      - 2. Clean: pipeline/clean.md
+      - 3. Features: pipeline/features.md
+    - Schemas:
+      - schema/index.md
+      - Match: schema/match.md
+      - Player: schema/player.md
+      - Club: schema/club.md
+      - Competition: schema/competition.md
+    - Docker and API: docker-api.md
     - About: about.md
     - Configuration: configuration.md
   - Source Code API Reference:
     - api/index.md
+    - data_collection: api/data_collection.md
+    - clean_data: api/clean_data.md
+    - features: api/features.md
+    - schema: api/schema.md
+    - analysis: api/analysis.md
+    - cool_stuff: api/cool_stuff.md
 theme:
   name: material
   features:
@@ -32,7 +52,7 @@ plugins:
       handlers:
         python:
           # search packages in the src folder
-          paths: ["src/money_printer_research"]
+          paths: ["src"]
           options:
             docstring_style: google
             show_source: true
@@ -64,3 +84,7 @@ markdown_extensions:
       base_path: ["."] # Using --8<-- "dir/file.md" is relative to the base_path.
   - toc:
       permalink: true
+hooks:
+  - docs/hooks/schema_tables.py
+exclude_docs: |
+  hooks/
