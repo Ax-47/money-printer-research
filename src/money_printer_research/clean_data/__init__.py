@@ -137,3 +137,12 @@ def clean_data(settings: Settings = default_settings) -> tuple[Cleaned, Extracte
     for path in features.save(out_dir):
         print("saved", path, flush=True)
     return cleaned, features
+
+
+def exec_clean_data() -> None:
+    """Console script `clean_data`: run clean_data and return nothing.
+
+    The script exits with whatever its function returns, and a non-None value
+    makes sys.exit print it to stderr and exit with status 1.
+    """
+    clean_data()
