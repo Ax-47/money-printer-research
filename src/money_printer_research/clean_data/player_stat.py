@@ -1,10 +1,10 @@
 import polars as pl
 from pandera.typing.polars import DataFrame
 
-from money_printer_research.clean_data.normalize import norm_season_start
-from money_printer_research.clean_data.rename_team_names import check_aliases, norm_team_names
-from money_printer_research.cool_stuff import K, check, returns
-from money_printer_research.schema import CLEANED_PLAYER_STAT, PLAYER_STAT
+from ..clean_data.normalize import norm_season_start
+from ..clean_data.rename_team_names import check_aliases, norm_team_names
+from ..cool_stuff import K, check, returns
+from ..schema import CLEANED_PLAYER_STAT, PLAYER_STAT
 
 
 @returns(PLAYER_STAT)

@@ -2,10 +2,14 @@
 
 The models live in modules by stage, and are re-exported here:
 
-    schema/clean.py      single-source frames: xg, std_tm, player_stat
-    schema/join.py       joined frames: player_matches, matches, clubs, stat_matches
-    schema/formation.py  FormationCols, the encoded formation columns std_tm and
-                         stat_matches inherit, and GameFormationCols (games + formations)
+    schema/clean.py      single-source frames: xg, match_leagues (std_tm), player_stat
+    schema/join.py       joined frames: player_matches, matches, clubs, cleaned_matches,
+                         match_features, and PLAYER_SLOTS (the player slot columns)
+    schema/formation.py  FormationCols, the encoded formation columns match_leagues and
+                         cleaned_matches inherit, and GameFormationCols (games + formations)
+    schema/elo.py        EloInputCols, EloCols, PredictionCols (Elo and the Poisson model)
+    schema/fatigue.py    player and team fatigue
+    schema/calendar.py   full-calendar schedule features
 
 (Raw files are in schema/raw.py, the raw columns the pipeline reads in
 schema/selected.py.)
@@ -23,6 +27,7 @@ import pandera.polars as pa
 import polars as pl
 
 from money_printer_research.config import settings
+from money_printer_research.schema.calendar import COMP_TYPES, ClubCalendarCols, TeamScheduleCols
 from money_printer_research.schema.clean import (
     CLEANED_MATCH_STAT,
     CLEANED_PLAYER_STAT,
@@ -30,6 +35,13 @@ from money_printer_research.schema.clean import (
     MatchLeaguesCols,
     PlayerStatCols,
     ScheduleCols,
+)
+from money_printer_research.schema.elo import OUTCOMES, EloCols, EloInputCols, PredictionCols
+from money_printer_research.schema.fatigue import (
+    FatigueInputCols,
+    MatchSideCols,
+    PlayerFatigueCols,
+    TeamFatigueCols,
 )
 from money_printer_research.schema.formation import (
     FORMATION_COLUMNS,
@@ -42,14 +54,18 @@ from money_printer_research.schema.formation import (
 from money_printer_research.schema.join import (
     CLEANED_MATCH,
     CLUB_MAP,
+    MATCH_FEATURES,
     N_SLOTS,
     PLAYER_SLOT_FEATURES,
+    PLAYER_SLOTS,
     PM,
     CleanedMatchCols,
     ClubMapCols,
     M,
     MatchCols,
+    MatchFeaturesCols,
     PlayerMatchCols,
+    match_features_schema,
     slot_column,
     slot_columns,
 )
@@ -69,15 +85,20 @@ def dtype(model: type[pa.DataFrameModel], name: str) -> pl.DataType:
     return model.to_schema().columns[name].dtype.type
 
 
-# File name (without .csv) -> the schema of that file.
+# File name (without .csv) -> the schema of that file: the fields of Cleaned and
+# ExactFeatures in clean_data, which SavesFrames.save writes as <field name>.csv.
 CLEAN_FILES: dict[str, pa.DataFrameSchema] = {
-    "xg": CLEANED_MATCH_STAT.to_schema(),
-    "std_tm": MATCH_LEAGUE.to_schema(),
-    "player_stat": CLEANED_PLAYER_STAT.to_schema(),
-    "player_matches": PM.to_schema(),
-    "matches": M.to_schema().add_columns(slot_columns()),
+    # Cleaned
+    "match_leagues": MATCH_LEAGUE.to_schema(),
     "clubs": CLUB_MAP.to_schema(),
-    "stat_matches": CLEANED_MATCH.to_schema(),
+    "cleaned_matches": CLEANED_MATCH.to_schema(),
+    "player_stat": CLEANED_PLAYER_STAT.to_schema(),
+    # ExactFeatures
+    "elo": EloCols.to_schema(),
+    "fatigue": TeamFatigueCols.to_schema(),
+    "schedule": TeamScheduleCols.to_schema(),
+    "players": PLAYER_SLOTS,
+    "match_features": match_features_schema(),
 }
 
 
@@ -109,38 +130,53 @@ def main() -> None:
 
 
 __all__ = [
+    "CLEANED_MATCH",
     "CLEANED_MATCH_STAT",
+    "CLEANED_PLAYER_STAT",
     "CLEAN_FILES",
     "CLUB_MAP",
+    "COMP_TYPES",
     "FORMATION_COLUMNS",
     "GAME_FORMATION",
+    "MATCH_FEATURES",
     "MATCH_LEAGUE",
     "N_SLOTS",
+    "OUTCOMES",
     "OUTFIELD",
+    "PLAYER_SLOTS",
     "PLAYER_SLOT_FEATURES",
-    "CLEANED_PLAYER_STAT",
+    "PLAYER_STAT",
     "PM",
     "SELECTED",
     "SHAPE_PATTERN",
-    "CLEANED_MATCH",
+    "CleanedMatchCols",
+    "ClubCalendarCols",
     "ClubMapCols",
+    "EloCols",
+    "EloInputCols",
+    "FatigueInputCols",
     "FormationCols",
     "GameFormationCols",
     "M",
     "MatchCols",
+    "MatchFeaturesCols",
     "MatchLeaguesCols",
+    "MatchSideCols",
+    "PlayerFatigueCols",
     "PlayerMatchCols",
     "PlayerStatCols",
+    "PredictionCols",
     "ScheduleCols",
-    "CleanedMatchCols",
+    "TeamFatigueCols",
+    "TeamScheduleCols",
     "TransfermarktCompetitions",
     "TransfermarktGames",
     "UnderstatPlayer",
     "UnderstatSchedule",
     "as_",
-    "PLAYER_STAT",
     "dtype",
     "main",
+    "match_features_schema",
     "read_clean",
     "slot_column",
     "slot_columns",

@@ -3,12 +3,12 @@
 import polars as pl
 from pandera.typing.polars import DataFrame
 
-from money_printer_research.cool_stuff import returns
-from money_printer_research.schema import CLEANED_MATCH as CM
-from money_printer_research.schema import CLEANED_MATCH_STAT as S
-from money_printer_research.schema import CLUB_MAP as C
-from money_printer_research.schema import FORMATION_COLUMNS
-from money_printer_research.schema import MATCH_LEAGUE as L
+from ..cool_stuff import returns
+from ..schema import CLEANED_MATCH as CM
+from ..schema import CLEANED_MATCH_STAT as S
+from ..schema import CLUB_MAP as C
+from ..schema import FORMATION_COLUMNS
+from ..schema import MATCH_LEAGUE as L
 
 
 @returns(CM)

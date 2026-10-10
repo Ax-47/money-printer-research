@@ -1,10 +1,10 @@
 import polars as pl
 from pandera.typing.polars import DataFrame
 
-from money_printer_research.cool_stuff import Err, Ok, Result, monad, returns
-from money_printer_research.schema import CLEANED_MATCH_STAT as S
-from money_printer_research.schema import CLUB_MAP as C
-from money_printer_research.schema import MATCH_LEAGUE as L
+from ..cool_stuff import Err, Ok, Result, monad, returns
+from ..schema import CLEANED_MATCH_STAT as S
+from ..schema import CLUB_MAP as C
+from ..schema import MATCH_LEAGUE as L
 
 # A mapping is doubtful when two club ids share a team, or when an established
 # club (enough games) has few fixtures backing its pairing.

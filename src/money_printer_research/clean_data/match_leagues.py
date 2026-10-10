@@ -3,12 +3,12 @@
 import polars as pl
 from pandera.typing.polars import DataFrame
 
-from money_printer_research.cool_stuff import returns
-from money_printer_research.schema import FORMATION_COLUMNS
-from money_printer_research.schema import GAME_FORMATION as GF
-from money_printer_research.schema import MATCH_LEAGUE as ML
-from money_printer_research.schema import TransfermarktCompetitions as C
-from money_printer_research.schema import dtype
+from ..cool_stuff import returns
+from ..schema import FORMATION_COLUMNS
+from ..schema import GAME_FORMATION as GF
+from ..schema import MATCH_LEAGUE as ML
+from ..schema import TransfermarktCompetitions as C
+from ..schema import dtype
 
 # UEFA club competitions, by id: Transfermarkt files EL and UCOL under type "other".
 EUROPE = ("CL", "CLQ", "EL", "ELQ", "UCOL", "ECLQ", "USC")

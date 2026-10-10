@@ -1,9 +1,9 @@
 import polars as pl
 from pandera.typing.polars import DataFrame
 
-from money_printer_research.config import Settings
-from money_printer_research.cool_stuff import returns
-from money_printer_research.schema.raw import LEAGUE_INFO, MATCH_INFO, MATCH_STAT, PLAYER_STAT
+from ..config import Settings
+from ..cool_stuff import returns
+from ..schema.raw import LEAGUE_INFO, MATCH_INFO, MATCH_STAT, PLAYER_STAT
 
 
 @returns(MATCH_STAT)

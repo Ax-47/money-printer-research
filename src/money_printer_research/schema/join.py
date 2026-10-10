@@ -1,11 +1,15 @@
 """Joined outputs: frames built from more than one clean frame.
 
-    player_matches.csv  PlayerMatchCols
-    matches.csv         MatchCols, plus the 88 player slot columns from slot_columns()
-    clubs.csv           ClubMapCols
-    stat_matches.csv    StatMatchCols
+    player_matches.csv   PlayerMatchCols
+    matches.csv          MatchCols, plus the 110 player slot columns from slot_columns()
+    clubs.csv            ClubMapCols
+    cleaned_matches.csv  CleanedMatchCols
+    match_features.csv   MatchFeaturesCols: CleanedMatchCols plus Elo, fatigue and schedule,
+                         plus the player slot columns (match_features_schema() checks all)
+    (player slots)       PLAYER_SLOTS: game_id plus slot_columns(), get_player_features' output
 
-The single-source frames they are built from are in schema/clean.py.
+The single-source frames they are built from are in schema/clean.py; the fatigue and
+schedule feature frames in schema/fatigue.py and the calendar schema module.
 """
 
 import datetime
@@ -14,7 +18,9 @@ import pandera.polars as pa
 import polars as pl
 from pandera.typing import FieldType as F
 
+from money_printer_research.schema.calendar import TeamScheduleCols
 from money_printer_research.schema.clean import PlayerStatCols, ScheduleCols
+from money_printer_research.schema.fatigue import TeamFatigueCols
 from money_printer_research.schema.formation import FormationCols
 
 PLAYER_SLOT_FEATURES = ("xg90", "xa90", "form90", "prev_min", "fatigue_score")
@@ -161,7 +167,7 @@ class MatchCols(pa.DataFrameModel):
 
 
 class CleanedMatchCols(ScheduleCols, FormationCols):
-    """stat_matches.csv: xg.csv rows with their Transfermarkt league game (join_match_w_stat).
+    """cleaned_matches.csv: xg.csv rows with their Transfermarkt league game (join_match_w_stat).
 
     Left join on league, season_start, home_team and away_team (club ids mapped to
     teams through clubs.csv), not on the date: postponed or resumed games can sit days
@@ -210,6 +216,38 @@ class CleanedMatchCols(ScheduleCols, FormationCols):
     tm_away_goals: F[int] = pa.Field(
         nullable=True,
         description="Away goals in Transfermarkt's official result; see tm_home_goals.",
+    )
+
+
+class MatchFeaturesCols(CleanedMatchCols, TeamFatigueCols, TeamScheduleCols):
+    """match_features.csv: cleaned_matches with every pre-match feature joined on (join_features).
+
+    One row per Understat game_id, the rows of cleaned_matches. CleanedMatchCols gives the
+    match, its result and the Transfermarkt columns; TeamFatigueCols the h_/a_ fatigue;
+    TeamScheduleCols the h_/a_ full-calendar schedule; the Elo columns are below. A feature
+    is null where its source has no value for the game. Key: game_id.
+    """
+
+    game_id: F[int] = pa.Field(unique=True, description="Understat match id; one row per game.")
+
+    match_date: F[datetime.date] = pa.Field(
+        description="Date part of date; the key, with both teams, that Elo is joined on."
+    )
+
+    full_time_result: F[str] = pa.Field(
+        isin=["H", "D", "A"],
+        description="H home win, D draw, A away win, from home_goals and away_goals. The target.",
+    )
+
+    elo_home: F[float] = pa.Field(description="Home side's Elo rating before kick-off.")
+
+    elo_away: F[float] = pa.Field(description="Away side's Elo rating before kick-off.")
+
+    elo_diff: F[float] = pa.Field(
+        description=(
+            "elo_home - elo_away, without home advantage. Every team starts level in 2014/15,"
+            " so treat that season as warm-up."
+        )
     )
 
 
@@ -262,6 +300,7 @@ PM = PlayerMatchCols
 M = MatchCols
 CLUB_MAP = ClubMapCols
 CLEANED_MATCH = CleanedMatchCols
+MATCH_FEATURES = MatchFeaturesCols
 
 
 def slot_column(side: str, slot: int, feature: str) -> str:
@@ -270,7 +309,7 @@ def slot_column(side: str, slot: int, feature: str) -> str:
 
 
 def slot_columns() -> dict[str, pa.Column]:
-    """The 88 generated player slot columns of matches.csv, in canonical order.
+    """The 110 generated player slot columns of matches.csv, in canonical order.
 
     One column per side (h, a), starter slot (1 to 11) and PLAYER_SLOT_FEATURES,
     holding that starter's pre-match value from player_matches.csv.
@@ -288,17 +327,33 @@ def slot_columns() -> dict[str, pa.Column]:
     }
 
 
+PLAYER_SLOTS = pa.DataFrameSchema(
+    {"game_id": pa.Column(int, unique=True), **slot_columns()},
+    name="PlayerSlots",
+    description="get_player_features: one row per game_id, each side's starters as slot columns.",
+)
+
+
+def match_features_schema() -> pa.DataFrameSchema:
+    """MatchFeaturesCols plus the player slot columns: the whole of match_features.csv."""
+    return MatchFeaturesCols.to_schema().add_columns(slot_columns())
+
+
 __all__ = [
+    "CLEANED_MATCH",
     "CLUB_MAP",
-    "M",
+    "MATCH_FEATURES",
     "N_SLOTS",
+    "PLAYER_SLOTS",
     "PLAYER_SLOT_FEATURES",
     "PM",
-    "CLEANED_MATCH",
-    "ClubMapCols",
-    "MatchCols",
-    "PlayerMatchCols",
     "CleanedMatchCols",
+    "ClubMapCols",
+    "M",
+    "MatchCols",
+    "MatchFeaturesCols",
+    "PlayerMatchCols",
+    "match_features_schema",
     "slot_column",
     "slot_columns",
 ]

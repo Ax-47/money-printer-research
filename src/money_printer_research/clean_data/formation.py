@@ -15,10 +15,10 @@ from typing import NamedTuple
 import polars as pl
 from pandera.typing.polars import DataFrame
 
-from money_printer_research.cool_stuff import returns
-from money_printer_research.schema.formation import GAME_FORMATION as GF
-from money_printer_research.schema.formation import OUTFIELD
-from money_printer_research.schema.selected import TransfermarktGames as G
+from ..cool_stuff import returns
+from ..schema.formation import GAME_FORMATION as GF
+from ..schema.formation import OUTFIELD
+from ..schema.selected import TransfermarktGames as G
 
 _SHAPE = r"^(\d(?:-\d)+)"
 
