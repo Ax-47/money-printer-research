@@ -32,7 +32,7 @@ Documentation = "https://Ax-47.github.io/money-printer-research/"
 
 [project.scripts]
 collect_data = "money_printer_research:collect_data"
-clean_data = "money_printer_research:clean_data"
+clean_data = "money_printer_research:exec_clean_data"
 feature_importance = "money_printer_research:exec_feature_importance"
 notebook = "money_printer_research:exec_notebook"
 check_clean = "money_printer_research.schema:check_clean"

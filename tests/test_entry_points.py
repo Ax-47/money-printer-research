@@ -67,3 +67,21 @@ def test_exec_notebook_opens_jupyterlab_at_project_root(monkeypatch: pytest.Monk
 
     assert exit_info.value.code == 0
     assert argv == [["--notebook-dir", str(Path(notebook.ROOT))]]
+
+
+def test_clean_data_script_uses_the_wrapper_that_returns_none() -> None:
+    # The generated script runs sys.exit(clean_data()): returning the cleaned frames
+    # there printed them to stderr and exited with status 1.
+    from importlib.metadata import entry_points
+
+    scripts = {e.name: e.value for e in entry_points(group="console_scripts")}
+    assert scripts["clean_data"] == "money_printer_research:exec_clean_data"
+
+
+def test_exec_clean_data_returns_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    import money_printer_research.clean_data as clean_data_module
+
+    ran: list[bool] = []
+    monkeypatch.setattr(clean_data_module, "clean_data", lambda: ran.append(True) or (1, 2))
+    assert clean_data_module.exec_clean_data() is None
+    assert ran == [True]
