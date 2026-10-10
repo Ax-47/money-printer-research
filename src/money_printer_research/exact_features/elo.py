@@ -94,22 +94,22 @@ def _teams_by_season(matches: DataFrame[EloInputCols]) -> dict[str, set[str]]:
 @returns(EloInputCols)
 def to_elo_input(matches: DataFrame[CLEANED_MATCH]) -> pl.DataFrame:
     """stat_matches -> EloInputCols: season label, date only, full-time goals and result."""
-    EI = EloInputCols
+    ei = EloInputCols
     start = pl.col(CLEANED_MATCH.season_start)
     hg, ag = pl.col(CLEANED_MATCH.home_goals), pl.col(CLEANED_MATCH.away_goals)
     return matches.select(
-        pl.format("{}/{}", start, (start + 1).cast(pl.String).str.slice(2, 2)).alias(EI.season),
-        pl.col(CLEANED_MATCH.date).dt.date().alias(EI.match_date),
-        pl.col(CLEANED_MATCH.home_team).alias(EI.home_team),
-        pl.col(CLEANED_MATCH.away_team).alias(EI.away_team),
-        hg.alias(EI.full_time_home_goals),
-        ag.alias(EI.full_time_away_goals),
+        pl.format("{}/{}", start, (start + 1).cast(pl.String).str.slice(2, 2)).alias(ei.season),
+        pl.col(CLEANED_MATCH.date).dt.date().alias(ei.match_date),
+        pl.col(CLEANED_MATCH.home_team).alias(ei.home_team),
+        pl.col(CLEANED_MATCH.away_team).alias(ei.away_team),
+        hg.alias(ei.full_time_home_goals),
+        ag.alias(ei.full_time_away_goals),
         pl.when(hg > ag)
         .then(pl.lit("H"))
         .when(hg == ag)
         .then(pl.lit("D"))
         .otherwise(pl.lit("A"))
-        .alias(EI.full_time_result),
+        .alias(ei.full_time_result),
     )
 
 
