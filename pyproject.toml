@@ -32,8 +32,6 @@ Homepage = "https://Ax-47.github.io/money-printer-research/"
 Repository = "https://github.com/Ax-47/money-printer-research"
 Documentation = "https://Ax-47.github.io/money-printer-research/"
 
-requires-python = ">=3.9,<4.0"
-
 [project.scripts]
 collect_data = "money_printer_research:collect_data"
 clean_data = "money_printer_research:clean_data"
