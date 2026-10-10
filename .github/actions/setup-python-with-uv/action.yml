@@ -17,6 +17,14 @@ runs:
         enable-cache: true
         python-version: ${{ inputs.python-version }}
 
+    # The Tsinghua mirror sometimes answers a runner with 403 for a single wheel,
+    # which uv does not retry. Try the install a few times before failing.
     - name: Install Dependencies
-      run: uv sync --all-groups
+      run: |
+        for attempt in 1 2 3; do
+          uv sync --all-groups && exit 0
+          echo "uv sync failed (attempt $attempt), retrying in $((attempt * 15))s"
+          sleep $((attempt * 15))
+        done
+        uv sync --all-groups
       shell: bash
