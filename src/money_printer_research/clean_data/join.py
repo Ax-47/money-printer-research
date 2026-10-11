@@ -29,7 +29,8 @@ def join_features(
 
     Left joins, each 1:1, so every match keeps its row: a feature is null where its
     source has no value for the game (fatigue and the player slots for the two games
-    without Understat line-ups). players is get_player_features' output (PLAYER_SLOTS).
+    without Understat line-ups); features.missing.missing_table says why, cell by cell.
+    players is get_player_features' output (PLAYER_SLOTS).
     """
     elo_cols = elo.select(
         *ELO_KEYS, EloCols.full_time_result, EloCols.elo_home, EloCols.elo_away, EloCols.elo_diff

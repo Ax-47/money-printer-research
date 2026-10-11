@@ -10,6 +10,8 @@ from ..features import (
     get_elo,
     get_fatigue,
     get_player_features,
+    missing_table,
+    reason_counts,
     team_schedule_features,
     to_elo_input,
 )
@@ -19,6 +21,7 @@ from ..schema import (
     ClubMapCols,
     MatchFeaturesCols,
     MatchLeaguesCols,
+    MissingCols,
     EloCols,
     TeamFatigueCols,
     TeamScheduleCols,
@@ -50,13 +53,14 @@ class Cleaned(SavesFrames):
 
 @dataclass(frozen=True)
 class ExtractedFeatures(SavesFrames):
-    """Pre-match features, and the matches with all of them joined on."""
+    """Pre-match features, the matches with all of them joined on, and its null cells."""
 
     elo: DataFrame[EloCols]
     fatigue: DataFrame[TeamFatigueCols]
     schedule: DataFrame[TeamScheduleCols]
     players: pl.DataFrame
     match_features: DataFrame[MatchFeaturesCols]
+    missing: DataFrame[MissingCols]
 
 
 @monad
@@ -96,6 +100,8 @@ def clean(settings: Settings) -> Result[Cleaned]:
 def extract_features(cleaned: Cleaned) -> Result[ExtractedFeatures]:
     """Elo, fatigue, schedule and player-slot features, joined onto the matches.
 
+    missing lists every null cell of match_features with its reason (missing_table).
+
     The four features are computed independently, so every failure among them comes
     back in one Err.
     """
@@ -111,6 +117,7 @@ def extract_features(cleaned: Cleaned) -> Result[ExtractedFeatures]:
         get_player_features(player_stat, cleaned_matches),
     ).if_err()
     match_features = join_features(cleaned_matches, elo, fatigue, schedule, players).if_err()
+    missing = missing_table(match_features).if_err()
     return Ok(
         ExtractedFeatures(
             elo=elo,
@@ -118,12 +125,15 @@ def extract_features(cleaned: Cleaned) -> Result[ExtractedFeatures]:
             schedule=schedule,
             players=players,
             match_features=match_features,
+            missing=missing,
         )
     )
 
 
 def clean_data(settings: Settings = default_settings) -> tuple[Cleaned, ExtractedFeatures]:
     """Entry point `clean_data`: clean, then extract features; raise on Err, write both as CSV.
+
+    Ends by printing the null cells of match_features per reason (reason_counts).
 
     The clean outputs are written before the features run, so a feature failure
     leaves them on disk.
@@ -136,6 +146,8 @@ def clean_data(settings: Settings = default_settings) -> tuple[Cleaned, Extracte
     features = extract_features(cleaned).expect("extract_features")
     for path in features.save(out_dir):
         print("saved", path, flush=True)
+    print("null cells in match_features, by reason (missing.csv):", flush=True)
+    print(reason_counts(features.missing), flush=True)
     return cleaned, features
 
 

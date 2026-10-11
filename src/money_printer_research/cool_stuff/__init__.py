@@ -11,6 +11,7 @@ Modules, each building on the ones above it, all re-exported here:
               all_ok (the applicative: independent steps, errors summed)
     monoid    K arrows under >> with IDENTITY as unit, compose (mconcat), fanout (&)
     validate  pandera schemas as steps: check(Model), @returns(Model)
+    writer    Writer over Result: Logged values, writer(f, note) logs each step
 
 Only validate imports pandera.
 """
@@ -21,6 +22,7 @@ from .monoid import IDENTITY, K, compose, fanout
 from .morphism import Context, ContextMorphism, Morphism, ResultMorphism
 from .result import EarlyReturn, Err, Ok, Result, ResultApi, UnwrapError, apply_lifted, name_of
 from .validate import check, returns
+from .writer import Logged, told, writer
 
 __all__ = [
     "Context",
@@ -29,6 +31,7 @@ __all__ = [
     "Err",
     "IDENTITY",
     "K",
+    "Logged",
     "Morphism",
     "Ok",
     "Result",
@@ -50,4 +53,6 @@ __all__ = [
     "name_of",
     "pure",
     "returns",
+    "told",
+    "writer",
 ]

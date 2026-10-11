@@ -24,7 +24,8 @@ from money_printer_research.schema import (
 
 MAX_GAP_DAYS = 30
 """Cap on rest_days_all and days_to_next_all: beyond a month every club is fully rested,
-and the raw gaps reach years for clubs that spent seasons outside the five leagues."""
+and the raw gaps reach years for clubs that spent seasons outside the five leagues.
+A club's first game in the data, with no previous one, gets MAX_GAP_DAYS of rest."""
 
 SCHEDULE_FEATURES = [
     ClubCalendarCols.rest_days_all,
@@ -71,6 +72,7 @@ def club_calendar(tm: DataFrame[MatchLeaguesCols]) -> DataFrame[ClubCalendarCols
         .dt.total_days()
         .over(ClubCalendarCols.club_id)
         .clip(0, MAX_GAP_DAYS)
+        .fill_null(MAX_GAP_DAYS)  # first game in the data: no previous one, fully rested
         .alias(ClubCalendarCols.rest_days_all),
         _prior_count(7, any_game).alias(ClubCalendarCols.games_7d_all),
         _prior_count(14, any_game).alias(ClubCalendarCols.games_14d_all),

@@ -21,3 +21,5 @@
 ::: money_printer_research.clean_data.rename_team_names
 
 ::: money_printer_research.clean_data.normalize
+
+::: money_printer_research.clean_data.integrity

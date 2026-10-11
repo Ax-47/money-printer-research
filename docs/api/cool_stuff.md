@@ -15,3 +15,5 @@
 ::: money_printer_research.cool_stuff.monoid
 
 ::: money_printer_research.cool_stuff.validate
+
+::: money_printer_research.cool_stuff.writer

@@ -3,11 +3,13 @@
 functor: map(id) == id, map(g . f) == map(f) . map(g)
 monad:   left identity, right identity, associativity of bind
 monoid:  K under >> is associative with IDENTITY as unit; Err under + is associative
+writer:  the same laws for logged arrows, and the log keeps one note per step in order
 plus the behaviour the pipeline relies on: all_ok accumulates, .if_err() returns early
 even through lift / catch / fallible / returns.
 """
 
 from collections.abc import Callable
+from typing import Any
 
 import pandera.polars as pa
 import polars as pl
@@ -18,6 +20,7 @@ from money_printer_research.cool_stuff import (
     IDENTITY,
     Err,
     K,
+    Logged,
     Ok,
     Result,
     all_ok,
@@ -29,6 +32,8 @@ from money_printer_research.cool_stuff import (
     monad,
     pure,
     returns,
+    told,
+    writer,
 )
 
 ints = st.integers(min_value=-1000, max_value=1000)
@@ -236,3 +241,51 @@ def test_if_err_passes_through_wrappers() -> None:
             return Ok(1)
 
         assert outer() is inner
+
+
+# ---- writer -------------------------------------------------------------------------
+
+
+def _logged(
+    f: Callable[[int], Any],
+) -> K[Logged[int, tuple[int, int]], Logged[int, tuple[int, int]]]:
+    """F as a logged arrow whose note is the (input, output) pair."""
+    return writer(f, lambda a, b: (a, b))
+
+
+@given(ints, fallible_fns, fallible_fns, fallible_fns)
+def test_writer_associativity(
+    a: int,
+    f: Callable[[int], Result[int]],
+    g: Callable[[int], Result[int]],
+    h: Callable[[int], Result[int]],
+) -> None:
+    """(f >> g) >> h equals f >> (g >> h), value and log alike."""
+    wf, wg, wh = _logged(f), _logged(g), _logged(h)
+    assert same(((wf >> wg) >> wh)(told(a)), (wf >> (wg >> wh))(told(a)))
+
+
+@given(ints, fallible_fns)
+def test_writer_identity(a: int, f: Callable[[int], Result[int]]) -> None:
+    """IDENTITY is still the unit for logged arrows."""
+    w = _logged(f)
+    assert same((IDENTITY >> w)(told(a)), w(told(a)))
+    assert same((w >> IDENTITY)(told(a)), w(told(a)))
+
+
+@given(ints, plain, plain)
+def test_writer_logs_each_step_in_order(
+    a: int, f: Callable[[int], int], g: Callable[[int], int]
+) -> None:
+    """The log holds one note per step, oldest first, and the value is g(f(a))."""
+    out = (_logged(f) >> _logged(g))(told(a)).unwrap()
+    assert out == Logged(g(f(a)), ((a, f(a)), (f(a), g(f(a)))))
+
+
+def test_writer_stops_at_err_and_names_the_step() -> None:
+    def fails(_: int) -> int:
+        raise ValueError("boom")
+
+    out = (_logged(pure) >> _logged(fails))(told(1))
+    assert isinstance(out, Err)
+    assert "fails" in out.reason

@@ -2,7 +2,7 @@
 
 `extract_features` in `money_printer_research.clean_data` builds the pre-match
 features from the [clean tables](clean.md) and joins them onto the matches.
-`uv run clean_data` runs it after `clean` and writes five more CSVs.
+`uv run clean_data` runs it after `clean` and writes six more CSVs.
 
 Every feature uses only what was known at kick-off: rolling windows exclude the
 current match, and Elo ratings are taken before the match is played. The two
@@ -15,6 +15,7 @@ exceptions are noted under [Schedule](#schedule).
 | `schedule.csv` | [`TeamScheduleCols`](../schema/match.md) | `features.team_schedule_features` |
 | `players.csv` | `PLAYER_SLOTS` | `features.get_player_features` |
 | `match_features.csv` | [`MatchFeaturesCols`](../schema/match.md) | `clean_data.join.join_features` |
+| `missing.csv` | [`MissingCols`](../schema/match.md) | `features.missing.missing_table` |
 
 The first four are computed independently, so if several fail, every error comes
 back together.
@@ -69,6 +70,7 @@ to 100, with hand-set weights:
 each Understat match as `h_*` and `a_*` columns:
 
 - `rest_days_all`: days since the previous game in any competition, capped at 30.
+  A club's first game in the data has no previous one and gets 30.
 - `games_7d_all`, `games_14d_all`: games in the previous 7 and 14 days.
 - `non_league_14d`: cup, European or other games in the previous 14 days.
 - `prev_europe_away`: the previous game was an away European tie.
@@ -100,5 +102,45 @@ newcomer's numbers are not noise.
 `join_features` left-joins Elo, fatigue, schedule and the player slots onto
 `cleaned_matches`, one to one, so every match keeps its row. Elo has no
 `game_id`, so it joins on the match date and both teams. A feature is null where
-its source has no value for the game. The result is `match_features.csv`, the
+its source has no value for the game; `missing.csv` says why (see
+[Missing values](#missing-values)). The result is `match_features.csv`, the
 modelling table.
+
+## Missing values
+
+`match_features.csv` keeps its nulls and gains no columns for them. Instead
+`missing_table` writes `missing.csv`, a table of its own with one row per null cell:
+the match (`game_id`), the `column`, the `side` (`h`, `a`, or null for a column of
+the whole match) and the `reason`:
+
+| Reason | Null cells |
+| --- | --- |
+| `no_lineup` | A side's fatigue and player slots, when Understat has no starters for it |
+| `short_lineup` | A player slot left empty, when fewer than 11 starters are recorded |
+| `too_few_minutes` | A starter's `xg90`, `xa90` and `form90`, under 270 previous minutes |
+| `no_schedule` | A side's schedule features, when its club has no Transfermarkt game |
+| `no_next_game` | `days_to_next_all`, for a club's last game in the Transfermarkt data |
+| `no_tm_game` | The Transfermarkt columns, when the match has no Transfermarkt game |
+| `other` | None of these, such as a formation that did not parse |
+
+Every null cell of `match_features.csv` has exactly one row, so the two tables
+always agree. The nulls stay null. Filling them with a mean or median of the table
+would leak later seasons into earlier ones, and a constant such as 0 would read as a
+real value: a newcomer is not a player with no expected goals. Gradient-boosted trees,
+as in `feature_importance`, take nulls as they are; a model that cannot should fill
+them inside its own training fold, and can join `missing.csv` to know why.
+
+The one gap filled at the source is `rest_days_all` for a club's first game,
+which gets the 30-day cap, since the cap already means "a month or more".
+
+`uv run clean_data` ends by printing `reason_counts(missing)`: the null cells and
+the matches they touch, per reason. `null_report` counts nulls per feature group
+instead:
+
+```python
+import polars as pl
+from money_printer_research.features import null_report, reason_counts
+
+missing = pl.read_csv("data/clean/missing.csv")
+print(reason_counts(missing))
+```
