@@ -206,13 +206,11 @@ def calibration(y: np.ndarray, proba: np.ndarray, bins: int = 10) -> pl.DataFram
 
 def calibration_error(table: pl.DataFrame) -> pl.DataFrame:
     """Per class: expected calibration error, the games-weighted mean |predicted - observed|."""
-    return (
-        table.group_by("class", maintain_order=True)
-        .agg(
+    return table.group_by("class", maintain_order=True).agg(
+        (
             ((pl.col("predicted") - pl.col("observed")).abs() * pl.col("games")).sum()
             / pl.col("games").sum()
-        )
-        .rename({"predicted": "ece"})
+        ).alias("ece")
     )
 
 
