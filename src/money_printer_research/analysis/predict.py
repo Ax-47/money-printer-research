@@ -27,12 +27,16 @@ from money_printer_research.config import Settings
 from money_printer_research.config import settings as default_settings
 from money_printer_research.features.elo import fixture_elo, season_label, to_elo_input
 from money_printer_research.schema import CleanedMatchCols, read_clean, slot_columns
+from money_printer_research.utils import write_csv
 
 GAMES_WINDOW = timedelta(days=14)
 """The window of games_14d_all: the 14 days before kick-off, kick-off day excluded."""
 
 ID = ["game_id", "date", "league", "home_team", "away_team"]
 """The columns that name a fixture in the output."""
+
+SIDES = (("h", "home_team"), ("a", "away_team"))
+"""Each side's column prefix and team column."""
 
 
 def _team_games(history: pl.DataFrame, fixtures: pl.DataFrame) -> pl.DataFrame:
@@ -50,7 +54,7 @@ def games_in_window(history: pl.DataFrame, fixtures: pl.DataFrame) -> pl.DataFra
     out = fixtures.select(
         "game_id", pl.col("date").dt.date().alias("day"), "home_team", "away_team"
     )
-    for prefix, side in (("h", "home_team"), ("a", "away_team")):
+    for prefix, side in SIDES:
         counts = (
             out.join(games, left_on=side, right_on="team")
             .filter(
@@ -77,7 +81,7 @@ def last_starters(history: pl.DataFrame) -> pl.DataFrame:
             "date",
             *(pl.col(c).alias(c.removeprefix(f"{prefix}_")) for c in _slots(prefix)),
         )
-        for prefix, team in (("h", "home_team"), ("a", "away_team"))
+        for prefix, team in SIDES
     ]
     return pl.concat(sides).sort("date").group_by("team").last().drop("date")
 
@@ -104,7 +108,7 @@ def fixture_features(history: pl.DataFrame, fixtures: pl.DataFrame) -> pl.DataFr
         .join(starters, on="team", how="left")
         .drop("team")
         .rename(lambda c: c if c == "game_id" else f"{prefix}_{c}")
-        for prefix, team in (("h", "home_team"), ("a", "away_team"))
+        for prefix, team in SIDES
     ]
     out = fixtures.select(*ID, "season_start")
     for part in [elo, games_in_window(history, fixtures), *slots]:
@@ -154,8 +158,7 @@ def main(settings: Settings = default_settings) -> pl.DataFrame:
     history = read_clean(settings.clean.out_dir, "match_features")
     predictions = predict_fixtures(model, history, fixtures)
     out = settings.modeling.predictions_file
-    out.parent.mkdir(parents=True, exist_ok=True)
-    predictions.write_csv(out)
+    write_csv(predictions, out)
     with pl.Config(float_precision=3, tbl_rows=50, tbl_width_chars=120):
         print(predictions)
     print(f"Saved {predictions.height} predictions to {out}")

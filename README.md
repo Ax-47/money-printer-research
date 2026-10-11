@@ -23,7 +23,7 @@ in effect. See [Configuration](docs/configuration.md).
 ## Pipeline
 
 ```bash
-uv run collect_data        # Understat schedule and player stats, Transfermarkt tables -> data/raw
+uv run collect_data        # Understat schedule and player stats, odds, Transfermarkt tables -> data/raw
 uv run clean_data          # cleaned tables and pre-match features -> data/clean
 uv run feature_importance  # feature selection for the H/D/A model
 uv run modeling            # compare H/D/A models, save the chosen one -> data/models

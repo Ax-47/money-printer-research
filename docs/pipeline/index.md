@@ -5,7 +5,7 @@ wrote, and every frame is checked against a [schema](../schema/index.md) on the
 way, so a source that changes shape fails at the step where it changed.
 
 ```text
-collect_data   Understat schedule, Understat player stats, Transfermarkt tables
+collect_data   Understat schedule and player stats, odds, Transfermarkt tables
      │           -> raw CSV and Parquet files
 clean_data     clean            -> match_leagues, clubs, cleaned_matches, player_stat
      │         extract_features -> elo, fatigue, schedule, players, match_features
@@ -14,7 +14,7 @@ check_clean    validate every CSV in the clean output folder
 
 | Step | Command | Reads | Writes |
 | --- | --- | --- | --- |
-| [1. Collect](collect.md) | `collect_data` | Understat, Transfermarkt | Raw CSV and Parquet files |
+| [1. Collect](collect.md) | `collect_data` | Understat, football-data.co.uk, Transfermarkt | Raw CSV and Parquet files |
 | [2. Clean](clean.md) | `clean_data` | Raw files | `match_leagues`, `clubs`, `cleaned_matches`, `player_stat` |
 | [3. Features](features.md) | `clean_data` | Clean frames (in memory) | `elo`, `fatigue`, `schedule`, `players`, `match_features` |
 

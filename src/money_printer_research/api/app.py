@@ -46,6 +46,16 @@ def _rows(df: pl.DataFrame) -> list[dict[str, Any]]:
     return df.fill_nan(None).to_dicts()
 
 
+def _involving(df: pl.DataFrame, team: str) -> pl.DataFrame:
+    """The rows where `team` plays, home or away."""
+    return df.filter((pl.col("home_team") == team) | (pl.col("away_team") == team))
+
+
+def _predictable(elo: DataFrame[EloCols]) -> list[str]:
+    """Every season but the first: walk_forward needs an earlier season to fit on."""
+    return sorted(elo[EloCols.season].unique().to_list())[1:]
+
+
 class _Tables:
     """The clean CSVs, and the Elo predictions cached on elo.csv's mtime."""
 
@@ -72,8 +82,7 @@ class _Tables:
         return DataFrame[EloCols](EloCols.validate(self.read(ELO_TABLE)))
 
     def seasons(self) -> list[str]:
-        """Every season but the first: walk_forward needs an earlier season to fit on."""
-        return sorted(self.elo()[EloCols.season].unique().to_list())[1:]
+        return _predictable(self.elo())
 
     def predictions(self, season: str, dixon_coles: bool) -> DataFrame[PredictionCols]:
         mtime = self.path(ELO_TABLE).stat().st_mtime
@@ -82,7 +91,7 @@ class _Tables:
         key = (season, dixon_coles)
         if key not in self._predictions:
             elo = self.elo()
-            if season not in self.seasons():
+            if season not in _predictable(elo):
                 raise HTTPException(
                     404, f"no predictions for season {season!r}; see GET /predictions/seasons"
                 )
@@ -131,12 +140,7 @@ def create_app(settings: Settings = default_settings) -> FastAPI:
         season: str, team: str | None = None, dixon_coles: bool = True
     ) -> list[dict[str, Any]]:
         pred = tables.predictions(season, dixon_coles)
-        if team is not None:
-            pred = pred.filter(
-                (pl.col(PredictionCols.home_team) == team)
-                | (pl.col(PredictionCols.away_team) == team)
-            )
-        return _rows(pred)
+        return _rows(pred if team is None else _involving(pred, team))
 
     @app.get("/predictions/metrics")
     def prediction_metrics(season: str, dixon_coles: bool = True) -> dict[str, Any]:
@@ -148,7 +152,7 @@ def create_app(settings: Settings = default_settings) -> FastAPI:
         if league is not None:
             pred = pred.filter(pl.col("league") == league)
         if team is not None:
-            pred = pred.filter((pl.col("home_team") == team) | (pl.col("away_team") == team))
+            pred = _involving(pred, team)
         return _rows(pred)
 
     @app.get("/backtest")
