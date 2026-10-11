@@ -10,6 +10,7 @@ from money_printer_research.clean_data.integrity import (
     compare,
     disagree,
     log_report,
+    missing,
     trace,
 )
 from money_printer_research.clean_data.match_stat import MATCH_STAT_STEPS, clean_match_stat
@@ -105,7 +106,7 @@ def test_disagree_keeps_rows_where_two_sources_differ() -> None:
     assert disagree(df, {"home_goals": "tm_home_goals"})["game_id"].to_list() == [2]
 
 
-def test_at_morphism_logs_missing_data_at_each_step() -> None:
+def test_at_morphism_logs_morphism_a_and_shape_from_the_input_on() -> None:
     def drop_last(df: pl.DataFrame) -> pl.DataFrame:
         return df.head(3)
 
@@ -115,43 +116,45 @@ def test_at_morphism_logs_missing_data_at_each_step() -> None:
     pipeline = at_morphism(drop_last, key="game_id") >> at_morphism(blank_goals, key="game_id")
     logged = pipeline(told(_before())).unwrap()
     assert logged.value.height == 3
-    first, second = logged.log
-    assert first.morphism == "drop_last"
-    assert (first.before_shape, first.after_shape) == ((4, 4), (3, 4))
-    assert first.before is not None and first.before.equals(_before())
-    assert second.before is first.after  # one morphism's output is the next one's input
+
+    start, first, second = logged.log
+    assert (start.morphism, start.shape) == (None, (4, 4))
+    assert start.a.equals(_before())
+    assert (first.morphism, first.shape) == ("drop_last", (3, 4))
+    assert (second.morphism, second.shape) == ("blank_goals", (3, 4))
+    assert second.a is logged.value
+
     report = log_report(logged)
-    assert report["morphism"].to_list() == ["drop_last", "blank_goals"]
-    assert report["lost_keys"].to_list() == [1, 0]
-    assert report["new_nulls"].to_list() == [0, 2]
-    assert report["nulls_in"].to_list() == [1, 1]
-    assert report["nulls_out"].to_list() == [1, 3]
-    assert report["more_nulls"].to_list() == [[], ["goals"]]
+    assert report["morphism"].to_list() == [None, "drop_last", "blank_goals"]
+    assert report["shape"].to_list() == [[4, 4], [3, 4], [3, 4]]
+    assert report["nulls"].to_list() == [1, 1, 3]
+    assert report["more_nulls"].to_list() == [None, [], ["goals"]]
+    assert report["lost_keys"].to_list() == [None, 1, 0]
+    assert report["new_nulls"].to_list() == [None, 0, 2]
 
 
-def test_at_morphism_without_a_key_or_a_frame_input() -> None:
+def test_at_morphism_logs_the_input_once() -> None:
+    step = at_morphism(lambda df: df)
+    logged = (step >> step >> step)(told(_before())).unwrap()
+    assert [m.morphism for m in logged.log].count(None) == 1
+    assert len(logged.log) == 4
+
+
+def test_at_morphism_with_an_input_that_is_not_a_frame() -> None:
     def to_frame(n: int) -> pl.DataFrame:
         return pl.DataFrame({"x": [None] * n}, schema={"x": pl.Int64})
 
-    entry = log_report(at_morphism(to_frame)(told(2)).unwrap()).row(0, named=True)
-    assert entry["before_shape"] is None
-    assert entry["after_shape"] == [2, 1]
-    assert entry["more_nulls"] == ["x"]
-    assert entry["lost_keys"] is None
-
-
-def test_at_morphism_reads_the_input_frame_from_source() -> None:
-    def keep_first(pair: tuple[pl.DataFrame, pl.DataFrame]) -> pl.DataFrame:
-        return pair[1]
-
-    step = at_morphism(keep_first, key="game_id", source=lambda pair: pair[1])
-    entry = log_report(step(told((_before().head(1), _before()))).unwrap()).row(0, named=True)
-    assert (entry["before_shape"], entry["lost_keys"], entry["changed"]) == ([4, 4], 0, 0)
+    logged = at_morphism(to_frame, key="x")(told(2)).unwrap()
+    assert logged.log[0] == missing(None, 2, None, "x")
+    start, made = log_report(logged).iter_rows(named=True)
+    assert (start["shape"], start["nulls"]) == (None, None)
+    assert (made["shape"], made["nulls"], made["more_nulls"]) == ([2, 1], 2, None)
+    assert made["lost_keys"] is None
 
 
 def test_trace_logs_every_step() -> None:
     logged = trace(lambda df: df, lambda df: df.head(2), key="game_id")(told(_before()))
-    assert log_report(logged.unwrap())["after_shape"].to_list() == [[4, 4], [2, 4]]
+    assert log_report(logged.unwrap())["shape"].to_list() == [[4, 4], [4, 4], [2, 4]]
 
 
 def _raw_schedule() -> pl.DataFrame:
@@ -189,11 +192,12 @@ def test_trace_logs_each_morphism_of_clean_match_stat() -> None:
     logged = trace(*MATCH_STAT_STEPS, key="game_id")(told(raw)).unwrap()
     assert logged.value.equals(clean_match_stat(raw).unwrap())
 
-    report = log_report(logged)
+    report = log_report(logged).slice(1)  # the morphisms, after the input row
+    assert report["morphism"].to_list()[0] == "_keep_played_matches"
     assert report.height == len(MATCH_STAT_STEPS)
     # Only the first morphism drops a row (the unplayed fixture); none adds a null.
     assert report["lost_keys"].to_list() == [1, 0, 0, 0, 0, 0]
     assert report["new_nulls"].to_list() == [0] * len(MATCH_STAT_STEPS)
-    assert report["nulls_out"].to_list() == [0] * len(MATCH_STAT_STEPS)
+    assert report["nulls"].to_list() == [0] * len(MATCH_STAT_STEPS)
     # norm_team_names rewrites both names on every row, on purpose.
     assert report.filter(pl.col("morphism") == "norm_team_names")["changed"].item() == 4
