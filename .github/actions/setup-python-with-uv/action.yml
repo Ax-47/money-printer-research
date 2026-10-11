@@ -17,14 +17,25 @@ runs:
         enable-cache: true
         python-version: ${{ inputs.python-version }}
 
-    # The Tsinghua mirror sometimes answers a runner with 403 for a single wheel,
-    # which uv does not retry. Try the install a few times before failing.
+    # uv.lock points at the Tsinghua mirror, which often answers GitHub runners
+    # with 403 for wheels, sometimes on every retry. CI installs the same locked
+    # files from PyPI instead: the mirror keeps PyPI's /packages/ paths, and uv
+    # still checks every file against the hashes in uv.lock. Only this checkout
+    # is rewritten; the committed lock stays on the mirror.
+    - name: Use PyPI instead of the Tsinghua mirror
+      run: |
+        sed -i \
+          -e 's#https://pypi.tuna.tsinghua.edu.cn/simple#https://pypi.org/simple#g' \
+          -e 's#https://pypi.tuna.tsinghua.edu.cn/packages/#https://files.pythonhosted.org/packages/#g' \
+          pyproject.toml uv.lock
+      shell: bash
+
     - name: Install Dependencies
       run: |
         for attempt in 1 2 3; do
-          uv sync --all-groups && exit 0
+          uv sync --locked --all-groups && exit 0
           echo "uv sync failed (attempt $attempt), retrying in $((attempt * 15))s"
           sleep $((attempt * 15))
         done
-        uv sync --all-groups
+        uv sync --locked --all-groups
       shell: bash
