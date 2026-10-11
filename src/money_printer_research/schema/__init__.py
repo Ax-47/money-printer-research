@@ -31,7 +31,14 @@ import pandera.polars as pa
 import polars as pl
 
 from money_printer_research.config import settings
-from money_printer_research.schema.bet import BacktestCols, ThresholdSeasonCols
+from money_printer_research.schema.bet import (
+    MARKETS,
+    TIMINGS,
+    BacktestCols,
+    OddsCols,
+    ResultCols,
+    ThresholdSeasonCols,
+)
 from money_printer_research.schema.club import ClubCalendarCols, ClubMapCols
 from money_printer_research.schema.collected import SELECTED, RawSchema, check_collected
 from money_printer_research.schema.competition import (
@@ -142,6 +149,7 @@ __all__ = [
     "PLAYER_SLOT_FEATURES",
     "SELECTED",
     "SHAPE_PATTERN",
+    "TIMINGS",
     "BacktestCols",
     "CleanedMatchCols",
     "ClubCalendarCols",
@@ -151,15 +159,18 @@ __all__ = [
     "FatigueInputCols",
     "FormationCols",
     "GameFormationCols",
+    "MARKETS",
     "MISSING_REASONS",
     "MatchFeaturesCols",
     "MissingCols",
     "MatchLeaguesCols",
     "MatchSideCols",
+    "OddsCols",
     "PlayerFatigueCols",
     "PlayerStatCols",
     "PredictionCols",
     "RawSchema",
+    "ResultCols",
     "ScheduleCols",
     "TeamFatigueCols",
     "ThresholdSeasonCols",

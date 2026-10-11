@@ -7,7 +7,8 @@ settings.modeling.odds_dir (data_collection.scrape_odds).
 
 The odds are Pinnacle's closing prices: the sharpest widely quoted market, and what a bet
 placed just before kick-off would get. Where they are missing the next available is used:
-Pinnacle's opening price, the market average at closing, then Bet365's.
+Pinnacle's early price, the market average at closing, then Bet365's early price
+(ODDS_PREFERENCE; analysis.odds explains early and closing).
 
 football-data names teams its own way ("Man United", "Paris SG"). team_names maps them to
 the match_features names by which team each one plays alongside on the same days, so no
@@ -37,15 +38,20 @@ from money_printer_research.analysis.feature_importance import (
     load,
 )
 from money_printer_research.analysis.modeling import logistic
+from money_printer_research.analysis.odds import one_price, read_prices
 from money_printer_research.config import Settings
 from money_printer_research.config import settings as default_settings
 from money_printer_research.schema import BacktestCols, ThresholdSeasonCols
 from money_printer_research.utils import write_csv
 
 OUTCOMES = ["H", "D", "A"]
-ODDS_SOURCES = ["PSC{}", "PS{}", "AvgC{}", "B365{}"]
-"""football-data odds columns per outcome, best first: Pinnacle closing, Pinnacle opening,
-market average closing, Bet365 opening."""
+ODDS_PREFERENCE = [
+    ("pinnacle", "close"),
+    ("pinnacle", "early"),
+    ("avg", "close"),
+    ("bet365", "early"),
+]
+"""Where each game's 1X2 price comes from, best first (analysis.odds sources)."""
 
 GAME = ["league", "season_start", "home_team", "away_team"]
 THRESHOLDS = (0.0, 0.02, 0.05, 0.1, 0.2)
@@ -55,43 +61,12 @@ MIN_BETS = 30
 """Fewer bets than this swing too much for their z-score to mean anything."""
 
 
-def _read_one(path: Path, league: str, season_start: int) -> pl.DataFrame:
-    df = pl.read_csv(
-        path, infer_schema_length=0, encoding="utf8-lossy", truncate_ragged_lines=True
-    )
-    df = df.filter(pl.col("HomeTeam").is_not_null() & (pl.col("HomeTeam") != ""))
-    date = pl.col("Date")
-    odds = {
-        f"odds_{k}": pl.coalesce(
-            pl.col(c).cast(pl.Float64, strict=False)
-            for src in ODDS_SOURCES
-            if (c := src.format(k)) in df.columns
-        )
-        for k in OUTCOMES
-    }
-    return df.select(
-        pl.lit(league).alias("league"),
-        pl.lit(season_start).alias("season_start"),
-        # Older files write two-digit years (16/08/15), newer ones four (16/08/2024).
-        pl.when(date.str.len_chars() == 8)
-        .then(date.str.to_date("%d/%m/%y", strict=False))
-        .otherwise(date.str.to_date("%d/%m/%Y", strict=False))
-        .alias("day"),
-        pl.col("HomeTeam").alias("fd_home"),
-        pl.col("AwayTeam").alias("fd_away"),
-        **odds,
-    )
-
-
 def read_odds(odds_dir: Path) -> pl.DataFrame:
-    """Every odds CSV collect_odds wrote: league, season_start, day, fd_home, fd_away, odds_H/D/A.
+    """league, season_start, day, fd_home, fd_away, odds_H/D/A: one 1X2 price per game.
 
-    The league is the file's folder, the season the start year of its name (2024-25.csv).
+    The price is the first source in ODDS_PREFERENCE that prices all three outcomes.
     """
-    paths = sorted(odds_dir.glob("*/*.csv"))
-    if not paths:
-        raise FileNotFoundError(f"no odds in {odds_dir}; run `uv run collect_data` first")
-    return pl.concat(_read_one(p, p.parent.name, int(p.stem[:4])) for p in paths)
+    return one_price(read_prices(odds_dir), "1x2", ODDS_PREFERENCE)
 
 
 def team_names(odds: pl.DataFrame, games: pl.DataFrame) -> pl.DataFrame:
