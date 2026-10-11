@@ -11,6 +11,7 @@ description. The models are grouped by entity, the thing one row describes:
 | Player | Player per match | [Player](player.md) |
 | Club | Club, or club per game | [Club](club.md) |
 | Competition | Transfermarkt competition | [Competition](competition.md) |
+| Bet | Backtested game, or season of a strategy | [Bet](bet.md) |
 
 Inside each entity there is one module per pipeline stage, in order. An entity
 has only the stages it needs.

@@ -4,6 +4,7 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 import pytest
+from pandera.errors import SchemaErrors
 
 from money_printer_research.analysis.backtest import (
     attach_odds,
@@ -16,6 +17,7 @@ from money_printer_research.analysis.backtest import (
     team_names,
     walk_forward_thresholds,
 )
+from money_printer_research.schema import BacktestCols
 
 LEAGUE = "ENG-Premier League"
 DAY = datetime.date(2024, 8, 17)
@@ -190,3 +192,10 @@ def test_best_by_chance_finds_no_edge_where_the_model_is_the_market() -> None:
     ).with_columns(p_H=pl.col("p_H") * 1.2)  # the model overrates home wins
     chance = best_by_chance(picks(table), [0.0, 0.05, 0.1], sims=50)
     assert 0.05 < chance["p_value"] <= 1.0
+
+
+def test_backtest_schema_rejects_probabilities_that_do_not_sum_to_one() -> None:
+    games = _games().with_columns(odds_H=2.0, odds_D=3.5, odds_A=4.0, p_H=0.5, p_D=0.25, p_A=0.25)
+    BacktestCols.validate(picks(games), lazy=True)
+    with pytest.raises(SchemaErrors):
+        BacktestCols.validate(picks(games.with_columns(p_H=0.9)), lazy=True)

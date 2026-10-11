@@ -87,6 +87,8 @@ docstring-code-line-length = 120 # Use "dynamic" to use the line-length value fr
 [lint.per-file-ignores]
 # Ignore specific rules for test files.
 "tests/**" = ["D103"] # Ignore missing docstrings in tests
+# backtest.csv's columns end in the outcome letter (odds_H, p_D), as the code builds them.
+"src/money_printer_research/schema/bet/backtest.py" = ["N815"]
 # "money-printer-research/tests/test_foo.py" = ["D103", "F821", "F401"]  # Ignore missing docstrings and undefined name errors
 
 [lint.pydocstyle]

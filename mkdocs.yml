@@ -21,6 +21,7 @@ nav:
     - Player: schema/player.md
     - Club: schema/club.md
     - Competition: schema/competition.md
+    - Bet: schema/bet.md
   - Docker and API: docker-api.md
   - Configuration: configuration.md
   - About: about.md

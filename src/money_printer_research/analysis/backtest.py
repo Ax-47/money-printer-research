@@ -39,6 +39,7 @@ from money_printer_research.analysis.feature_importance import (
 from money_printer_research.analysis.modeling import logistic
 from money_printer_research.config import Settings
 from money_printer_research.config import settings as default_settings
+from money_printer_research.schema import BacktestCols, ThresholdSeasonCols
 from money_printer_research.utils import write_csv
 
 OUTCOMES = ["H", "D", "A"]
@@ -212,7 +213,7 @@ def cumulative_profit(table: pl.DataFrame, min_ev: float) -> pl.DataFrame:
 def walk_forward_thresholds(
     table: pl.DataFrame, thresholds: Sequence[float] = SLIDER_THRESHOLDS
 ) -> pl.DataFrame:
-    """season_start, min_ev, bets, profit, roi of each season bet at a hindsight-free threshold.
+    """Each season bet at a hindsight-free threshold (ThresholdSeasonCols).
 
     Before each season, pick the threshold that made the most on the seasons before it,
     as someone betting live would have to. The first season has nothing before it to
@@ -229,12 +230,18 @@ def walk_forward_thresholds(
         bets = profit[(seasons == season) & (ev > chosen)]
         roi = bets.mean() if bets.size else None
         rows.append((season, chosen, bets.size, bets.sum(), roi))
-    return pl.DataFrame(
+    table = pl.DataFrame(
         rows,
-        schema=["season_start", "min_ev", "bets", "profit", "roi"],
+        schema={
+            "season_start": pl.Int32,
+            "min_ev": pl.Float64,
+            "bets": pl.Int64,
+            "profit": pl.Float64,
+            "roi": pl.Float64,
+        },
         orient="row",
-        schema_overrides={"season_start": pl.Int64, "bets": pl.Int64, "roi": pl.Float64},
     )
+    return ThresholdSeasonCols.validate(table, lazy=True)
 
 
 def _best_z_score(
@@ -296,13 +303,14 @@ def best_by_chance(
 
 
 def backtest(settings: Settings = default_settings) -> pl.DataFrame:
-    """The backtest table: every game from backtest_from with odds, probabilities and pick."""
+    """The backtest table (BacktestCols): every game from backtest_from with odds and a pick."""
     df = load(settings.clean.out_dir / "model_frame.csv")
     first = settings.modeling.backtest_from
     seasons = sorted(s for s in df["season_start"].unique() if s >= first)
     games = df.filter(pl.col("season_start") >= first).select("game_id", "date", *GAME, TARGET)
     games = attach_odds(games, read_odds(settings.modeling.odds_dir))
-    return picks(games.join(walk_forward(df, seasons), on="game_id").sort("date", "game_id"))
+    table = picks(games.join(walk_forward(df, seasons), on="game_id").sort("date", "game_id"))
+    return BacktestCols.validate(table, lazy=True)
 
 
 def main(settings: Settings = default_settings) -> pl.DataFrame:

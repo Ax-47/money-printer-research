@@ -5,6 +5,7 @@
     player/       one row per player per match: Understat player stats and load
     club/         the Transfermarkt club -> Understat team map, and each club's calendar
     competition/  Transfermarkt competitions and how they are grouped (COMP_TYPES)
+    bet/          the backtest: each game's odds and pick, and how its strategies did
 
 Inside each entity, one module per stage, in pipeline order (an entity has only
 the stages it needs):
@@ -30,6 +31,7 @@ import pandera.polars as pa
 import polars as pl
 
 from money_printer_research.config import settings
+from money_printer_research.schema.bet import BacktestCols, ThresholdSeasonCols
 from money_printer_research.schema.club import ClubCalendarCols, ClubMapCols
 from money_printer_research.schema.collected import SELECTED, RawSchema, check_collected
 from money_printer_research.schema.competition import (
@@ -140,6 +142,7 @@ __all__ = [
     "PLAYER_SLOT_FEATURES",
     "SELECTED",
     "SHAPE_PATTERN",
+    "BacktestCols",
     "CleanedMatchCols",
     "ClubCalendarCols",
     "ClubMapCols",
@@ -159,6 +162,7 @@ __all__ = [
     "RawSchema",
     "ScheduleCols",
     "TeamFatigueCols",
+    "ThresholdSeasonCols",
     "TeamScheduleCols",
     "TransfermarktCompetitions",
     "TransfermarktCompetitionsRaw",
