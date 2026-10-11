@@ -70,6 +70,13 @@ def test_compare_only_checks_the_given_columns() -> None:
     assert compare(_before(), after, "game_id")["changed"].item() == 4
 
 
+def test_compare_and_changed_rows_leave_the_key_out_of_cols() -> None:
+    after = _before().with_columns(pl.col("goals") + 1)
+    report = compare(_before(), after, "game_id", cols=["game_id", "goals"])
+    assert report["changed"].item() == 4
+    assert changed_rows(_before(), after, "game_id", cols=["game_id", "goals"]).height == 4
+
+
 def test_compare_catches_values_lost_in_a_csv_round_trip(tmp_path) -> None:
     path = tmp_path / "t.csv"
     _before().with_columns(pl.lit("not a date").alias("date")).write_csv(path)

@@ -9,6 +9,8 @@ match_features keeps its nulls and gains no columns. missing_table lists every n
     no_schedule       the schedule features, for a side whose club has no Transfermarkt game
     no_next_game      days_to_next_all, for a club's last game in the Transfermarkt data
     no_tm_game        the Transfermarkt columns, for a match with no Transfermarkt game
+    no_formation      a side's formation columns, when its Transfermarkt game has no line-up
+    plain_shape       home_variant / away_variant, for a shape with no variant ("4-2-3-1")
     other             none of these, such as a formation that did not parse
 
 (A club's first game has no previous one either; club_calendar gives it MAX_GAP_DAYS of
@@ -26,6 +28,7 @@ import polars as pl
 from money_printer_research.cool_stuff import returns
 from money_printer_research.schema import (
     CleanedMatchCols,
+    FormationCols,
     MissingCols,
     ScheduleCols,
     TeamFatigueCols,
@@ -53,6 +56,15 @@ TM_COLUMNS = [
 ]
 """cleaned_matches' columns from the Transfermarkt game: tm_*, formations."""
 
+FORMATION_COLUMNS = [
+    *FormationCols.to_schema().columns,
+    CleanedMatchCols.home_formation,
+    CleanedMatchCols.away_formation,
+]
+"""Each side's formation and its encoding (shape, variant, line counts)."""
+
+_SIDE_PREFIX = {"h": ("h_", "home_"), "a": ("a_", "away_")}
+
 _SLOT = r"^[ha]_player(\d+)_(.+)$"
 
 
@@ -73,12 +85,16 @@ def missing_table(match_features: pl.DataFrame) -> pl.DataFrame:
         *(pl.col(f"{s}_{LINEUP_PROBE}").is_null().alias(f"{s}_no_lineup") for s in SIDES),
         *(pl.col(f"{s}_{SCHEDULE_PROBE}").is_null().alias(f"{s}_no_schedule") for s in SIDES),
         pl.col(CleanedMatchCols.tm_game_id).is_null().alias("no_tm_game"),
+        *(
+            pl.col(f"{p}_formation").is_null().alias(f"{s}_no_formation")
+            for s, p in (("h", "home"), ("a", "away"))
+        ),
     )
     column = pl.col("column")
     side = pl.col("side")
     per_side = {
         name: pl.when(side == "h").then(pl.col(f"h_{name}")).otherwise(pl.col(f"a_{name}"))
-        for name in ("no_lineup", "no_schedule")
+        for name in ("no_lineup", "no_schedule", "no_formation")
     }
     is_slot = pl.col("slot").is_not_null()
     empty_slot = (pl.col("feature") == EMPTY_SLOT_PROBE).any().over(key, "side", "slot") & is_slot
@@ -100,12 +116,21 @@ def missing_table(match_features: pl.DataFrame) -> pl.DataFrame:
         .then(pl.lit("no_next_game"))
         .when(column.is_in(TM_COLUMNS) & pl.col("no_tm_game"))
         .then(pl.lit("no_tm_game"))
+        .when(column.is_in(FORMATION_COLUMNS) & side.is_not_null() & per_side["no_formation"])
+        .then(pl.lit("no_formation"))
+        .when(column.str.ends_with("_variant") & column.is_in(FORMATION_COLUMNS))
+        .then(pl.lit("plain_shape"))
         .otherwise(pl.lit("other"))
     )
     return (
         cells.join(sources, on=key, how="left")
         .with_columns(
-            column.str.extract(r"^([ha])_", 1).alias("side"),
+            pl.coalesce(
+                pl.when(pl.any_horizontal(column.str.starts_with(p) for p in prefixes)).then(
+                    pl.lit(s)
+                )
+                for s, prefixes in _SIDE_PREFIX.items()
+            ).alias("side"),
             column.str.extract(_SLOT, 1).alias("slot"),
             column.str.extract(_SLOT, 2).alias("feature"),
         )
