@@ -20,13 +20,12 @@ class ClubCalendarCols(pa.DataFrameModel):
     club_id: F[pl.Int32] = pa.Field(description="Transfermarkt club id of this side.")
     is_home: F[bool] = pa.Field(description="True when the club is the home side.")
     rest_days_all: F[int] = pa.Field(
-        nullable=True,
         ge=0,
         le=30,
         description=(
             "Days since the club's previous game, any competition, capped at 30 (MAX_GAP_DAYS):"
             " the raw gap reaches years for a club that spent seasons outside the five leagues."
-            " Null for the club's first game."
+            " 30 for the club's first game in the data, which has no previous one."
         ),
     )
     games_7d_all: F[int] = pa.Field(

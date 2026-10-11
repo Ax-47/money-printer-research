@@ -39,7 +39,7 @@ def test_club_calendar_counts_every_competition() -> None:
         )
     )
     club = cal.filter(pl.col("club_id") == 1).sort("date")
-    assert club["rest_days_all"].to_list() == [None, 3, 3, MAX_GAP_DAYS]
+    assert club["rest_days_all"].to_list() == [MAX_GAP_DAYS, 3, 3, MAX_GAP_DAYS]
     assert club["games_7d_all"].to_list() == [0, 1, 2, 0]
     assert club["non_league_14d"].to_list() == [0, 0, 1, 0]
     assert club["prev_europe_away"].to_list() == [False, False, True, False]

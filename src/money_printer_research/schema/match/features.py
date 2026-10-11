@@ -171,8 +171,9 @@ class MatchFeaturesCols(CleanedMatchCols, TeamFatigueCols, TeamScheduleCols):
 
     One row per Understat game_id, the rows of cleaned_matches. CleanedMatchCols gives the
     match, its result and the Transfermarkt columns; TeamFatigueCols the h_/a_ fatigue;
-    TeamScheduleCols the h_/a_ full-calendar schedule; the Elo columns are below. A feature
-    is null where its source has no value for the game. Key: game_id.
+    TeamScheduleCols the h_/a_ full-calendar schedule; the Elo columns and the missing-value
+    flags are below. A feature is null where its source has no value for the game; the flags
+    say which source (features.missing). Key: game_id.
     """
 
     game_id: F[int] = pa.Field(unique=True, description="Understat match id; one row per game.")
@@ -195,6 +196,29 @@ class MatchFeaturesCols(CleanedMatchCols, TeamFatigueCols, TeamScheduleCols):
             "elo_home - elo_away, without home advantage. Every team starts level in 2014/15,"
             " so treat that season as warm-up."
         )
+    )
+
+    h_has_lineup: F[bool] = pa.Field(
+        description="Understat has the home starters; false means fatigue and home slots are null."
+    )
+    h_has_schedule: F[bool] = pa.Field(
+        description="The home club has a Transfermarkt game; false means h_ schedule is null."
+    )
+    h_rated_starters: F[int] = pa.Field(
+        ge=0,
+        le=11,
+        description="Home starters with per-90 rates (at least MIN_PREV_MIN previous minutes).",
+    )
+    a_has_lineup: F[bool] = pa.Field(
+        description="Understat has the away starters; false means fatigue and away slots are null."
+    )
+    a_has_schedule: F[bool] = pa.Field(
+        description="The away club has a Transfermarkt game; false means a_ schedule is null."
+    )
+    a_rated_starters: F[int] = pa.Field(
+        ge=0,
+        le=11,
+        description="Away starters with per-90 rates (at least MIN_PREV_MIN previous minutes).",
     )
 
 

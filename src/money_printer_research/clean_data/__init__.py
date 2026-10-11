@@ -10,6 +10,7 @@ from ..features import (
     get_elo,
     get_fatigue,
     get_player_features,
+    null_report,
     team_schedule_features,
     to_elo_input,
 )
@@ -125,6 +126,8 @@ def extract_features(cleaned: Cleaned) -> Result[ExtractedFeatures]:
 def clean_data(settings: Settings = default_settings) -> tuple[Cleaned, ExtractedFeatures]:
     """Entry point `clean_data`: clean, then extract features; raise on Err, write both as CSV.
 
+    Ends by printing the nulls left in match_features, per feature group (null_report).
+
     The clean outputs are written before the features run, so a feature failure
     leaves them on disk.
     """
@@ -136,6 +139,8 @@ def clean_data(settings: Settings = default_settings) -> tuple[Cleaned, Extracte
     features = extract_features(cleaned).expect("extract_features")
     for path in features.save(out_dir):
         print("saved", path, flush=True)
+    print("nulls left in match_features (see features.missing):", flush=True)
+    print(null_report(features.match_features), flush=True)
     return cleaned, features
 
 

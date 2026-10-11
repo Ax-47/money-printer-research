@@ -69,6 +69,7 @@ to 100, with hand-set weights:
 each Understat match as `h_*` and `a_*` columns:
 
 - `rest_days_all`: days since the previous game in any competition, capped at 30.
+  A club's first game in the data has no previous one and gets 30.
 - `games_7d_all`, `games_14d_all`: games in the previous 7 and 14 days.
 - `non_league_14d`: cup, European or other games in the previous 14 days.
 - `prev_europe_away`: the previous game was an away European tie.
@@ -100,5 +101,39 @@ newcomer's numbers are not noise.
 `join_features` left-joins Elo, fatigue, schedule and the player slots onto
 `cleaned_matches`, one to one, so every match keeps its row. Elo has no
 `game_id`, so it joins on the match date and both teams. A feature is null where
-its source has no value for the game. The result is `match_features.csv`, the
-modelling table.
+its source has no value for the game, and flag columns say which source was
+missing (see [Missing values](#missing-values)). The result is
+`match_features.csv`, the modelling table.
+
+## Missing values
+
+`features.missing` decides what happens to the gaps in `match_features.csv`.
+A feature is null for one of four reasons:
+
+| Reason | Null columns | Flag |
+| --- | --- | --- |
+| Understat has no line-up for a side | that side's fatigue and player slots | `h_has_lineup`, `a_has_lineup` |
+| A side's club has no matched Transfermarkt game | that side's schedule features | `h_has_schedule`, `a_has_schedule` |
+| A starter has under 270 previous minutes | his `xg90`, `xa90` and `form90` slots | `h_rated_starters`, `a_rated_starters` |
+| A club's last game in the Transfermarkt data | `days_to_next_all` | none |
+
+The nulls stay null. Filling them with a mean or median of the table would leak
+later seasons into earlier ones, and a constant such as 0 would read as a real
+value: a newcomer is not a player with no expected goals. The flags give a model
+the reason instead. `has_lineup` and `has_schedule` are true when that source had
+the side; `rated_starters` counts the starters, 0 to 11, with per-90 rates.
+Gradient-boosted trees, as in `feature_importance`, take nulls as they are; a
+model that cannot should fill them inside its own training fold.
+
+The one gap filled at the source is `rest_days_all` for a club's first game,
+which gets the 30-day cap, since the cap already means "a month or more".
+
+`uv run clean_data` ends by printing what is left, per feature group, from
+`null_report`:
+
+```python
+import polars as pl
+from money_printer_research.features import null_report
+
+print(null_report(pl.read_csv("data/clean/match_features.csv", infer_schema_length=None)))
+```
