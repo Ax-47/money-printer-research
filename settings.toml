@@ -29,6 +29,7 @@ out_dir = "data/clean"
 
 [modeling]
 out_file = "data/models/hda_logistic.joblib"
+predictions_file = "data/predictions/upcoming.csv"
 # The HTTP API (uv run api); 0.0.0.0 so it is reachable from outside a container.
 [api_settings]
 host = "0.0.0.0"

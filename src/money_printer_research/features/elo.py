@@ -91,6 +91,11 @@ def _teams_by_season(matches: DataFrame[EloInputCols]) -> dict[str, set[str]]:
     }
 
 
+def season_label(season_start: pl.Expr) -> pl.Expr:
+    """EloInputCols.season from a season's start year: 2014 -> "2014/15"."""
+    return pl.format("{}/{}", season_start, (season_start + 1).cast(pl.String).str.slice(2, 2))
+
+
 @returns(EloInputCols)
 def to_elo_input(matches: DataFrame[CleanedMatchCols]) -> pl.DataFrame:
     """cleaned_matches -> EloInputCols: season label, date only, full-time goals and result."""
@@ -98,7 +103,7 @@ def to_elo_input(matches: DataFrame[CleanedMatchCols]) -> pl.DataFrame:
     start = pl.col(CleanedMatchCols.season_start)
     hg, ag = pl.col(CleanedMatchCols.home_goals), pl.col(CleanedMatchCols.away_goals)
     return matches.select(
-        pl.format("{}/{}", start, (start + 1).cast(pl.String).str.slice(2, 2)).alias(ei.season),
+        season_label(start).alias(ei.season),
         pl.col(CleanedMatchCols.date).dt.date().alias(ei.match_date),
         pl.col(CleanedMatchCols.home_team).alias(ei.home_team),
         pl.col(CleanedMatchCols.away_team).alias(ei.away_team),
@@ -144,15 +149,14 @@ def _start_season(
         rating[team] = params.base + (rating[team] - params.base) * (1 - params.season_regress)
 
 
-def get_elo(
-    matches: DataFrame[EloInputCols], params: EloParams = DEFAULT_ELO
-) -> DataFrame[EloCols]:
-    """Add pre-match elo_home, elo_away and elo_diff (home minus away, no home bonus).
+def _replay(
+    df: DataFrame[EloInputCols], params: EloParams
+) -> tuple[list[float], list[float], dict[str, float], set[str], str | None]:
+    """Walk the played matches in date order.
 
-    Promoted teams start each season at the mean end-of-season rating of the
-    teams that went down, which keeps the league average stable.
+    Returns the pre-match home and away ratings of each match, then the state after the
+    last one: every team's rating, the teams of the last season and that season.
     """
-    df = DataFrame[EloInputCols](matches.sort(EloCols.match_date))
     teams_by_season = _teams_by_season(df)
     rating: dict[str, float] = {}
     last_season_teams: set[str] = set()
@@ -179,11 +183,54 @@ def get_elo(
         delta = params.k * margin * (actual - expected)
         rating[home] = home_rating + delta
         rating[away] = away_rating - delta
+    return elo_home, elo_away, rating, last_season_teams, current_season
 
-    out = df.with_columns(
-        pl.Series(EloCols.elo_home, elo_home), pl.Series(EloCols.elo_away, elo_away)
+
+def _with_diff(df: pl.DataFrame, elo_home: list[float], elo_away: list[float]) -> pl.DataFrame:
+    return df.with_columns(
+        pl.Series(EloCols.elo_home, elo_home, pl.Float64),
+        pl.Series(EloCols.elo_away, elo_away, pl.Float64),
     ).with_columns((pl.col(EloCols.elo_home) - pl.col(EloCols.elo_away)).alias(EloCols.elo_diff))
-    return EloCols.validate(out, lazy=True)
+
+
+def get_elo(
+    matches: DataFrame[EloInputCols], params: EloParams = DEFAULT_ELO
+) -> DataFrame[EloCols]:
+    """Add pre-match elo_home, elo_away and elo_diff (home minus away, no home bonus).
+
+    Promoted teams start each season at the mean end-of-season rating of the
+    teams that went down, which keeps the league average stable.
+    """
+    df = DataFrame[EloInputCols](matches.sort(EloCols.match_date))
+    elo_home, elo_away, *_ = _replay(df, params)
+    return EloCols.validate(_with_diff(df, elo_home, elo_away), lazy=True)
+
+
+def fixture_elo(
+    played: DataFrame[EloInputCols], fixtures: pl.DataFrame, params: EloParams = DEFAULT_ELO
+) -> pl.DataFrame:
+    """Pre-match elo_home, elo_away and elo_diff for unplayed fixtures.
+
+    `fixtures` has EloInputCols' season, match_date, home_team and away_team. The ratings
+    are those after every played match; a fixture has no result, so it moves none. A
+    fixture in a season the played matches have not reached starts that season first
+    (promoted teams, regression toward base), as get_elo would.
+    """
+    played = DataFrame[EloInputCols](played.sort(EloCols.match_date))
+    *_, rating, last_season_teams, current_season = _replay(played, params)
+    cols = [EloCols.season, EloCols.home_team, EloCols.away_team]
+    teams_by_season = _teams_by_season(pl.concat([played.select(cols), fixtures.select(cols)]))  # pyright: ignore[reportArgumentType]
+    fixtures = fixtures.sort(EloCols.match_date)
+    elo_home: list[float] = []
+    elo_away: list[float] = []
+    for season, home, away in fixtures.select(cols).iter_rows():
+        if season != current_season:
+            this_season_teams = teams_by_season[season]
+            _start_season(rating, last_season_teams, this_season_teams, params)
+            last_season_teams, current_season = this_season_teams, season
+        elo_home.append(rating[home])
+        elo_away.append(rating[away])
+    return _with_diff(fixtures, elo_home, elo_away)
 
 
 def _dc_tau(lam: FloatArray, mu: FloatArray, rho: float, max_goals: int) -> FloatArray:

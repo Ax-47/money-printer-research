@@ -96,6 +96,8 @@ def with_derived(df: pl.DataFrame) -> pl.DataFrame:
 
     <f>_mean is the mean of a side's starter slots (nulls skipped), n_low_min the number
     of its starters under MIN_PREV_MIN previous minutes, <name>_diff home minus away.
+    A diff whose h_/a_ columns are not in `df` is left out (predict's fixtures carry only
+    the features the saved model uses); selecting it later fails loudly.
     """
     slots = {
         (s, f): [c for c in df.columns if re.fullmatch(rf"{s}_player\d+_{f}", c)]
@@ -118,8 +120,9 @@ def with_derived(df: pl.DataFrame) -> pl.DataFrame:
         for c in cols
         if c.endswith("_diff")
     }
+    present = [n for n in sorted(diffs - {"elo"}) if {f"h_{n}", f"a_{n}"} <= set(df.columns)]
     return df.with_columns(
-        (pl.col(f"h_{n}") - pl.col(f"a_{n}")).alias(f"{n}_diff") for n in sorted(diffs - {"elo"})
+        (pl.col(f"h_{n}") - pl.col(f"a_{n}")).alias(f"{n}_diff") for n in present
     )
 
 

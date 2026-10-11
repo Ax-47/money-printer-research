@@ -71,6 +71,7 @@ uv run show_config
 | Key | Default | Notes |
 | --- | --- | --- |
 | `out_file` | `data/models/hda_logistic.joblib` | the H/D/A model `uv run modeling` fits on every season and saves |
+| `predictions_file` | `data/predictions/upcoming.csv` | `uv run predict`'s output: H/D/A probabilities for every unplayed fixture |
 
 ### `[api_settings]`
 
