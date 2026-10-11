@@ -170,6 +170,17 @@ class ModelingSettings(_Section):
         default=Path("data/predictions/upcoming.csv"),
         description="`predict`'s output: H/D/A probabilities for every unplayed fixture.",
     )
+    odds_dir: RootPath = Field(
+        default=Path("data/raw/odds"),
+        description="football-data.co.uk odds CSVs `backtest` downloads, per league and season.",
+    )
+    backtest_from: int = Field(
+        default=2017, ge=2015, description="First season (start year) `backtest` bets on."
+    )
+    backtest_file: RootPath = Field(
+        default=Path("data/predictions/backtest.csv"),
+        description="`backtest`'s output: each game's odds, probabilities, pick and profit.",
+    )
 
 
 class ApiSettings(_Section):

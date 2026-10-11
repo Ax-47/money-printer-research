@@ -8,10 +8,12 @@ import pytest
 from fastapi.testclient import TestClient
 from pandera.typing.polars import DataFrame
 
+from money_printer_research.analysis.backtest import picks
 from money_printer_research.api import create_app
-from money_printer_research.config import CleanSettings, Settings
+from money_printer_research.config import CleanSettings, ModelingSettings, Settings
 from money_printer_research.features.elo import get_elo
 from money_printer_research.schema import EloInputCols
+from tests.test_backtest import _table  # pyright: ignore[reportPrivateUsage]
 
 TEAMS = ["Arsenal", "Chelsea", "Everton", "Fulham"]
 SEASONS = ["2014/15", "2015/16", "2016/17"]
@@ -52,7 +54,28 @@ def client(tmp_path: Path) -> TestClient:
     pl.DataFrame({"game_id": [1, 2], "xg": [0.5, float("nan")]}).write_csv(
         tmp_path / "fatigue.csv"
     )
-    return TestClient(create_app(Settings(clean=CleanSettings(out_dir=tmp_path))))
+    upcoming = tmp_path / "predictions" / "upcoming.csv"
+    upcoming.parent.mkdir()
+    pl.DataFrame(
+        {
+            "game_id": [1, 2, 3],
+            "date": ["2026-10-17 14:00:00", "2026-10-17 16:30:00", "2026-10-18 19:00:00"],
+            "league": ["ENG-Premier League", "ENG-Premier League", "ESP-La Liga"],
+            "home_team": ["Arsenal", "Everton", "Barcelona"],
+            "away_team": ["Chelsea", "Arsenal", "Sevilla"],
+            "p_H": [0.5, 0.3, 0.6],
+            "p_D": [0.3, 0.3, 0.25],
+            "p_A": [0.2, 0.4, 0.15],
+        }
+    ).write_csv(upcoming)
+    backtest = upcoming.parent / "backtest.csv"
+    leagues = ["ENG-Premier League", "ESP-La Liga", "ENG-Premier League"]
+    picks(_table()).with_columns(league=pl.Series(leagues)).write_csv(backtest)
+    settings = Settings(
+        clean=CleanSettings(out_dir=tmp_path),
+        modeling=ModelingSettings(predictions_file=upcoming, backtest_file=backtest),
+    )
+    return TestClient(create_app(settings))
 
 
 def test_health_counts_tables(client: TestClient) -> None:
@@ -104,3 +127,58 @@ def test_metrics(client: TestClient) -> None:
     assert body["n"] == 12
     assert 0 <= body["accuracy"] <= 1
     assert body["log_loss"] > 0
+
+
+def test_upcoming_filters_by_league_and_team(client: TestClient) -> None:
+    assert len(client.get("/upcoming").json()) == 3
+    rows = client.get("/upcoming", params={"league": "ENG-Premier League"}).json()
+    assert [r["game_id"] for r in rows] == [1, 2]
+    rows = client.get("/upcoming", params={"team": "Arsenal"}).json()
+    assert [r["game_id"] for r in rows] == [1, 2]
+    rows = client.get("/upcoming", params={"league": "ESP-La Liga", "team": "Arsenal"}).json()
+    assert rows == []
+
+
+def test_upcoming_without_predict_run_is_404(tmp_path: Path) -> None:
+    settings = Settings(modeling=ModelingSettings(predictions_file=tmp_path / "none.csv"))
+    response = TestClient(create_app(settings)).get("/upcoming")
+    assert response.status_code == 404
+    assert "uv run predict" in response.json()["detail"]
+
+
+def test_backtest_summarises_bets_above_the_threshold(client: TestClient) -> None:
+    body = client.get("/backtest", params={"min_ev": 0.05}).json()
+    assert body["leagues"] == ["ENG-Premier League", "ESP-La Liga"]
+    assert body["games"] == 3
+    assert body["total"]["bets"] == 2
+    assert body["total"]["profit"] == pytest.approx(0.0)
+    assert [r["profit"] for r in body["cumulative_profit"]] == pytest.approx([1.0, 0.0])
+    assert [r["season_start"] for r in body["by_season"]] == [2024]
+    assert body["log_loss"]["model"] > 0
+
+
+def test_backtest_filters_by_league(client: TestClient) -> None:
+    body = client.get("/backtest", params={"league": "ESP-La Liga"}).json()
+    assert body["games"] == 1
+    assert body["total"]["bets"] == 0
+
+
+def test_backtest_without_a_run_is_404(tmp_path: Path) -> None:
+    settings = Settings(modeling=ModelingSettings(backtest_file=tmp_path / "none.csv"))
+    response = TestClient(create_app(settings)).get("/backtest")
+    assert response.status_code == 404
+    assert "uv run backtest" in response.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    ("path", "needle"),
+    [
+        ("/", 'fetch("upcoming")'),
+        ("/backtest.html", "fetch(`backtest?"),
+        ("/common.js", "setTheme"),
+    ],
+)
+def test_pages_are_served(client: TestClient, path: str, needle: str) -> None:
+    response = client.get(path)
+    assert response.status_code == 200
+    assert needle in response.text

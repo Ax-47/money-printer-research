@@ -5,3 +5,5 @@
 ::: money_printer_research.analysis.modeling
 
 ::: money_printer_research.analysis.predict
+
+::: money_printer_research.analysis.backtest

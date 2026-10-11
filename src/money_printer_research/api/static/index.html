@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Upcoming predictions</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  .legend { display: flex; gap: 16px; font-size: .8rem; color: var(--muted); margin-bottom: 8px; }
+  .legend span::before {
+    content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+    margin-right: 6px; background: var(--c);
+  }
+  .match {
+    display: grid; grid-template-columns: 110px 1fr minmax(220px, 1.2fr); gap: 12px; align-items: center;
+    padding: 12px 14px; margin-bottom: 8px; background: var(--panel);
+    border: 1px solid var(--border); border-radius: 10px;
+  }
+  .when { font-size: .85rem; }
+  .when small { display: block; color: var(--muted); }
+  .teams { font-weight: 600; }
+  .teams span { text-transform: capitalize; }
+  .teams .fav { text-decoration: underline; text-underline-offset: 3px; }
+  .teams small { display: block; font-weight: 400; color: var(--muted); }
+  .bar { display: flex; height: 26px; border-radius: 6px; overflow: hidden; }
+  .bar div {
+    display: flex; align-items: center; justify-content: center; min-width: 0;
+    color: var(--bar-text); font-size: .8rem; font-weight: 600; white-space: nowrap; overflow: hidden;
+  }
+  .H { background: var(--home); } .D { background: var(--draw); } .A { background: var(--away); }
+  .ev { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: .85rem; }
+  .ev label { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+  .ev input { min-width: 0; width: 76px; padding: 4px 8px; }
+  .ev output { min-width: 72px; font-weight: 600; }
+  .ev .plus { color: var(--green); } .ev .minus { color: var(--red); }
+  @media (max-width: 640px) {
+    .match { grid-template-columns: 1fr; gap: 6px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <nav><a href="./" aria-current="page">Upcoming</a><a href="backtest.html">Backtest</a></nav>
+  <header>
+    <div>
+      <h1>Upcoming predictions</h1>
+      <p class="sub" id="summary">Loading…</p>
+    </div>
+    <button id="theme" title="Switch Catppuccin flavor"></button>
+  </header>
+  <div class="filters">
+    <label>League <select id="league"><option value="">All leagues</option></select></label>
+    <label>Team <input id="team" list="teams" placeholder="Any team"></label>
+    <datalist id="teams"></datalist>
+  </div>
+  <p class="sub">Enter a bookmaker's decimal odds to see the expected value of a 1-unit bet
+    (EV = probability × odds − 1). The grey number in each box is the fair price.</p>
+  <div class="legend">
+    <span style="--c: var(--home)">Home win</span>
+    <span style="--c: var(--draw)">Draw</span>
+    <span style="--c: var(--away)">Away win</span>
+  </div>
+  <div id="matches"></div>
+</main>
+<script src="common.js"></script>
+<script>
+  const pct = (p) => `${Math.round(p * 100)}%`;
+  let fixtures = [];
+
+  const OUTCOMES = { H: "Home", D: "Draw", A: "Away" };
+
+  // EV of a 1-unit stake at decimal odds: p * odds - 1. The placeholder is the fair
+  // price 1 / p, so any odds above it are +EV.
+  function evCell(f, k) {
+    const p = f[`p_${k}`];
+    const key = `odds:${f.game_id}:${k}`;
+    const input = el("input", {
+      type: "number", min: "1.01", step: "0.01", inputMode: "decimal",
+      placeholder: (1 / p).toFixed(2), value: stored(key), title: `Decimal odds for ${OUTCOMES[k]}`,
+    });
+    const out = el("output");
+    const update = () => {
+      const odds = parseFloat(input.value);
+      const ev = p * odds - 1;
+      out.textContent = odds > 1 ? `EV ${ev >= 0 ? "+" : ""}${(ev * 100).toFixed(1)}%` : "";
+      out.className = odds > 1 ? (ev > 0 ? "plus" : "minus") : "";
+    };
+    input.addEventListener("input", () => { store(key, input.value); update(); });
+    update();
+    return el("label", {}, OUTCOMES[k], input, out);
+  }
+
+  function row(f) {
+    const date = new Date(f.date);
+    const fav = f.p_H >= f.p_A ? f.home_team : f.away_team;
+    const team = (name) => el("span", { className: name === fav ? "fav" : "" }, name);
+    const bar = el("div", { className: "bar" }, ...["H", "D", "A"].map((k) =>
+      el("div", { className: k, style: `width: ${f[`p_${k}`] * 100}%`, title: pct(f[`p_${k}`]) },
+        f[`p_${k}`] >= 0.12 ? pct(f[`p_${k}`]) : "")));
+    return el("div", { className: "match" },
+      el("div", { className: "when" },
+        date.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }),
+        el("small", {}, date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }))),
+      el("div", { className: "teams" }, team(f.home_team), " vs ", team(f.away_team),
+        el("small", {}, f.league)),
+      bar,
+      el("div", { className: "ev" }, ...Object.keys(OUTCOMES).map((k) => evCell(f, k))));
+  }
+
+  function render() {
+    const league = $("league").value;
+    const team = $("team").value.trim().toLowerCase();
+    const shown = fixtures.filter((f) =>
+      (!league || f.league === league) &&
+      (!team || f.home_team.toLowerCase().includes(team) || f.away_team.toLowerCase().includes(team)));
+    $("summary").textContent = `${shown.length} of ${fixtures.length} unplayed fixtures`;
+    $("matches").replaceChildren(...(shown.length
+      ? shown.map(row)
+      : [el("div", { className: "empty" }, "No fixture matches these filters.")]));
+  }
+
+  async function load() {
+    const res = await fetch("upcoming");
+    if (!res.ok) {
+      $("summary").textContent = "";
+      $("matches").replaceChildren(el("div", { className: "empty" },
+        "No predictions yet. Run ", el("code", {}, "uv run predict"), " and reload."));
+      return;
+    }
+    fixtures = await res.json();
+    options($("league"), fixtures.map((f) => f.league), (v) => el("option", { value: v }, v));
+    options($("teams"), fixtures.flatMap((f) => [f.home_team, f.away_team]),
+      (v) => el("option", { value: v }));
+    render();
+  }
+
+  $("league").addEventListener("change", render);
+  $("team").addEventListener("input", render);
+  load();
+</script>
+</body>
+</html>

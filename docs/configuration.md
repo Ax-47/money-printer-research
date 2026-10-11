@@ -72,6 +72,9 @@ uv run show_config
 | --- | --- | --- |
 | `out_file` | `data/models/hda_logistic.joblib` | the H/D/A model `uv run modeling` fits on every season and saves |
 | `predictions_file` | `data/predictions/upcoming.csv` | `uv run predict`'s output: H/D/A probabilities for every unplayed fixture |
+| `odds_dir` | `data/raw/odds` | football-data.co.uk odds CSVs `uv run backtest` downloads, per league and season |
+| `backtest_from` | `2017` | first season (start year) `uv run backtest` bets on; 2015 or later |
+| `backtest_file` | `data/predictions/backtest.csv` | `uv run backtest`'s output: each game's odds, probabilities, pick and profit |
 
 ### `[api_settings]`
 
