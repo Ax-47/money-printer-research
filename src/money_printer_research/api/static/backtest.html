@@ -86,10 +86,13 @@
       svg("text", { x: w - pad.r, y: h - 4, "text-anchor": "end" }, points.at(-1).day));
   }
 
+  // 2024 -> "2024/25"
+  const seasonLabel = (start) => `${start}/${String((start + 1) % 100).padStart(2, "0")}`;
+
   function seasonTable(rows) {
     const head = ["Season", "Bets", "Hit rate", "Profit", "ROI"].map((t) => el("th", {}, t));
     return el("table", {}, el("tr", {}, ...head), ...rows.map((r) => el("tr", {},
-      el("td", {}, `${r.season_start}/${String((r.season_start + 1) % 100).padStart(2, "0")}`),
+      el("td", {}, seasonLabel(r.season_start)),
       el("td", {}, r.bets),
       el("td", {}, pct(r.hit_rate)),
       el("td", { className: tone(r.profit) }, signed(r.profit, (v) => v.toFixed(1))),
@@ -98,8 +101,9 @@
 
   // Each season bet at the threshold that did best before it, as a live bettor must choose.
   function walkForwardCard(rows) {
-    const bets = rows.reduce((n, r) => n + r.bets, 0);
-    const profit = rows.reduce((n, r) => n + r.profit, 0);
+    const sum = (key) => rows.reduce((total, r) => total + r[key], 0);
+    const bets = sum("bets"), profit = sum("profit");
+    const pickedLeague = $("league").value !== "";
     const head = ["Season", "Threshold", "Bets", "Profit", "ROI"].map((t) => el("th", {}, t));
     return el("div", { className: "card" },
       el("h2", {}, "Threshold chosen without hindsight"),
@@ -108,10 +112,10 @@
         + "seasons before it only. Total: ",
         el("b", { className: tone(profit) }, `${signed(profit, (v) => v.toFixed(1))} units`),
         ` on ${bets.toLocaleString()} bets` + (bets ? `, ROI ${signed(profit / bets, pct)}` : "") + "."
-        + ($("league").value ? " Choosing the league after seeing its results flatters them "
+        + (pickedLeague ? " Choosing the league after seeing its results flatters them "
           + "the same way; All leagues makes no such choice." : "")),
       el("table", {}, el("tr", {}, ...head), ...rows.map((r) => el("tr", {},
-        el("td", {}, `${r.season_start}/${String((r.season_start + 1) % 100).padStart(2, "0")}`),
+        el("td", {}, seasonLabel(r.season_start)),
         el("td", {}, pct(r.min_ev, 0)),
         el("td", {}, r.bets),
         el("td", { className: tone(r.profit) }, signed(r.profit, (v) => v.toFixed(1))),
@@ -129,9 +133,9 @@
       return;
     }
     const [lo, hi] = ci(t);
-    const unsure = t.roi_se != null && lo < 0 && hi > 0;
+    const couldBeLuck = t.roi_se != null && lo < 0 && hi > 0;
     $("result").replaceChildren(
-      ...(unsure ? [el("div", { className: "note" }, "The 95% range of the ROI includes zero: "
+      ...(couldBeLuck ? [el("div", { className: "note" }, "The 95% range of the ROI includes zero: "
         + "this result is within what luck alone produces. It is not evidence of an edge.")] : []),
       el("div", { className: "tiles" },
         tile("Bets", t.bets.toLocaleString()),

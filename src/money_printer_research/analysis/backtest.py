@@ -48,9 +48,10 @@ market average closing, Bet365 opening."""
 
 GAME = ["league", "season_start", "home_team", "away_team"]
 THRESHOLDS = (0.0, 0.02, 0.05, 0.1, 0.2)
-GRID = tuple(i / 100 for i in range(31))
+SLIDER_THRESHOLDS = tuple(i / 100 for i in range(31))
 """The thresholds the backtest page's slider offers, 0% to 30%."""
 MIN_BETS = 30
+"""Fewer bets than this swing too much for their z-score to mean anything."""
 
 
 def _read_one(path: Path, league: str, season_start: int) -> pl.DataFrame:
@@ -178,18 +179,10 @@ def log_loss_vs_market(table: pl.DataFrame) -> dict[str, float]:
     }
 
 
-def _won(table: pl.DataFrame) -> np.ndarray:
-    return (table["pick"] == table[TARGET]).to_numpy()
-
-
-def _pick_odds(table: pl.DataFrame) -> np.ndarray:
-    return (
-        table.select(
-            pl.coalesce(pl.when(pl.col("pick") == k).then(pl.col(f"odds_{k}")) for k in OUTCOMES)
-        )
-        .to_series()
-        .to_numpy()
-    )
+def _odds_of_pick(table: pl.DataFrame) -> np.ndarray:
+    """The odds of the outcome each game's pick backed."""
+    odds = pl.coalesce(pl.when(pl.col("pick") == k).then(pl.col(f"odds_{k}")) for k in OUTCOMES)
+    return table.select(odds).to_series().to_numpy()
 
 
 def summary(table: pl.DataFrame, min_ev: float, by: list[str] | None = None) -> pl.DataFrame:
@@ -217,24 +210,25 @@ def cumulative_profit(table: pl.DataFrame, min_ev: float) -> pl.DataFrame:
 
 
 def walk_forward_thresholds(
-    table: pl.DataFrame, thresholds: Sequence[float] = GRID
+    table: pl.DataFrame, thresholds: Sequence[float] = SLIDER_THRESHOLDS
 ) -> pl.DataFrame:
     """season_start, min_ev, bets, profit, roi of each season bet at a hindsight-free threshold.
 
-    The threshold is the one that made the most on the seasons before it, as someone
-    betting live would have to choose.
-
-    The first season has no history to choose from, so it is left out.
+    Before each season, pick the threshold that made the most on the seasons before it,
+    as someone betting live would have to. The first season has nothing before it to
+    choose from, so it is left out.
     """
     seasons = table["season_start"].to_numpy()
-    ev, profit = table["ev"].to_numpy(), table["profit"].to_numpy()
+    ev = table["ev"].to_numpy()
+    profit = table["profit"].to_numpy()
+
     rows = []
-    for s in sorted(set(seasons.tolist()))[1:]:
-        past = seasons < s
-        t = max(thresholds, key=lambda t: profit[past & (ev > t)].sum())
-        bets = profit[(seasons == s) & (ev > t)]
+    for season in sorted(set(seasons.tolist()))[1:]:
+        before = seasons < season
+        chosen = max(thresholds, key=lambda t: profit[before & (ev > t)].sum())
+        bets = profit[(seasons == season) & (ev > chosen)]
         roi = bets.mean() if bets.size else None
-        rows.append((s, t, bets.size, bets.sum(), roi))
+        rows.append((season, chosen, bets.size, bets.sum(), roi))
     return pl.DataFrame(
         rows,
         schema=["season_start", "min_ev", "bets", "profit", "roi"],
@@ -243,46 +237,62 @@ def walk_forward_thresholds(
     )
 
 
-def _best_z(
+def _best_z_score(
     profit: np.ndarray, ev: np.ndarray, groups: list[np.ndarray], thresholds: Sequence[float]
 ) -> float:
-    """The highest ROI z-score over every group and threshold with at least MIN_BETS bets."""
+    """The best ROI z-score over every (group, threshold) cell with at least MIN_BETS bets.
+
+    The z-score is the ROI divided by its standard error: how many standard errors above
+    breaking even the cell is.
+    """
     best = -np.inf
-    for g in groups:
-        for t in thresholds:
-            b = profit[g & (ev > t)]
-            if b.size >= MIN_BETS and (sd := b.std(ddof=1)) > 0:
-                best = max(best, b.mean() / (sd / np.sqrt(b.size)))
+    for in_group in groups:
+        for threshold in thresholds:
+            bets = profit[in_group & (ev > threshold)]
+            if bets.size < MIN_BETS or (spread := bets.std(ddof=1)) == 0:
+                continue
+            best = max(best, bets.mean() / (spread / np.sqrt(bets.size)))
     return float(best)
 
 
 def best_by_chance(
-    table: pl.DataFrame, thresholds: Sequence[float] = GRID, sims: int = 200, seed: int = 0
+    table: pl.DataFrame,
+    thresholds: Sequence[float] = SLIDER_THRESHOLDS,
+    sims: int = 200,
+    seed: int = 0,
 ) -> dict[str, float]:
-    """How often the best (league or all, threshold) cell looks this good by luck alone.
+    """How often the best (league, threshold) cell looks this good by luck alone.
 
-    observed is the best cell's ROI z-score. Each simulation draws every result from the
-    bookmaker's margin-free probabilities, i.e. a world where the model has no edge, keeps
-    the same picks and odds, and finds its best cell the same way; p_value is the share of
-    simulations at least as good as observed. A p_value far from 0 means the best cell is
-    what searching this many cells finds anyway.
+    observed is the z-score of the best cell, where a cell is one league, or all of them,
+    at one threshold. Each simulation replays the same picks at the same odds in a world
+    where the model has no edge: every result is drawn from the bookmaker's margin-free
+    probabilities. p_value is the share of simulations whose best cell scores at least
+    as high as observed; far from 0, the best cell is no better than searching this many
+    cells finds by chance.
     """
     leagues = table["league"].to_numpy()
-    groups = [np.ones(table.height, bool)] + [leagues == lg for lg in np.unique(leagues)]
-    ev, odds = table["ev"].to_numpy(), _pick_odds(table)
-    pick = table["pick"].replace_strict({k: i for i, k in enumerate(OUTCOMES)}).to_numpy()
+    groups = [np.ones(table.height, bool), *(leagues == lg for lg in np.unique(leagues))]
+    ev = table["ev"].to_numpy()
+    pick_odds = _odds_of_pick(table)
+
+    def best_z_score(won: np.ndarray) -> float:
+        return _best_z_score(np.where(won, pick_odds - 1, -1.0), ev, groups, thresholds)
+
+    observed = best_z_score((table["pick"] == table[TARGET]).to_numpy())
+
     implied = 1 / table.select(f"odds_{k}" for k in OUTCOMES).to_numpy()
-    cum = (implied / implied.sum(axis=1, keepdims=True)).cumsum(axis=1)
-
-    def best(won: np.ndarray) -> float:
-        return _best_z(np.where(won, odds - 1, -1.0), ev, groups, thresholds)
-
-    observed = best(_won(table))
+    market_cdf = (implied / implied.sum(axis=1, keepdims=True)).cumsum(axis=1)
+    pick = table["pick"].replace_strict({k: i for i, k in enumerate(OUTCOMES)}).to_numpy()
     rng = np.random.default_rng(seed)
-    null = [
-        best((rng.random(table.height)[:, None] > cum).sum(axis=1) == pick) for _ in range(sims)
-    ]
-    return {"observed": observed, "p_value": float(np.mean(np.array(null) >= observed))}
+
+    def no_edge_best_z_score() -> float:
+        # A uniform draw lands past as many cumulative probabilities as the drawn
+        # outcome's index: 0 is H, 1 is D, 2 is A.
+        result = (rng.random(table.height)[:, None] > market_cdf).sum(axis=1)
+        return best_z_score(result == pick)
+
+    by_chance = np.array([no_edge_best_z_score() for _ in range(sims)])
+    return {"observed": observed, "p_value": float(np.mean(by_chance >= observed))}
 
 
 def backtest(settings: Settings = default_settings) -> pl.DataFrame:
@@ -309,13 +319,12 @@ def main(settings: Settings = default_settings) -> pl.DataFrame:
                 summary(table, t).select(pl.lit(t).alias("min_ev"), pl.all()) for t in THRESHOLDS
             )
         )
-    with pl.Config(float_precision=3, tbl_rows=40):
         print("Each season at the threshold that did best on the seasons before it:")
         print(walk_forward_thresholds(table))
     chance = best_by_chance(table)
     print(
-        f"Best league/threshold z-score {chance['observed']:.2f}; a model with no edge "
-        f"shows one at least as good {chance['p_value']:.0%} of the time"
+        f"Best league and threshold: z-score {chance['observed']:.2f}. "
+        f"A model with no edge scores at least as high {chance['p_value']:.0%} of the time."
     )
     print(f"Saved {out}")
     return table
