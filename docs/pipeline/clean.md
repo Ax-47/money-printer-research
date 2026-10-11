@@ -106,6 +106,20 @@ print(alias_block(schedule))
 
 `clean_data.integrity` compares a step's input with its output on a key and counts
 keys lost, added or duplicated, values changed, and values turned into null.
+`at_morphism(f, key=...)` does the same from inside a pipeline: it is `f` as a
+Kleisli arrow that writes, at that morphism, a log entry of the rows, keys and nulls
+it saw (a Writer over `Result`, in `cool_stuff.writer`). Logged arrows compose with
+`>>` like any `K`, and `trace(*steps, key=...)` logs a whole chain:
+
+```python
+from money_printer_research.clean_data.integrity import log_report, trace
+from money_printer_research.clean_data.match_stat import MATCH_STAT_STEPS
+from money_printer_research.cool_stuff import told
+
+logged = trace(*MATCH_STAT_STEPS, key="game_id")(told(raw_schedule)).expect("schedule")
+log_report(logged)  # one row per morphism; more_nulls names the columns that gained nulls
+```
+
 `notebooks/data_integrity.ipynb` runs it over every step, from the raw files to
 `match_features.csv` and on to the CSVs on disk, and checks that Understat and
 Transfermarkt agree on the score of every matched game.

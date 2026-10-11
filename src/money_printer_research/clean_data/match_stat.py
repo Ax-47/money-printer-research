@@ -3,7 +3,7 @@ from pandera.typing.polars import DataFrame
 
 from ..clean_data.normalize import add_season_start
 from ..clean_data.rename_team_names import check_aliases, norm_team_names
-from ..cool_stuff import K, check, returns
+from ..cool_stuff import K, check, compose, lift, returns
 from ..schema import ScheduleCols
 from ..schema.match.raw import UnderstatScheduleRaw
 
@@ -22,12 +22,17 @@ def _add_season_start(stat_df: DataFrame[UnderstatScheduleRaw]) -> pl.DataFrame:
     )
 
 
-clean_match_stat: K[DataFrame[UnderstatScheduleRaw], DataFrame[ScheduleCols]] = (
-    K(_keep_played_matches)
-    >> check(UnderstatScheduleRaw)
-    >> _add_season_start
-    >> check_aliases
-    >> norm_team_names
-    >> check(ScheduleCols)
+MATCH_STAT_STEPS = (
+    _keep_played_matches,
+    check(UnderstatScheduleRaw),
+    _add_season_start,
+    check_aliases,
+    lift(norm_team_names),
+    check(ScheduleCols),
+)
+"""The morphisms of clean_match_stat, in order; trace(*MATCH_STAT_STEPS) logs each one."""
+
+clean_match_stat: K[DataFrame[UnderstatScheduleRaw], DataFrame[ScheduleCols]] = compose(
+    *MATCH_STAT_STEPS
 )
 """Raw Understat schedule -> played matches with season_start and canonical team names."""
