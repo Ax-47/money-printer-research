@@ -8,6 +8,12 @@ function el(tag, attrs = {}, ...children) {
   return node;
 }
 
+// Shown in place of a page's content when its command has not been run yet.
+function notRun(what, command) {
+  return el("div", { className: "empty" },
+    `No ${what} yet. Run `, el("code", {}, `uv run ${command}`), " and reload.");
+}
+
 function options(target, values, make) {
   target.append(...[...new Set(values)].sort().map(make));
 }

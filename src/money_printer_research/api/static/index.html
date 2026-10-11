@@ -123,8 +123,7 @@
     const res = await fetch("upcoming");
     if (!res.ok) {
       $("summary").textContent = "";
-      $("matches").replaceChildren(el("div", { className: "empty" },
-        "No predictions yet. Run ", el("code", {}, "uv run predict"), " and reload."));
+      $("matches").replaceChildren(notRun("predictions", "predict"));
       return;
     }
     fixtures = await res.json();

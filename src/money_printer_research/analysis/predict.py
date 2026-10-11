@@ -34,6 +34,9 @@ GAMES_WINDOW = timedelta(days=14)
 ID = ["game_id", "date", "league", "home_team", "away_team"]
 """The columns that name a fixture in the output."""
 
+SIDES = (("h", "home_team"), ("a", "away_team"))
+"""Each side's column prefix and team column."""
+
 
 def _team_games(history: pl.DataFrame, fixtures: pl.DataFrame) -> pl.DataFrame:
     """One row per team per league game, played or fixture: team, day."""
@@ -50,7 +53,7 @@ def games_in_window(history: pl.DataFrame, fixtures: pl.DataFrame) -> pl.DataFra
     out = fixtures.select(
         "game_id", pl.col("date").dt.date().alias("day"), "home_team", "away_team"
     )
-    for prefix, side in (("h", "home_team"), ("a", "away_team")):
+    for prefix, side in SIDES:
         counts = (
             out.join(games, left_on=side, right_on="team")
             .filter(
@@ -77,7 +80,7 @@ def last_starters(history: pl.DataFrame) -> pl.DataFrame:
             "date",
             *(pl.col(c).alias(c.removeprefix(f"{prefix}_")) for c in _slots(prefix)),
         )
-        for prefix, team in (("h", "home_team"), ("a", "away_team"))
+        for prefix, team in SIDES
     ]
     return pl.concat(sides).sort("date").group_by("team").last().drop("date")
 
@@ -104,7 +107,7 @@ def fixture_features(history: pl.DataFrame, fixtures: pl.DataFrame) -> pl.DataFr
         .join(starters, on="team", how="left")
         .drop("team")
         .rename(lambda c: c if c == "game_id" else f"{prefix}_{c}")
-        for prefix, team in (("h", "home_team"), ("a", "away_team"))
+        for prefix, team in SIDES
     ]
     out = fixtures.select(*ID, "season_start")
     for part in [elo, games_in_window(history, fixtures), *slots]:

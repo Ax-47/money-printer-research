@@ -128,8 +128,7 @@
     const res = await fetch(`backtest?${params}`);
     if (!res.ok) {
       $("summary").textContent = "";
-      $("result").replaceChildren(el("div", { className: "empty" },
-        "No backtest yet. Run ", el("code", {}, "uv run backtest"), " and reload."));
+      $("result").replaceChildren(notRun("backtest", "backtest"));
       return;
     }
     const data = await res.json();
