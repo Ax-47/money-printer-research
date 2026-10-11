@@ -5,15 +5,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Upcoming predictions</title>
 <style>
-  :root {
-    --bg: #eff1f5; --panel: #ffffff; --text: #4c4f69; --muted: #6c6f85; --border: #ccd0da;
-    --home: #1e66f5; --draw: #8c8fa1; --away: #fe640b; --bar-text: #ffffff;
+  /* Catppuccin flavors (https://catppuccin.com/palette), as on the docs site. */
+  :root, [data-theme="latte"] {
+    --base: #eff1f5; --mantle: #e6e9ef; --surface0: #ccd0da; --text: #4c4f69;
+    --subtext0: #6c6f85; --overlay1: #8c8fa1; --blue: #1e66f5; --peach: #fe640b; --mauve: #8839ef;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #1e1e2e; --panel: #313244; --text: #cdd6f4; --muted: #a6adc8; --border: #45475a;
-      --home: #89b4fa; --draw: #7f849c; --away: #fab387; --bar-text: #1e1e2e;
-    }
+  [data-theme="frappe"] {
+    --base: #303446; --mantle: #292c3c; --surface0: #414559; --text: #c6d0f5;
+    --subtext0: #a5adce; --overlay1: #838ba7; --blue: #8caaee; --peach: #ef9f76; --mauve: #ca9ee6;
+  }
+  [data-theme="macchiato"] {
+    --base: #24273a; --mantle: #1e2030; --surface0: #363a4f; --text: #cad3f5;
+    --subtext0: #a5adcb; --overlay1: #8087a2; --blue: #8aadf4; --peach: #f5a97f; --mauve: #c6a0f6;
+  }
+  [data-theme="mocha"] {
+    --base: #1e1e2e; --mantle: #181825; --surface0: #313244; --text: #cdd6f4;
+    --subtext0: #a6adc8; --overlay1: #7f849c; --blue: #89b4fa; --peach: #fab387; --mauve: #cba6f7;
+  }
+  :root {
+    --bg: var(--base); --panel: var(--mantle); --muted: var(--subtext0); --border: var(--surface0);
+    --home: var(--blue); --draw: var(--overlay1); --away: var(--peach); --bar-text: var(--base);
   }
   * { box-sizing: border-box; }
   body {
@@ -21,7 +32,12 @@
     font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
   }
   main { max-width: 960px; margin: 0 auto; }
-  h1 { font-size: 1.4rem; margin: 0 0 4px; }
+  header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; color: var(--mauve); }
+  #theme {
+    padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer;
+    background: var(--panel); color: var(--text); font: inherit; font-size: .85rem;
+  }
   .sub { color: var(--muted); margin: 0 0 20px; }
   .filters { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
   .filters label { display: flex; flex-direction: column; gap: 4px; font-size: .8rem; color: var(--muted); }
@@ -60,8 +76,13 @@
 </head>
 <body>
 <main>
-  <h1>Upcoming predictions</h1>
-  <p class="sub" id="summary">Loading…</p>
+  <header>
+    <div>
+      <h1>Upcoming predictions</h1>
+      <p class="sub" id="summary">Loading…</p>
+    </div>
+    <button id="theme" title="Switch Catppuccin flavor"></button>
+  </header>
   <div class="filters">
     <label>League <select id="league"><option value="">All leagues</option></select></label>
     <label>Team <input id="team" list="teams" placeholder="Any team"></label>
@@ -132,6 +153,25 @@
     render();
   }
 
+  const THEMES = ["latte", "frappe", "macchiato", "mocha"];
+  const NAMES = { latte: "Latte", frappe: "Frappé", macchiato: "Macchiato", mocha: "Mocha" };
+
+  function setTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    $("theme").textContent = NAMES[theme];
+    try { localStorage.setItem("theme", theme); } catch {}
+  }
+
+  function savedTheme() {
+    try { return localStorage.getItem("theme"); } catch { return null; }
+  }
+
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  setTheme(THEMES.includes(savedTheme()) ? savedTheme() : dark ? "mocha" : "latte");
+  $("theme").addEventListener("click", () => {
+    const now = document.documentElement.dataset.theme;
+    setTheme(THEMES[(THEMES.indexOf(now) + 1) % THEMES.length]);
+  });
   $("league").addEventListener("change", render);
   $("team").addEventListener("input", render);
   load();
