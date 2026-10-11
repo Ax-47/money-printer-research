@@ -9,18 +9,22 @@
   :root, [data-theme="latte"] {
     --base: #eff1f5; --mantle: #e6e9ef; --surface0: #ccd0da; --text: #4c4f69;
     --subtext0: #6c6f85; --overlay1: #8c8fa1; --blue: #1e66f5; --peach: #fe640b; --mauve: #8839ef;
+    --green: #40a02b; --red: #d20f39;
   }
   [data-theme="frappe"] {
     --base: #303446; --mantle: #292c3c; --surface0: #414559; --text: #c6d0f5;
     --subtext0: #a5adce; --overlay1: #838ba7; --blue: #8caaee; --peach: #ef9f76; --mauve: #ca9ee6;
+    --green: #a6d189; --red: #e78284;
   }
   [data-theme="macchiato"] {
     --base: #24273a; --mantle: #1e2030; --surface0: #363a4f; --text: #cad3f5;
     --subtext0: #a5adcb; --overlay1: #8087a2; --blue: #8aadf4; --peach: #f5a97f; --mauve: #c6a0f6;
+    --green: #a6da95; --red: #ed8796;
   }
   [data-theme="mocha"] {
     --base: #1e1e2e; --mantle: #181825; --surface0: #313244; --text: #cdd6f4;
     --subtext0: #a6adc8; --overlay1: #7f849c; --blue: #89b4fa; --peach: #fab387; --mauve: #cba6f7;
+    --green: #a6e3a1; --red: #f38ba8;
   }
   :root {
     --bg: var(--base); --panel: var(--mantle); --muted: var(--subtext0); --border: var(--surface0);
@@ -67,6 +71,11 @@
     color: var(--bar-text); font-size: .8rem; font-weight: 600; white-space: nowrap; overflow: hidden;
   }
   .H { background: var(--home); } .D { background: var(--draw); } .A { background: var(--away); }
+  .ev { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: .85rem; }
+  .ev label { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+  .ev input { min-width: 0; width: 76px; padding: 4px 8px; }
+  .ev output { min-width: 72px; font-weight: 600; }
+  .ev .plus { color: var(--green); } .ev .minus { color: var(--red); }
   .empty { padding: 32px; text-align: center; color: var(--muted); }
   code { background: var(--panel); padding: 1px 6px; border-radius: 4px; }
   @media (max-width: 640px) {
@@ -88,6 +97,8 @@
     <label>Team <input id="team" list="teams" placeholder="Any team"></label>
     <datalist id="teams"></datalist>
   </div>
+  <p class="sub">Enter a bookmaker's decimal odds to see the expected value of a 1-unit bet
+    (EV = probability × odds − 1). The grey number in each box is the fair price.</p>
   <div class="legend">
     <span style="--c: var(--home)">Home win</span>
     <span style="--c: var(--draw)">Draw</span>
@@ -110,6 +121,37 @@
     target.append(...[...new Set(values)].sort().map(make));
   }
 
+  const OUTCOMES = { H: "Home", D: "Draw", A: "Away" };
+
+  function stored(key) {
+    try { return localStorage.getItem(key) ?? ""; } catch { return ""; }
+  }
+
+  function store(key, value) {
+    try { localStorage.setItem(key, value); } catch {}
+  }
+
+  // EV of a 1-unit stake at decimal odds: p * odds - 1. The placeholder is the fair
+  // price 1 / p, so any odds above it are +EV.
+  function evCell(f, k) {
+    const p = f[`p_${k}`];
+    const key = `odds:${f.game_id}:${k}`;
+    const input = el("input", {
+      type: "number", min: "1.01", step: "0.01", inputMode: "decimal",
+      placeholder: (1 / p).toFixed(2), value: stored(key), title: `Decimal odds for ${OUTCOMES[k]}`,
+    });
+    const out = el("output");
+    const update = () => {
+      const odds = parseFloat(input.value);
+      const ev = p * odds - 1;
+      out.textContent = odds > 1 ? `EV ${ev >= 0 ? "+" : ""}${(ev * 100).toFixed(1)}%` : "";
+      out.className = odds > 1 ? (ev > 0 ? "plus" : "minus") : "";
+    };
+    input.addEventListener("input", () => { store(key, input.value); update(); });
+    update();
+    return el("label", {}, OUTCOMES[k], input, out);
+  }
+
   function row(f) {
     const date = new Date(f.date);
     const fav = f.p_H >= f.p_A ? f.home_team : f.away_team;
@@ -123,7 +165,8 @@
         el("small", {}, date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }))),
       el("div", { className: "teams" }, team(f.home_team), " vs ", team(f.away_team),
         el("small", {}, f.league)),
-      bar);
+      bar,
+      el("div", { className: "ev" }, ...Object.keys(OUTCOMES).map((k) => evCell(f, k))));
   }
 
   function render() {
