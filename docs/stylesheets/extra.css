@@ -1,18 +1,408 @@
-/* Apply styles for screens wider than 76.25em (approximately 1220px) */
-@media only screen and (min-width: 76.25em) {
-  /* Target the main content area */
+/*
+ * mdBook look for Material for MkDocs.
+ *
+ * Five color schemes copy mdBook's Light, Rust, Coal, Navy and Ayu themes
+ * (palette entries in mkdocs.yml). The layout part gives a full-height
+ * colored sidebar with numbered chapters, a plain header and a narrow
+ * centered content column, and hides the right-hand table of contents.
+ */
+
+/* ---------- Theme colors (values from mdBook's variables.css) ---------- */
+
+[data-md-color-scheme="light"] {
+  --mdb-bg: hsl(0, 0%, 100%);
+  --mdb-fg: hsl(0, 0%, 0%);
+  --mdb-sidebar-bg: #fafafa;
+  --mdb-sidebar-fg: hsl(0, 0%, 0%);
+  --mdb-sidebar-dim: #aaaaaa;
+  --mdb-sidebar-active: #1f1fff;
+  --mdb-sidebar-spacer: #f4f4f4;
+  --mdb-icons: #747474;
+  --mdb-icons-hover: #000000;
+  --mdb-links: #20609f;
+  --mdb-inline-code: #301900;
+  --mdb-code-bg: #f6f7f6;
+  --mdb-quote-bg: hsl(197, 37%, 96%);
+  --mdb-quote-border: hsl(197, 37%, 91%);
+  --mdb-table-border: hsl(0, 0%, 95%);
+  --mdb-table-header-bg: hsl(0, 0%, 80%);
+  --mdb-table-alt-bg: hsl(0, 0%, 97%);
+}
+
+[data-md-color-scheme="rust"] {
+  --mdb-bg: hsl(60, 9%, 87%);
+  --mdb-fg: #262625;
+  --mdb-sidebar-bg: #3b2e2a;
+  --mdb-sidebar-fg: #c8c9db;
+  --mdb-sidebar-dim: #505254;
+  --mdb-sidebar-active: #e69f67;
+  --mdb-sidebar-spacer: #45373a;
+  --mdb-icons: #737480;
+  --mdb-icons-hover: #262625;
+  --mdb-links: #2b79a2;
+  --mdb-inline-code: #6e6b5e;
+  --mdb-code-bg: hsl(60, 9%, 82%);
+  --mdb-quote-bg: hsl(60, 5%, 75%);
+  --mdb-quote-border: hsl(60, 5%, 70%);
+  --mdb-table-border: hsl(60, 9%, 82%);
+  --mdb-table-header-bg: #b3a497;
+  --mdb-table-alt-bg: hsl(60, 9%, 84%);
+}
+
+[data-md-color-scheme="coal"] {
+  --mdb-bg: hsl(200, 7%, 8%);
+  --mdb-fg: #98a3ad;
+  --mdb-sidebar-bg: #292c2f;
+  --mdb-sidebar-fg: #a1adb8;
+  --mdb-sidebar-dim: #505254;
+  --mdb-sidebar-active: #3473ad;
+  --mdb-sidebar-spacer: #393939;
+  --mdb-icons: #43484d;
+  --mdb-icons-hover: #b3c0cc;
+  --mdb-links: #2b79a2;
+  --mdb-inline-code: #c5c8c6;
+  --mdb-code-bg: #1d1f21;
+  --mdb-quote-bg: hsl(234, 21%, 18%);
+  --mdb-quote-border: hsl(234, 21%, 23%);
+  --mdb-table-border: hsl(200, 7%, 13%);
+  --mdb-table-header-bg: hsl(200, 7%, 28%);
+  --mdb-table-alt-bg: hsl(200, 7%, 11%);
+}
+
+[data-md-color-scheme="navy"] {
+  --mdb-bg: hsl(226, 23%, 11%);
+  --mdb-fg: #bcbdd0;
+  --mdb-sidebar-bg: #282d3f;
+  --mdb-sidebar-fg: #c8c9db;
+  --mdb-sidebar-dim: #505274;
+  --mdb-sidebar-active: #2b79a2;
+  --mdb-sidebar-spacer: #2d334f;
+  --mdb-icons: #737480;
+  --mdb-icons-hover: #b7b9cc;
+  --mdb-links: #2b79a2;
+  --mdb-inline-code: #c5c8c6;
+  --mdb-code-bg: #1d1f21;
+  --mdb-quote-bg: hsl(226, 15%, 17%);
+  --mdb-quote-border: hsl(226, 15%, 22%);
+  --mdb-table-border: hsl(226, 23%, 16%);
+  --mdb-table-header-bg: hsl(226, 23%, 31%);
+  --mdb-table-alt-bg: hsl(226, 23%, 14%);
+}
+
+[data-md-color-scheme="ayu"] {
+  --mdb-bg: hsl(210, 25%, 8%);
+  --mdb-fg: #c5c5c5;
+  --mdb-sidebar-bg: #14191f;
+  --mdb-sidebar-fg: #c8c9db;
+  --mdb-sidebar-dim: #5c6773;
+  --mdb-sidebar-active: #ffb454;
+  --mdb-sidebar-spacer: #2d334f;
+  --mdb-icons: #737480;
+  --mdb-icons-hover: #b7b9cc;
+  --mdb-links: #0096cf;
+  --mdb-inline-code: #ffb454;
+  --mdb-code-bg: #191f26;
+  --mdb-quote-bg: hsl(226, 15%, 17%);
+  --mdb-quote-border: hsl(226, 15%, 22%);
+  --mdb-table-border: hsl(210, 25%, 13%);
+  --mdb-table-header-bg: hsl(210, 25%, 28%);
+  --mdb-table-alt-bg: hsl(210, 25%, 11%);
+}
+
+/*
+ * Coal, Navy and Ayu are dark. Custom schemes start from Material's light
+ * defaults, so give them the dark (slate) values for everything the
+ * mapping below does not set, such as syntax highlighting and shadows.
+ */
+[data-md-color-scheme="coal"],
+[data-md-color-scheme="navy"],
+[data-md-color-scheme="ayu"] {
+  --md-hue: 225deg;
+  --md-default-fg-color--light: hsla(var(--md-hue), 15%, 90%, 0.56);
+  --md-default-fg-color--lighter: hsla(var(--md-hue), 15%, 90%, 0.32);
+  --md-default-fg-color--lightest: hsla(var(--md-hue), 15%, 90%, 0.12);
+  --md-default-bg-color--light: hsla(var(--md-hue), 15%, 14%, 0.54);
+  --md-default-bg-color--lighter: hsla(var(--md-hue), 15%, 14%, 0.26);
+  --md-default-bg-color--lightest: hsla(var(--md-hue), 15%, 14%, 0.07);
+  --md-code-fg-color: hsla(var(--md-hue), 18%, 86%, 0.82);
+  --md-code-hl-color: #2977ff;
+  --md-code-hl-color--light: #2977ff1a;
+  --md-code-hl-number-color: #e6695b;
+  --md-code-hl-special-color: #f06090;
+  --md-code-hl-function-color: #c973d9;
+  --md-code-hl-constant-color: #9383e2;
+  --md-code-hl-keyword-color: #6791e0;
+  --md-code-hl-string-color: #2fb170;
+  --md-code-hl-name-color: var(--md-code-fg-color);
+  --md-code-hl-operator-color: var(--md-default-fg-color--light);
+  --md-code-hl-punctuation-color: var(--md-default-fg-color--light);
+  --md-code-hl-comment-color: var(--md-default-fg-color--light);
+  --md-code-hl-generic-color: var(--md-default-fg-color--light);
+  --md-code-hl-variable-color: var(--md-default-fg-color--light);
+  --md-typeset-kbd-color: hsla(var(--md-hue), 15%, 90%, 0.12);
+  --md-typeset-kbd-accent-color: hsla(var(--md-hue), 15%, 90%, 0.2);
+  --md-typeset-kbd-border-color: hsla(var(--md-hue), 15%, 14%, 1);
+  --md-typeset-mark-color: #4287ff4d;
+  --md-shadow-z1: 0 0.2rem 0.5rem #0000000d, 0 0 0.05rem #0000001a;
+  --md-shadow-z2: 0 0.2rem 0.5rem #00000040, 0 0 0.05rem #00000040;
+  --md-shadow-z3: 0 0.2rem 0.5rem #0006, 0 0 0.05rem #00000059;
+  color-scheme: dark;
+}
+
+/* Map the mdBook colors onto Material's variables. */
+[data-md-color-scheme="light"],
+[data-md-color-scheme="rust"],
+[data-md-color-scheme="coal"],
+[data-md-color-scheme="navy"],
+[data-md-color-scheme="ayu"] {
+  --md-primary-fg-color: var(--mdb-links);
+  --md-primary-fg-color--light: var(--mdb-links);
+  --md-primary-fg-color--dark: var(--mdb-links);
+  --md-primary-bg-color: var(--mdb-bg);
+  --md-primary-bg-color--light: var(--mdb-icons);
+  --md-accent-fg-color: var(--mdb-sidebar-active);
+  --md-accent-fg-color--transparent: color-mix(in srgb, var(--mdb-sidebar-active) 10%, transparent);
+  --md-default-fg-color: var(--mdb-fg);
+  --md-default-bg-color: var(--mdb-bg);
+  --md-typeset-color: var(--mdb-fg);
+  --md-typeset-a-color: var(--mdb-links);
+  --md-code-bg-color: var(--mdb-code-bg);
+  --md-code-bg-color--light: var(--mdb-code-bg);
+  --md-code-bg-color--lighter: var(--mdb-code-bg);
+  --md-typeset-table-color: var(--mdb-table-border);
+  --md-typeset-table-color--light: var(--mdb-table-alt-bg);
+  --md-admonition-fg-color: var(--mdb-fg);
+  --md-admonition-bg-color: var(--mdb-bg);
+  --md-footer-fg-color: var(--mdb-fg);
+  --md-footer-fg-color--light: var(--mdb-icons);
+  --md-footer-fg-color--lighter: var(--mdb-icons);
+  --md-footer-bg-color: var(--mdb-bg);
+  --md-footer-bg-color--dark: var(--mdb-bg);
+}
+
+/* ---------- Header: plain bar in the page color, title centered ---------- */
+
+.md-header {
+  background-color: var(--mdb-bg);
+  color: var(--mdb-icons);
+  box-shadow: none;
+}
+
+.md-header--shadow {
+  box-shadow: none;
+  border-bottom: 1px solid var(--mdb-table-border);
+}
+
+.md-header__button:hover,
+.md-header__option .md-header__button:hover,
+.md-header__source:hover {
+  color: var(--mdb-icons-hover);
+  opacity: 1;
+}
+
+.md-header__title {
+  color: var(--mdb-fg);
+  font-size: 1rem;
+}
+
+.md-header__topic,
+.md-header__topic:first-child {
+  justify-content: center;
+  width: 100%;
+  font-weight: 200;
+}
+
+.md-search__form {
+  background-color: var(--mdb-table-alt-bg);
+}
+
+.md-search__input,
+.md-search__input::placeholder,
+.md-search__icon {
+  color: var(--mdb-fg);
+}
+
+/* ---------- Content: narrow centered column, mdBook typography ---------- */
+
+@media screen and (min-width: 76.25em) {
+  .md-main__inner,
+  .md-grid {
+    max-width: none;
+  }
+
   .md-main__inner {
-    max-width: none; /* Remove the maximum width constraint */
+    margin-top: 0;
   }
-  /* Target the primary sidebar */
+}
+
+/* No right-hand table of contents in mdBook. */
+.md-sidebar--secondary:not([hidden]) {
+  display: none;
+}
+
+.md-content {
+  max-width: 750px;
+  margin: 0 auto;
+}
+
+.md-content__inner {
+  margin: 0 1.2rem 1.2rem;
+}
+
+.md-typeset {
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3,
+.md-typeset h4 {
+  color: var(--mdb-fg);
+  font-weight: bold;
+  letter-spacing: normal;
+}
+
+.md-typeset h1 {
+  font-size: 1.6rem;
+  margin-top: 1.2em;
+}
+
+.md-typeset h2 {
+  font-size: 1.25rem;
+}
+
+.md-typeset a {
+  color: var(--mdb-links);
+}
+
+.md-typeset a:hover {
+  text-decoration: underline;
+}
+
+.md-typeset :not(pre) > code {
+  color: var(--mdb-inline-code);
+  background-color: var(--mdb-code-bg);
+}
+
+.md-typeset blockquote {
+  background-color: var(--mdb-quote-bg);
+  border: 1px solid var(--mdb-quote-border);
+  border-left-width: 1px;
+  color: var(--mdb-fg);
+  padding: 0 1rem;
+}
+
+.md-typeset table:not([class]) {
+  border: none;
+  border-collapse: collapse;
+}
+
+.md-typeset table:not([class]) th {
+  background-color: var(--mdb-table-header-bg);
+  color: var(--mdb-fg);
+}
+
+.md-typeset table:not([class]) td,
+.md-typeset table:not([class]) th {
+  border: 1px solid var(--mdb-table-border);
+}
+
+.md-typeset table:not([class]) tbody tr:nth-child(2n) {
+  background-color: var(--mdb-table-alt-bg);
+}
+
+/* ---------- Sidebar: full-height colored panel with numbered chapters ---------- */
+
+@media screen and (min-width: 76.25em) {
   .md-sidebar--primary {
-    left: 0; /* Align the primary sidebar to the left */
+    left: 0;
+    width: 15rem;
+    background-color: var(--mdb-sidebar-bg);
+    height: calc(100vh - 2.4rem);
+    padding-top: 1rem;
   }
-  /* Target the secondary sidebar */
-  .md-sidebar--secondary {
-    right: 0; /* Align the secondary sidebar to the right */
-    margin-left: 0; /* Remove any left margin */
-    -webkit-transform: none; /* Remove any webkit transform */
-    transform: none; /* Remove any transform */
+
+  .md-sidebar--primary .md-sidebar__scrollwrap {
+    scrollbar-color: var(--mdb-sidebar-dim) transparent;
   }
+
+  /* The site name already sits in the header. */
+  .md-nav--primary > .md-nav__title {
+    display: none;
+  }
+}
+
+.md-nav--primary {
+  font-size: 0.75rem;
+  color: var(--mdb-sidebar-fg);
+}
+
+.md-sidebar--primary .md-nav__link,
+.md-sidebar--primary .md-nav__link--passed {
+  color: var(--mdb-sidebar-fg);
+}
+
+.md-sidebar--primary .md-nav__link:hover,
+.md-sidebar--primary .md-nav__link:focus,
+.md-sidebar--primary .md-nav__link--active,
+.md-sidebar--primary .md-nav__item .md-nav__link--active {
+  color: var(--mdb-sidebar-active);
+}
+
+.md-sidebar--primary .md-nav__source {
+  background-color: var(--mdb-sidebar-spacer);
+  color: var(--mdb-sidebar-fg);
+}
+
+/* Chapter numbers: "1.", "4.2." and so on, skipping the introduction. */
+.md-nav--primary .md-nav__list {
+  counter-reset: mdb-chapter;
+}
+
+.md-nav--primary .md-nav__item {
+  counter-increment: mdb-chapter;
+}
+
+.md-nav--primary > .md-nav__list > .md-nav__item:first-child {
+  counter-increment: none;
+}
+
+.md-nav--primary .md-nav__item > .md-nav__link:not(.md-nav__container)::before,
+.md-nav--primary .md-nav__item > .md-nav__container > .md-nav__link:first-child::before {
+  content: counters(mdb-chapter, ".") ".";
+  margin-right: 0.4em;
+  flex-shrink: 0;
+  font-weight: bold;
+}
+
+.md-nav--primary > .md-nav__list > .md-nav__item:first-child > .md-nav__link::before {
+  content: none;
+}
+
+/* Material shows the active page's TOC inside the sidebar; mdBook does not. */
+.md-nav--primary .md-nav--secondary {
+  display: none;
+}
+
+/* Hide the expand arrows; every chapter is always open, as in mdBook. */
+.md-sidebar--primary .md-nav__icon {
+  display: none;
+}
+
+/* ---------- Footer: previous/next in the page colors ---------- */
+
+.md-footer,
+.md-footer-meta {
+  background-color: var(--mdb-bg);
+  color: var(--mdb-icons);
+}
+
+.md-footer {
+  border-top: 1px solid var(--mdb-table-border);
+}
+
+.md-footer__link:hover {
+  color: var(--mdb-icons-hover);
+  opacity: 1;
 }
