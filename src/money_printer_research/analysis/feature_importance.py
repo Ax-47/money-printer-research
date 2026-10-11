@@ -1,9 +1,19 @@
-"""Feature importance for the H/D/A model on data/clean/matches.csv.
+"""Feature selection for the H/D/A model on model_frame.csv.
 
-Train on seasons before TEST_FROM, score on the rest (no shuffling across time).
-Importance = rise in test log loss when a feature (or a group of features) is
-permuted. Groups matter here: the 22 player slots per feature are strongly
-correlated, so per-column importance spreads the signal thin.
+Features come from an explicit allowlist of groups (FEATURE_GROUPS), each built from a
+pre-match source; nothing outside it can reach the model, so the result of the match
+(goals, xG, is_result) cannot leak in. A group is one feature for both sides plus their
+difference, so a side is never kept without the other.
+
+Selection is greedy and forward, by group, starting from Elo: add the group that lowers
+the walk-forward log loss most, until no group lowers it by MIN_GAIN. Walk-forward means
+each season in VALID_SEASONS is scored by a model fitted on the seasons before it only.
+The seasons from TEST_FROM on are touched once, at the end, to compare the selection
+with Elo alone and with every group.
+
+The model is a multinomial logistic regression on standardised features, nulls filled
+with the training median: on this data it beats gradient-boosted trees, which overfit
+the few hundred games a feature's signal rests on.
 """
 
 import re
@@ -12,127 +22,203 @@ from typing import Any
 
 import numpy as np
 import polars as pl
-from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss
+from sklearn.pipeline import Pipeline, make_pipeline
+from sklearn.preprocessing import StandardScaler
 
 from money_printer_research.config import settings
+from money_printer_research.schema import PLAYER_SLOT_FEATURES, read_clean
 
-TEST_FROM = 2024
-N_REPEATS = 5
-SEED = 0
 TARGET = "full_time_result"
 CLASSES = ["A", "D", "H"]
+"""Sorted, the order of predict_proba's columns."""
 
-# Known only after the match: using any of these as a feature leaks the result.
+TEST_FROM = 2024
+VALID_SEASONS = (2021, 2022, 2023)
+MIN_GAIN = 0.0005
+"""Smallest drop in mean walk-forward log loss for which a group is added."""
+
 POST_MATCH = re.compile(
-    r"^(full_time_.*|half_time_.*|home_xg|away_xg"
-    r"|(home|away)_(shots|shots_on_target|corners|fouls|yellow_cards|red_cards))$"
+    r"^(full_time_.*|half_time_.*|(home|away)_(goals|xg)|tm_(home|away)_goals|is_result)$"
 )
-NOT_FEATURES = {
-    "league",
-    "season",
-    "season_start",
-    "game_id",
-    "match_date",
-    "home_team",
-    "away_team",
+"""Known only after the match. No feature group may contain one (checked in load)."""
+
+SCHEDULE = (
+    "rest_days_all",
+    "games_7d_all",
+    "games_14d_all",
+    "non_league_14d",
+    "prev_europe_away",
+    "days_to_next_all",
+    "next_is_europe",
+)
+
+
+LEAGUES = tuple(sorted(settings.understat.leagues))
+
+
+def _league_column(league: str) -> str:
+    """A 0/1 column's name: "ESP-La Liga" -> "league_esp_la_liga"."""
+    return "league_" + re.sub(r"\W+", "_", league).lower()
+
+
+def _sides(name: str, diff: bool = True) -> list[str]:
+    """h_<name>, a_<name> and, if diff, <name>_diff (see with_derived)."""
+    return [f"h_{name}", f"a_{name}", *([f"{name}_diff"] if diff else [])]
+
+
+FEATURE_GROUPS: dict[str, list[str]] = {
+    "elo": ["elo_home", "elo_away", "elo_diff"],
+    "league": [_league_column(lg) for lg in LEAGUES],
+    "fatigue": _sides("fatigue"),
+    "min_7d": _sides("min_7d"),
+    **{s: _sides(s, diff=s not in ("prev_europe_away", "next_is_europe")) for s in SCHEDULE},
+    "formation": [
+        f"{p}_{x}"
+        for p in ("home", "away")
+        for x in ("defenders", "midfielders", "forwards", "lines")
+    ],
+    "n_low_min": _sides("n_low_min", diff=False),
+    **{f"player_{f}": _sides(f"{f}_mean") for f in PLAYER_SLOT_FEATURES},
 }
+"""Every candidate feature, by group. Player slots enter as each side's starters' mean."""
+
+SELECTED = ["elo", "player_form90", "games_14d_all", "player_prev_min"]
+"""Groups forward selection kept on the real data (2026-10-11): walk-forward log loss
+0.9842 for Elo alone, 0.9811 with these; on 2024-2025, 0.9893 and 0.9855 (every group:
+0.9877). Rerun `uv run feature_importance` after the data changes."""
 
 
-def feature_group(col: str) -> str:
-    """Collapse h/a sides and player slots: h_player3_xg90 -> player_xg90."""
-    if m := re.fullmatch(r"[ha]_player\d+_(.+)", col):
-        return f"player_{m[1]}"
-    if col.startswith("elo"):
-        return "elo"
-    if col == "league_code":
-        return "league"
-    return re.sub(r"^[ha]_", "", col)
+def with_derived(df: pl.DataFrame) -> pl.DataFrame:
+    """Add the derived columns FEATURE_GROUPS names: slot means, diffs, league flags.
 
-
-def load(path: Path) -> tuple[pl.DataFrame, list[str]]:
-    """Read the matches table; return it with every feature cast to float, and the features."""
-    df = pl.read_csv(path, infer_schema_length=None).with_columns(
-        pl.col("league").cast(pl.Categorical).to_physical().alias("league_code")
+    <f>_mean is the mean of a side's starter slots (nulls skipped), n_low_min the number
+    of its starters under MIN_PREV_MIN previous minutes, <name>_diff home minus away.
+    """
+    slots = {
+        (s, f): [c for c in df.columns if re.fullmatch(rf"{s}_player\d+_{f}", c)]
+        for s in ("h", "a")
+        for f in PLAYER_SLOT_FEATURES
+    }
+    df = df.with_columns(
+        *((pl.col("league") == lg).cast(pl.Int8).alias(_league_column(lg)) for lg in LEAGUES),
+        *(pl.mean_horizontal(cols).alias(f"{s}_{f}_mean") for (s, f), cols in slots.items()),
+        *(
+            pl.sum_horizontal(pl.col(c).is_null() for c in slots[s, "xg90"]).alias(
+                f"{s}_n_low_min"
+            )
+            for s in ("h", "a")
+        ),
     )
-    feats = [c for c in df.columns if c not in NOT_FEATURES and not POST_MATCH.match(c)]
-    df = df.with_columns(pl.col(feats).cast(pl.Float64))
-    return df, feats
-
-
-def split_by_season(df: pl.DataFrame) -> tuple[pl.DataFrame, pl.DataFrame]:
-    """(train, test): seasons before TEST_FROM, and the rest."""
-    return (
-        df.filter(pl.col("season_start") < TEST_FROM),
-        df.filter(pl.col("season_start") >= TEST_FROM),
+    diffs = {
+        c.removesuffix("_diff")
+        for cols in FEATURE_GROUPS.values()
+        for c in cols
+        if c.endswith("_diff")
+    }
+    return df.with_columns(
+        (pl.col(f"h_{n}") - pl.col(f"a_{n}")).alias(f"{n}_diff") for n in sorted(diffs - {"elo"})
     )
 
 
-def fit_model(x: np.ndarray, y: np.ndarray, feats: list[str]) -> HistGradientBoostingClassifier:
-    """Gradient-boosted H/D/A classifier, with the league code as its categorical feature."""
-    categorical: Any = [feats.index("league_code")]
-    return HistGradientBoostingClassifier(
-        learning_rate=0.05,
-        max_iter=300,
-        max_leaf_nodes=15,
-        l2_regularization=1.0,
-        categorical_features=categorical,
-        random_state=SEED,
-    ).fit(x, y)
+def load(path: Path) -> pl.DataFrame:
+    """model_frame.csv with the derived columns, every feature as Float64."""
+    df = with_derived(read_clean(path.parent, path.stem))
+    feats = [c for cols in FEATURE_GROUPS.values() for c in cols]
+    leaking = [c for c in feats if POST_MATCH.match(c)]
+    assert not leaking, leaking
+    return df.with_columns(pl.col(feats).cast(pl.Float64))
 
 
-def column_groups(feats: list[str]) -> dict[str, list[int]]:
-    """Feature group (see feature_group) -> indices of its columns in `feats`."""
-    groups: dict[str, list[int]] = {}
-    for i, c in enumerate(feats):
-        groups.setdefault(feature_group(c), []).append(i)
-    return groups
+def columns(groups: list[str]) -> list[str]:
+    """The feature columns of `groups`, in order."""
+    return [c for g in groups for c in FEATURE_GROUPS[g]]
 
 
-def permutation_loss(model, x: np.ndarray, y: np.ndarray, cols: list[int], rng) -> float:
-    """Log loss after shuffling the rows of `cols`, all with the same permutation."""
-    x_perm = x.copy()
-    idx = rng.permutation(len(x))
-    x_perm[:, cols] = x[idx][:, cols]  # same permutation for the whole group
-    return float(log_loss(y, model.predict_proba(x_perm), labels=CLASSES))
+def make_model() -> Pipeline:
+    """Median fill, standardise, multinomial logistic regression."""
+    return make_pipeline(
+        SimpleImputer(strategy="median"), StandardScaler(), LogisticRegression(max_iter=2000)
+    )
 
 
-def permutation_importance(
-    model, x: np.ndarray, y: np.ndarray, groups: dict[str, list[int]], base: float, rng
+def fit_score(train: pl.DataFrame, test: pl.DataFrame, groups: list[str]) -> float:
+    """Log loss on `test` of make_model fitted on `train` with the columns of `groups`."""
+    cols = columns(groups)
+    model = make_model().fit(train.select(cols).to_numpy(), train[TARGET].to_numpy())
+    proba = model.predict_proba(test.select(cols).to_numpy())
+    return float(log_loss(test[TARGET].to_numpy(), proba, labels=CLASSES))
+
+
+def prior_score(train: pl.DataFrame, test: pl.DataFrame) -> float:
+    """Log loss of predicting every game with the training shares of A, D and H."""
+    shares = [float((train[TARGET] == c).mean()) for c in CLASSES]  # pyright: ignore[reportArgumentType]
+    return float(log_loss(test[TARGET].to_numpy(), [shares] * test.height, labels=CLASSES))
+
+
+def walk_forward(
+    df: pl.DataFrame, groups: list[str], seasons: tuple[int, ...] = VALID_SEASONS
+) -> float:
+    """Mean log loss over `seasons`, each scored by a model fitted on the seasons before it."""
+    season = pl.col("season_start")
+    return float(
+        np.mean(
+            [fit_score(df.filter(season < s), df.filter(season == s), groups) for s in seasons]
+        )
+    )
+
+
+def forward_selection(
+    df: pl.DataFrame,
+    start: list[str] | None = None,
+    min_gain: float = MIN_GAIN,
+    seasons: tuple[int, ...] = VALID_SEASONS,
 ) -> pl.DataFrame:
-    """Mean and std rise in log loss over N_REPEATS shuffles of each group, largest first."""
-    rows = []
-    for name, cols in groups.items():
-        d = [permutation_loss(model, x, y, cols, rng) - base for _ in range(N_REPEATS)]
-        rows.append((name, len(cols), float(np.mean(d)), float(np.std(d))))
+    """Greedy forward selection by group; one row per step: the group added and the loss."""
+    chosen = ["elo"] if start is None else list(start)
+    best = walk_forward(df, chosen, seasons)
+    steps: list[dict[str, Any]] = [{"added": "+".join(chosen), "log_loss": best, "gain": None}]
+    while rest := [g for g in FEATURE_GROUPS if g not in chosen]:
+        scores = {g: walk_forward(df, [*chosen, g], seasons) for g in rest}
+        group = min(scores, key=scores.__getitem__)
+        if best - scores[group] < min_gain:
+            break
+        chosen.append(group)
+        steps.append({"added": group, "log_loss": scores[group], "gain": best - scores[group]})
+        best = scores[group]
     return pl.DataFrame(
-        rows, schema=["feature", "n_cols", "loss_increase", "std"], orient="row"
-    ).sort("loss_increase", descending=True)
+        steps, schema={"added": pl.String, "log_loss": pl.Float64, "gain": pl.Float64}
+    )
+
+
+def held_out(df: pl.DataFrame, candidates: dict[str, list[str]]) -> pl.DataFrame:
+    """Log loss on the seasons from TEST_FROM of each candidate, fitted on the seasons before."""
+    season = pl.col("season_start")
+    train, test = df.filter(season < TEST_FROM), df.filter(season >= TEST_FROM)
+    rows = [{"features": "class prior", "log_loss": prior_score(train, test)}]
+    rows += [{"features": n, "log_loss": fit_score(train, test, g)} for n, g in candidates.items()]
+    return pl.DataFrame(rows)
 
 
 def main(path: Path) -> None:
-    """Fit on the training seasons, then print test log loss and permutation importance."""
-    df, feats = load(path)
-    train, test = split_by_season(df)
-    x_tr, y_tr = train.select(feats).to_numpy(), train[TARGET].to_numpy()
-    x_te, y_te = test.select(feats).to_numpy(), test[TARGET].to_numpy()
-    model = fit_model(x_tr, y_tr, feats)
-
-    prior = train[TARGET].value_counts(normalize=True).sort(TARGET)["proportion"].to_numpy()
-    base = float(log_loss(y_te, model.predict_proba(x_te), labels=CLASSES))
-    naive = float(log_loss(y_te, np.tile(prior, (len(y_te), 1)), labels=CLASSES))
-    print(f"train {train.height} rows, test {test.height} rows, {len(feats)} features")
-    print(f"test log loss: model {base:.4f} | class prior {naive:.4f} | gain {naive - base:.4f}\n")
-
-    rng = np.random.default_rng(SEED)
-    single_columns = {c: [i] for i, c in enumerate(feats)}
-    with pl.Config(tbl_rows=60, float_precision=5):
-        print("Grouped permutation importance (higher = more useful):")
-        print(permutation_importance(model, x_te, y_te, column_groups(feats), base, rng))
-        print("\nTop 20 single columns:")
-        print(permutation_importance(model, x_te, y_te, single_columns, base, rng).head(20))
+    """Print the forward selection, then the held-out comparison."""
+    df = load(path)
+    print(f"{df.height} games, {len(FEATURE_GROUPS)} feature groups, test from {TEST_FROM}\n")
+    steps = forward_selection(df.filter(pl.col("season_start") < TEST_FROM))
+    chosen = [g for s in steps["added"] for g in s.split("+")]
+    with pl.Config(float_precision=4):
+        print("Forward selection, walk-forward log loss over", VALID_SEASONS)
+        print(steps)
+        print("\nHeld out:")
+        print(
+            held_out(df, {"elo": ["elo"], "selected": chosen, "every group": list(FEATURE_GROUPS)})
+        )
+    if chosen != SELECTED:
+        print(f"\nselection differs from SELECTED: {chosen}")
 
 
 def exec_feature_importance() -> None:
-    """Entry point: feature importance on the cleaned matches table."""
-    main(settings.clean.out_dir / "matches.csv")
+    """Entry point `feature_importance`: forward selection on model_frame.csv."""
+    main(settings.clean.out_dir / "model_frame.csv")
