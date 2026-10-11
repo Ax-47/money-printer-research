@@ -23,7 +23,7 @@ Paths, leagues and seasons live in `settings.toml` at the project root. See
 ## Run the pipeline
 
 ```bash
-uv run collect_data   # Understat schedule and player stats, Transfermarkt tables
+uv run collect_data   # Understat schedule and player stats, odds, Transfermarkt tables
 uv run clean_data     # cleaned tables and pre-match features -> data/clean
 uv run check_clean    # validate every CSV in data/clean
 ```

@@ -30,20 +30,35 @@ def test_unknown_attribute_raises_attribute_error() -> None:
 
 def test_collect_data_runs_every_source_fastest_first(monkeypatch: pytest.MonkeyPatch) -> None:
     order: list[str] = []
-    for name in ("collect_schedule", "collect_player_stats", "collect_transfermarkt"):
+    for name in (
+        "collect_schedule",
+        "collect_odds",
+        "collect_player_stats",
+        "collect_transfermarkt",
+    ):
         monkeypatch.setattr(data_collection, name, lambda s, name=name: order.append(name))
 
     data_collection.collect_data()
 
-    assert order == ["collect_schedule", "collect_player_stats", "collect_transfermarkt"]
+    assert order == [
+        "collect_schedule",
+        "collect_odds",
+        "collect_player_stats",
+        "collect_transfermarkt",
+    ]
 
 
 def test_collect_data_passes_the_global_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     seen: list[object] = []
-    for name in ("collect_schedule", "collect_player_stats", "collect_transfermarkt"):
+    for name in (
+        "collect_schedule",
+        "collect_odds",
+        "collect_player_stats",
+        "collect_transfermarkt",
+    ):
         monkeypatch.setattr(data_collection, name, seen.append)
     data_collection.collect_data()
-    assert seen == [settings] * 3
+    assert seen == [settings] * 4
 
 
 def test_notebook_root_is_the_project_root() -> None:

@@ -1,6 +1,6 @@
 # 1. Collect
 
-`uv run collect_data` downloads every source the clean step reads. It runs three
+`uv run collect_data` downloads every source the clean step reads. It runs four
 collectors from `money_printer_research.data_collection`, fastest first.
 
 Every collector follows the same two rules:
@@ -21,6 +21,19 @@ shipped settings).
 - One row per fixture, played or not, with goals, xG and the Understat `game_id`.
 - Checked against [`UnderstatScheduleRaw`](../schema/match.md).
 - Skipped when the file already holds every configured season.
+
+## football-data.co.uk odds
+
+`collect_odds` downloads the 1X2 bookmaker odds `backtest` bets against, one CSV per
+league and season: `<odds_dir>/<league>/<season>.csv`, for example
+`data/raw/odds/ENG-Premier League/2024-25.csv`.
+
+- One small request per league and season.
+- Every season is downloaded once, except the last configured one, which is fetched
+  again on each run because it grows as it is played.
+- A season football-data has not published yet is printed as `not published yet` and
+  skipped.
+- No raw schema yet; the download goes to `<file>.part` and is renamed when complete.
 
 ## Understat player stats
 
@@ -62,6 +75,7 @@ season have history.
 | Source | Default location |
 | --- | --- |
 | Understat schedule | `data/raw/xg_schedule.csv` |
+| football-data.co.uk odds | `data/raw/odds/<league>/<season>.csv` |
 | Understat player stats | `data/raw/player_stats/<league>/<season>.parquet` |
 | Understat page cache | `data/Understat/` |
 | Transfermarkt database | `data/Transfermarkt/transfermarkt-datasets.duckdb` |

@@ -4,6 +4,8 @@
 
 ::: money_printer_research.data_collection.scrape_schedule
 
+::: money_printer_research.data_collection.scrape_odds
+
 ::: money_printer_research.data_collection.scrape_player_stat
 
 ::: money_printer_research.data_collection.scrape_transfermarket

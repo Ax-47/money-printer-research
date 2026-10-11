@@ -172,7 +172,7 @@ class ModelingSettings(_Section):
     )
     odds_dir: RootPath = Field(
         default=Path("data/raw/odds"),
-        description="football-data.co.uk odds CSVs `backtest` downloads, per league and season.",
+        description="football-data.co.uk odds CSVs `collect_data` downloads for `backtest`.",
     )
     backtest_from: int = Field(
         default=2017, ge=2015, description="First season (start year) `backtest` bets on."

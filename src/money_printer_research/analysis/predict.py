@@ -27,6 +27,7 @@ from money_printer_research.config import Settings
 from money_printer_research.config import settings as default_settings
 from money_printer_research.features.elo import fixture_elo, season_label, to_elo_input
 from money_printer_research.schema import CleanedMatchCols, read_clean, slot_columns
+from money_printer_research.utils import write_csv
 
 GAMES_WINDOW = timedelta(days=14)
 """The window of games_14d_all: the 14 days before kick-off, kick-off day excluded."""
@@ -157,8 +158,7 @@ def main(settings: Settings = default_settings) -> pl.DataFrame:
     history = read_clean(settings.clean.out_dir, "match_features")
     predictions = predict_fixtures(model, history, fixtures)
     out = settings.modeling.predictions_file
-    out.parent.mkdir(parents=True, exist_ok=True)
-    predictions.write_csv(out)
+    write_csv(predictions, out)
     with pl.Config(float_precision=3, tbl_rows=50, tbl_width_chars=120):
         print(predictions)
     print(f"Saved {predictions.height} predictions to {out}")

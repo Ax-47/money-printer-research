@@ -2,8 +2,8 @@
 
 Each season from settings.modeling.backtest_from is predicted walk-forward by the logistic
 baseline (fitted on the seasons before it, as in modeling), then priced with the 1X2 odds
-football-data.co.uk publishes per league and season. Those CSVs are downloaded once to
-settings.modeling.odds_dir.
+football-data.co.uk publishes per league and season, which collect_data downloads to
+settings.modeling.odds_dir (data_collection.scrape_odds).
 
 The odds are Pinnacle's closing prices: the sharpest widely quoted market, and what a bet
 placed just before kick-off would get. Where they are missing the next available is used:
@@ -18,7 +18,6 @@ EV = p * odds - 1. The backtest table keeps every game with its pick, EV and pro
 strategy "bet the pick when its EV is above t" is a filter on it (summary).
 """
 
-import urllib.request
 from pathlib import Path
 
 import numpy as np
@@ -34,15 +33,7 @@ from money_printer_research.analysis.feature_importance import (
 from money_printer_research.analysis.modeling import logistic
 from money_printer_research.config import Settings
 from money_printer_research.config import settings as default_settings
-
-DIVISIONS = {
-    "ENG-Premier League": "E0",
-    "ESP-La Liga": "SP1",
-    "GER-Bundesliga": "D1",
-    "ITA-Serie A": "I1",
-    "FRA-Ligue 1": "F1",
-}
-"""Understat league name to football-data.co.uk division code."""
+from money_printer_research.utils import write_csv
 
 OUTCOMES = ["H", "D", "A"]
 ODDS_SOURCES = ["PSC{}", "PS{}", "AvgC{}", "B365{}"]
@@ -51,25 +42,6 @@ market average closing, Bet365 opening."""
 
 GAME = ["league", "season_start", "home_team", "away_team"]
 THRESHOLDS = (0.0, 0.02, 0.05, 0.1, 0.2)
-
-
-def odds_url(division: str, season_start: int) -> str:
-    """football-data.co.uk's CSV for one division and season: .../mmz4281/2425/E0.csv."""
-    code = f"{season_start % 100:02d}{(season_start + 1) % 100:02d}"
-    return f"https://www.football-data.co.uk/mmz4281/{code}/{division}.csv"
-
-
-def download_odds(odds_dir: Path, leagues: list[str], seasons: range) -> None:
-    """Fetch each league's odds CSV per season into odds_dir.
-
-    Files already there are kept, except the last season's, which grows as it is played.
-    """
-    odds_dir.mkdir(parents=True, exist_ok=True)
-    for league in leagues:
-        for season in seasons:
-            path = odds_dir / f"{DIVISIONS[league]}_{season}.csv"
-            if season == seasons[-1] or not path.exists():
-                urllib.request.urlretrieve(odds_url(DIVISIONS[league], season), path)
 
 
 def _read_one(path: Path, league: str, season_start: int) -> pl.DataFrame:
@@ -101,14 +73,14 @@ def _read_one(path: Path, league: str, season_start: int) -> pl.DataFrame:
 
 
 def read_odds(odds_dir: Path) -> pl.DataFrame:
-    """Every downloaded odds CSV: league, season_start, day, fd_home, fd_away, odds_H/D/A."""
-    league_of = {div: league for league, div in DIVISIONS.items()}
-    frames = []
-    for path in sorted(odds_dir.glob("*_*.csv")):
-        division, season = path.stem.split("_")
-        if division in league_of:
-            frames.append(_read_one(path, league_of[division], int(season)))
-    return pl.concat(frames)
+    """Every odds CSV collect_odds wrote: league, season_start, day, fd_home, fd_away, odds_H/D/A.
+
+    The league is the file's folder, the season the start year of its name (2024-25.csv).
+    """
+    paths = sorted(odds_dir.glob("*/*.csv"))
+    if not paths:
+        raise FileNotFoundError(f"no odds in {odds_dir}; run `uv run collect_data` first")
+    return pl.concat(_read_one(p, p.parent.name, int(p.stem[:4])) for p in paths)
 
 
 def team_names(odds: pl.DataFrame, games: pl.DataFrame) -> pl.DataFrame:
@@ -225,9 +197,6 @@ def backtest(settings: Settings = default_settings) -> pl.DataFrame:
     df = load(settings.clean.out_dir / "model_frame.csv")
     first = settings.modeling.backtest_from
     seasons = sorted(s for s in df["season_start"].unique() if s >= first)
-    download_odds(
-        settings.modeling.odds_dir, settings.understat.leagues, range(first, max(seasons) + 1)
-    )
     games = df.filter(pl.col("season_start") >= first).select("game_id", "date", *GAME, TARGET)
     games = attach_odds(games, read_odds(settings.modeling.odds_dir))
     return picks(games.join(walk_forward(df, seasons), on="game_id").sort("date", "game_id"))
@@ -237,8 +206,7 @@ def main(settings: Settings = default_settings) -> pl.DataFrame:
     """Run the backtest, print its summary, write settings.modeling.backtest_file."""
     table = backtest(settings)
     out = settings.modeling.backtest_file
-    out.parent.mkdir(parents=True, exist_ok=True)
-    table.write_csv(out)
+    write_csv(table, out)
     losses = log_loss_vs_market(table)
     print(f"{table.height} games with odds, seasons {table['season_start'].min()} on")
     print(f"Log loss: model {losses['model']:.4f}, bookmaker {losses['market']:.4f}")
@@ -261,7 +229,6 @@ __all__ = [
     "attach_odds",
     "cumulative_profit",
     "log_loss_vs_market",
-    "odds_url",
     "picks",
     "read_odds",
     "summary",

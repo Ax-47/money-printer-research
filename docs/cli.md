@@ -6,7 +6,7 @@ everything they read comes from the [settings](configuration.md).
 
 | Command | Entry point | What it does |
 | --- | --- | --- |
-| `collect_data` | `data_collection.collect_data` | Download the Understat schedule, Understat player stats and the Transfermarkt tables. See [Collect](pipeline/collect.md). |
+| `collect_data` | `data_collection.collect_data` | Download the Understat schedule, football-data.co.uk odds, Understat player stats and the Transfermarkt tables. See [Collect](pipeline/collect.md). |
 | `clean_data` | `clean_data.exec_clean_data` | Clean the collected files and build the pre-match features; write nine CSVs. See [Clean](pipeline/clean.md) and [Features](pipeline/features.md). |
 | `check_clean` | `schema.check_clean` | Validate every CSV in the clean output folder against its schema. |
 | `feature_importance` | `analysis.exec_feature_importance` | Forward feature selection for the home / draw / away model on `model_frame.csv`, walk-forward by season. |
@@ -23,11 +23,12 @@ scraping libraries.
 
 ## `collect_data`
 
-Runs the three collectors, fastest first:
+Runs the four collectors, fastest first:
 
 1. `collect_schedule`: one Understat request per league and season.
-2. `collect_player_stats`: one Understat page per match.
-3. `collect_transfermarkt`: one DuckDB download, then three Parquet exports.
+2. `collect_odds`: one football-data.co.uk CSV per league and season, for `backtest`.
+3. `collect_player_stats`: one Understat page per match.
+4. `collect_transfermarkt`: one DuckDB download, then three Parquet exports.
 
 A file that already exists is skipped, and a file is written only after it
 passes its raw schema check, so an interrupted or failed run can simply be
@@ -99,9 +100,8 @@ The schedule covers the seasons from `understat.start_year` up to, not including
 
 ## `backtest`
 
-Downloads football-data.co.uk's 1X2 odds for each league and season to
-`modeling.odds_dir` (once; the latest season is fetched again each run), predicts
-every season from `modeling.backtest_from` with the logistic baseline fitted only on
+Reads the football-data.co.uk 1X2 odds `collect_data` downloaded to
+`modeling.odds_dir`, predicts every season from `modeling.backtest_from` with the logistic baseline fitted only on
 the seasons before it, and prices each game with Pinnacle's closing odds (falling back
 to Pinnacle's opening price, the market average at closing, then Bet365).
 
@@ -109,7 +109,7 @@ Each game's pick is the outcome with the highest expected value of a 1-unit stak
 `p * odds - 1`. It prints the model's and the bookmaker's log loss and, for a few EV
 thresholds, the bets, hit rate, profit and ROI of betting every pick above it, and
 writes every game to `modeling.backtest_file` (`data/predictions/backtest.csv`).
-Needs `data/clean/model_frame.csv`, as `modeling` does. The web page at
+Needs `data/clean/model_frame.csv`, as `modeling` does, and the odds from `collect_data`. The web page at
 `/backtest.html` shows the same with a threshold slider.
 
 football-data names teams differently from Understat; each name is matched to the

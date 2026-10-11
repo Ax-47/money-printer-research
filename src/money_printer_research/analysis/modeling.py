@@ -245,8 +245,8 @@ def fit_final(df: pl.DataFrame, groups: list[str] = SELECTED) -> SavedModel:
     cols = columns(groups)
     pipeline = make_model().fit(df.select(cols).to_numpy(), df[TARGET].to_numpy())
     assert list(pipeline.classes_) == CLASSES
-    season = df["season_start"]
-    return SavedModel(pipeline, cols, CLASSES, (int(season.min()), int(season.max())))  # pyright: ignore[reportArgumentType]
+    seasons = df["season_start"].to_list()
+    return SavedModel(pipeline, cols, CLASSES, (min(seasons), max(seasons)))
 
 
 def save_model(model: SavedModel, path: Path) -> None:

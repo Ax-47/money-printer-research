@@ -9,7 +9,6 @@ from money_printer_research.analysis.backtest import (
     attach_odds,
     cumulative_profit,
     log_loss_vs_market,
-    odds_url,
     picks,
     read_odds,
     summary,
@@ -60,10 +59,10 @@ def _games() -> pl.DataFrame:
 def _write_odds(odds_dir: Path) -> None:
     """The same games in football-data's E0 CSV, its team names and date format.
 
-    The first game has no Pinnacle price.
+    Written where collect_odds puts it. The first game has no Pinnacle price.
     """
     games = _games()
-    odds_dir.mkdir()
+    (odds_dir / LEAGUE).mkdir(parents=True)
     pinnacle = [None, *[float(i) for i in range(2, games.height + 1)]]
     pl.DataFrame(
         {
@@ -78,12 +77,7 @@ def _write_odds(odds_dir: Path) -> None:
             "B365D": 3.4,
             "B365A": 6.0,
         }
-    ).write_csv(odds_dir / "E0_2024.csv")
-
-
-def test_odds_url() -> None:
-    assert odds_url("E0", 2024) == "https://www.football-data.co.uk/mmz4281/2425/E0.csv"
-    assert odds_url("SP1", 2009) == "https://www.football-data.co.uk/mmz4281/0910/SP1.csv"
+    ).write_csv(odds_dir / LEAGUE / "2024-25.csv")
 
 
 def test_read_odds_parses_dates_and_falls_back_to_other_odds(tmp_path: Path) -> None:
@@ -91,6 +85,11 @@ def test_read_odds_parses_dates_and_falls_back_to_other_odds(tmp_path: Path) -> 
     odds = read_odds(tmp_path / "odds")
     assert odds["day"].to_list() == _games()["date"].dt.date().to_list()
     assert odds["odds_H"].to_list()[:3] == [1.5, 2.0, 3.0]  # no Pinnacle for game 1: Bet365
+
+
+def test_read_odds_without_files_says_to_collect(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError, match="collect_data"):
+        read_odds(tmp_path)
 
 
 def test_team_names_are_learned_from_shared_days(tmp_path: Path) -> None:
