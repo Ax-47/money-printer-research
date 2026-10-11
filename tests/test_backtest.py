@@ -7,12 +7,14 @@ import pytest
 
 from money_printer_research.analysis.backtest import (
     attach_odds,
+    best_by_chance,
     cumulative_profit,
     log_loss_vs_market,
     picks,
     read_odds,
     summary,
     team_names,
+    walk_forward_thresholds,
 )
 
 LEAGUE = "ENG-Premier League"
@@ -147,3 +149,44 @@ def test_market_log_loss_removes_the_margin() -> None:
     losses = log_loss_vs_market(table)
     assert losses["market"] == pytest.approx(-(np.log(0.5) + 2 * np.log(0.25)) / 3)
     assert losses["model"] == pytest.approx(-(np.log(0.6) + np.log(0.3) + np.log(0.2)) / 3)
+
+
+def test_summary_gives_the_roi_standard_error() -> None:
+    total = summary(picks(_table()), 0.05).row(0, named=True)
+    # Profits 1 and -1: sample sd sqrt(2), over sqrt(2) bets.
+    assert total["roi_se"] == pytest.approx(1.0)
+
+
+def _seasons() -> pl.DataFrame:
+    """Three seasons: high-EV bets win in 2022 and lose after, low-EV bets the opposite."""
+    rows = [
+        (season, ev, profit)
+        for season, high, low in [(2022, 1.0, -1.0), (2023, -1.0, 1.0), (2024, -1.0, 1.0)]
+        for ev, profit in [(0.3, high), (0.01, low)]
+    ]
+    return pl.DataFrame(rows, schema=["season_start", "ev", "profit"], orient="row")
+
+
+def test_walk_forward_thresholds_choose_from_earlier_seasons_only() -> None:
+    wf = walk_forward_thresholds(_seasons(), [0.0, 0.2])
+    # 2023 only knows 2022, where 0.2 did best; by 2024, 0.0 and 0.2 tie at 0 and 0.0 wins.
+    assert wf["season_start"].to_list() == [2023, 2024]
+    assert wf["min_ev"].to_list() == [0.2, 0.0]
+    assert wf["profit"].to_list() == pytest.approx([-1.0, 0.0])
+
+
+def test_best_by_chance_finds_no_edge_where_the_model_is_the_market() -> None:
+    rng = np.random.default_rng(1)
+    n = 600
+    p = rng.dirichlet([4, 3, 3], n)
+    result = rng.random(n)[:, None] > p.cumsum(axis=1)
+    table = pl.DataFrame(
+        {
+            "league": rng.choice(["A", "B"], n),
+            "full_time_result": np.array(["H", "D", "A"])[result.sum(axis=1)],
+            **{f"p_{k}": p[:, i] for i, k in enumerate(["H", "D", "A"])},
+            **{f"odds_{k}": 0.95 / p[:, i] for i, k in enumerate(["H", "D", "A"])},
+        }
+    ).with_columns(p_H=pl.col("p_H") * 1.2)  # the model overrates home wins
+    chance = best_by_chance(picks(table), [0.0, 0.05, 0.1], sims=50)
+    assert 0.05 < chance["p_value"] <= 1.0
