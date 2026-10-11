@@ -46,7 +46,10 @@ def _rows() -> pl.DataFrame:
         {
             "game_id": games,
             "tm_game_id": ["t1", "t2", None],
-            "home_formation": ["4-4-2", "4-3-3", None],
+            "home_formation": ["4-4-2", "4-3-3 Attacking", None],
+            "home_variant": [None, "attacking", None],
+            "away_formation": ["4-2-3-1", None, None],
+            "away_variant": [None, None, None],
             "h_fatigue": [40.0, None, 35.0],
             "h_min_7d": [450, None, 300],
             "a_min_7d": [500, 520, 610],
@@ -69,17 +72,21 @@ def test_missing_table_gives_every_null_cell_a_reason() -> None:
 
     assert _reasons(missing, 1) == {
         "h_days_to_next_all": "no_next_game",
+        "home_variant": "plain_shape",
+        "away_variant": "plain_shape",
         **{slot_column("h", 9, f): "too_few_minutes" for f in ("xg90", "xa90", "form90")},
     }
 
     game2 = _reasons(missing, 2)
     assert game2["h_fatigue"] == game2["h_min_7d"] == game2["fatigue_diff"] == "no_lineup"
     assert game2[slot_column("h", 1, "xg90")] == "no_lineup"
-    assert set(game2.values()) == {"no_lineup"}
-    assert len(game2) == 3 + N_SLOTS * len(PLAYER_SLOT_FEATURES)
+    assert game2["away_formation"] == game2["away_variant"] == "no_formation"
+    assert set(game2.values()) == {"no_lineup", "no_formation"}
+    assert len(game2) == 5 + N_SLOTS * len(PLAYER_SLOT_FEATURES)
 
     game3 = _reasons(missing, 3)
     assert game3["tm_game_id"] == game3["home_formation"] == "no_tm_game"
+    assert game3["away_variant"] == "no_tm_game"
     assert game3["h_games_7d_all"] == game3["h_days_to_next_all"] == "no_schedule"
     assert game3[slot_column("a", N_SLOTS, "fatigue_score")] == "short_lineup"
 
@@ -89,10 +96,11 @@ def test_missing_table_sides() -> None:
     side = dict(missing.filter(pl.col("game_id") == 2).select("column", "side").rows())
     assert side["h_fatigue"] == "h"
     assert side["fatigue_diff"] is None
+    assert side["away_formation"] == "a"
 
 
 def test_missing_table_is_empty_without_nulls() -> None:
-    complete = _rows().filter(pl.col("game_id") == 1).fill_null(0)
+    complete = _rows().filter(pl.col("game_id") == 1).fill_null(0).fill_null("flat")
     assert missing_table(complete).unwrap().height == 0
 
 

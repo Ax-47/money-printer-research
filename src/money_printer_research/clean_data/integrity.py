@@ -36,6 +36,13 @@ def _shared(before: pl.DataFrame, after: pl.DataFrame, key: Sequence[str]) -> li
     return [c for c in before.columns if c in after.columns and c not in key]
 
 
+def _cols(
+    before: pl.DataFrame, after: pl.DataFrame, key: Sequence[str], cols: Sequence[str] | None
+) -> list[str]:
+    """Cols to compare: the shared columns by default, and never the key itself."""
+    return _shared(before, after, key) if cols is None else [c for c in cols if c not in key]
+
+
 def _aligned(
     before: pl.DataFrame, after: pl.DataFrame, key: Sequence[str], cols: Sequence[str]
 ) -> pl.DataFrame:
@@ -65,11 +72,11 @@ def compare(
     changed                  cells in `cols` that differ, null versus value excluded
     new_nulls                cells in `cols` null in `after` but not in `before`
 
-    cols defaults to every column the two share, the key left out. Every count but
+    cols defaults to every column the two share; the key is left out either way. Every count but
     the heights should be 0 unless the step means it, such as a filter losing keys.
     """
     key = [key] if isinstance(key, str) else list(key)
-    cols = _shared(before, after, key) if cols is None else list(cols)
+    cols = _cols(before, after, key, cols)
     both = _aligned(before, after, key, cols)
     keys_before, keys_after = before.select(key).unique(), after.select(key).unique()
 
@@ -104,7 +111,7 @@ def changed_rows(
     Values are shown as strings so columns of every dtype fit in one table.
     """
     key = [key] if isinstance(key, str) else list(key)
-    cols = _shared(before, after, key) if cols is None else list(cols)
+    cols = _cols(before, after, key, cols)
     both = _aligned(before, after, key, cols)
     parts = [
         both.filter(

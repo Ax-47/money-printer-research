@@ -207,6 +207,8 @@ MISSING_REASONS = (
     "no_schedule",
     "no_next_game",
     "no_tm_game",
+    "no_formation",
+    "plain_shape",
     "other",
 )
 """Why a cell of match_features is null; see features.missing for each one."""
@@ -223,7 +225,10 @@ class MissingCols(pa.DataFrameModel):
     side: F[str] = pa.Field(
         nullable=True,
         isin=["h", "a"],
-        description="h or a for a column of one side; null for one of the match (fatigue_diff).",
+        description=(
+            "h or a for a column of one side (h_, a_, home_, away_); null for one of the"
+            " match (fatigue_diff)."
+        ),
     )
     reason: F[str] = pa.Field(
         isin=list(MISSING_REASONS),
@@ -232,7 +237,8 @@ class MissingCols(pa.DataFrameModel):
             " starters, so this slot is empty. too_few_minutes: the starter has under"
             " MIN_PREV_MIN previous minutes. no_schedule: the club has no Transfermarkt game."
             " no_next_game: the club's last game in the data. no_tm_game: the match has no"
-            " Transfermarkt game. other: none of these."
+            " Transfermarkt game. no_formation: the Transfermarkt game has no line-up for the"
+            " side. plain_shape: the side's formation has no variant. other: none of these."
         ),
     )
 

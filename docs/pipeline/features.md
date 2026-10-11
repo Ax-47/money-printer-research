@@ -121,6 +121,8 @@ the whole match) and the `reason`:
 | `no_schedule` | A side's schedule features, when its club has no Transfermarkt game |
 | `no_next_game` | `days_to_next_all`, for a club's last game in the Transfermarkt data |
 | `no_tm_game` | The Transfermarkt columns, when the match has no Transfermarkt game |
+| `no_formation` | A side's formation columns, when its Transfermarkt game has no line-up |
+| `plain_shape` | `home_variant` / `away_variant`, for a shape with no variant such as "4-2-3-1" |
 | `other` | None of these, such as a formation that did not parse |
 
 Every null cell of `match_features.csv` has exactly one row, so the two tables
