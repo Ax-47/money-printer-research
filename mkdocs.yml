@@ -35,7 +35,38 @@ nav:
     - cool_stuff: api/cool_stuff.md
 theme:
   name: material
+  language: en
+  icon:
+    logo: material/soccer
+    repo: fontawesome/brands/github
+  favicon: assets/favicon.svg
+  font:
+    text: Inter
+    code: JetBrains Mono
+  palette:
+    # Follow the OS setting until the reader picks a scheme
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: green
+      accent: amber
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: green
+      accent: amber
+      toggle:
+        icon: material/weather-night
+        name: Switch to system preference
   features:
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.tracking
     - navigation.indexes
     - navigation.sections
     - navigation.expand
@@ -43,8 +74,18 @@ theme:
     - navigation.tabs
     - navigation.tabs.sticky
     - navigation.top
+    - navigation.footer
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.action.edit
+    - content.action.view
     - content.code.copy
     - content.code.select
+    - content.code.annotate
+    - content.tabs.link
+    - content.tooltips
 plugins:
   - search
   - include-markdown
@@ -65,8 +106,6 @@ extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/Ax-47/money-printer-research
-    - icon: fontawesome/brands/python
-      link: https://pypi.org/project/money-printer-research
 extra_css:
   - stylesheets/extra.css
 markdown_extensions:
@@ -75,10 +114,26 @@ markdown_extensions:
   - md_in_html
   - pymdownx.blocks.caption
   - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.highlight:
       use_pygments: true
       pygments_lang_class: true
-  - pymdownx.superfences
+      anchor_linenums: true
+      line_spans: __span
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.pathconverter
   - pymdownx.snippets:
       base_path: ["."] # Using --8<-- "dir/file.md" is relative to the base_path.
