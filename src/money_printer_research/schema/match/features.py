@@ -7,6 +7,7 @@
     PLAYER_SLOTS       players.csv: each side's starters as slot columns
     MatchFeaturesCols  match_features.csv: cleaned_matches plus every feature above
     MissingCols        missing.csv: every null cell of match_features, with its reason
+    model_frame_schema model_frame.csv: match_features with its known gaps filled
 
 Every feature uses only what was known at kick-off.
 """
@@ -255,6 +256,22 @@ def match_features_schema() -> pa.DataFrameSchema:
     return MatchFeaturesCols.to_schema().add_columns(slot_columns())
 
 
+def model_frame_schema() -> pa.DataFrameSchema:
+    """model_frame.csv (features.impute.model_frame): match_features plus the formation flags."""
+    return match_features_schema().add_columns(
+        {
+            f"{s}_formation_imputed": pa.Column(
+                bool,
+                description=(
+                    f"The {side} formation columns come from the team's previous match:"
+                    " this match's Transfermarkt game has no line-up for the side."
+                ),
+            )
+            for s, side in (("h", "home"), ("a", "away"))
+        }
+    )
+
+
 __all__ = [
     "EloCols",
     "EloInputCols",
@@ -270,6 +287,7 @@ __all__ = [
     "TeamFatigueCols",
     "TeamScheduleCols",
     "match_features_schema",
+    "model_frame_schema",
     "slot_column",
     "slot_columns",
 ]

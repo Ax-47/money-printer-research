@@ -16,6 +16,7 @@ exceptions are noted under [Schedule](#schedule).
 | `players.csv` | `PLAYER_SLOTS` | `features.get_player_features` |
 | `match_features.csv` | [`MatchFeaturesCols`](../schema/match.md) | `clean_data.join.join_features` |
 | `missing.csv` | [`MissingCols`](../schema/match.md) | `features.missing.missing_table` |
+| `model_frame.csv` | `model_frame_schema` | `features.impute.model_frame` |
 
 The first four are computed independently, so if several fail, every error comes
 back together.
@@ -134,6 +135,25 @@ them inside its own training fold, and can join `missing.csv` to know why.
 
 The one gap filled at the source is `rest_days_all` for a club's first game,
 which gets the 30-day cap, since the cap already means "a month or more".
+
+### Model frame
+
+`model_frame.csv` is `match_features.csv` with the gaps whose meaning is known
+handled, so a model can read it as it is. `match_features.csv` itself stays as it
+was. Each step answers one reason, as checked on the real data:
+
+| Reason | In `model_frame.csv` |
+| --- | --- |
+| `no_lineup` | The match is dropped: two matches with no starters on either side |
+| `no_formation` | The team's formation from its previous match, with `h_formation_imputed` / `a_formation_imputed` set; null if the team has none earlier. Most are La Liga 2018/19's first rounds |
+| `no_next_game` | `days_to_next_all` = 30, the cap: the club's last game before the summer break |
+| `plain_shape` | `home_variant` / `away_variant` = `"none"` |
+| `too_few_minutes`, `short_lineup` | Kept null |
+
+The first season (2014/15) is dropped last, as warm-up: every player and team starts
+with no history, and about 18% of its starter slots are `too_few_minutes`, against
+3-8% later. The formation fill runs before, so 2015/16 can use it. It only looks
+back: a team's most common formation would read its later games.
 
 `uv run clean_data` ends by printing `reason_counts(missing)`: the null cells and
 the matches they touch, per reason. `null_report` counts nulls per feature group

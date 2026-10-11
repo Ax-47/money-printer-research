@@ -64,6 +64,7 @@ from money_printer_research.schema.match import (
     UnderstatSchedule,
     UnderstatScheduleRaw,
     match_features_schema,
+    model_frame_schema,
     slot_column,
     slot_columns,
 )
@@ -97,6 +98,7 @@ CLEAN_FILES: dict[str, pa.DataFrameSchema] = {
     "players": PLAYER_SLOTS,
     "match_features": match_features_schema(),
     "missing": MissingCols.to_schema(),
+    "model_frame": model_frame_schema(),
 }
 
 
@@ -170,6 +172,7 @@ __all__ = [
     "check_collected",
     "dtype",
     "match_features_schema",
+    "model_frame_schema",
     "read_clean",
     "slot_column",
     "slot_columns",
