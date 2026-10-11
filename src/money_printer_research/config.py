@@ -166,6 +166,10 @@ class ModelingSettings(_Section):
         default=Path("data/models/hda_logistic.joblib"),
         description="The H/D/A model `modeling` fits on every season and saves.",
     )
+    predictions_file: RootPath = Field(
+        default=Path("data/predictions/upcoming.csv"),
+        description="`predict`'s output: H/D/A probabilities for every unplayed fixture.",
+    )
 
 
 class ApiSettings(_Section):

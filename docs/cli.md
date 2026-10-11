@@ -11,6 +11,7 @@ everything they read comes from the [settings](configuration.md).
 | `check_clean` | `schema.check_clean` | Validate every CSV in the clean output folder against its schema. |
 | `feature_importance` | `analysis.exec_feature_importance` | Forward feature selection for the home / draw / away model on `model_frame.csv`, walk-forward by season. |
 | `modeling` | `analysis.exec_modeling` | Compare home / draw / away models on the selected features, check the baseline's calibration, score them on the held-out seasons, then save the logistic model. |
+| `predict` | `analysis.exec_predict` | H/D/A probabilities for every unplayed fixture in the schedule, from the saved model. |
 | `notebook` | `notebook.exec_notebook` | Open JupyterLab at the project root with the project's environment. |
 | `show_config` | `config.show_config` | Print the settings in effect and the file they came from. See [Configuration](configuration.md). |
 | `api` | `api.exec_api` | Start the HTTP API. See [Docker and API](docker-api.md). |
@@ -71,6 +72,29 @@ logistic model on every season and saves it with joblib to `modeling.out_file`
 (`data/models/hda_logistic.joblib`); `analysis.modeling.load_model` reads it back and
 its `predict` takes `model_frame` rows. joblib runs code from the file, so load only
 models you saved yourself.
+
+## `predict`
+
+Loads the model `modeling` saved and predicts every fixture the Understat schedule
+holds but has not seen played (`is_result` false), then writes `game_id`, `date`,
+`league`, both teams, `p_H`, `p_D` and `p_A` to `modeling.predictions_file`
+(`data/predictions/upcoming.csv`). Run `modeling` first.
+
+Each fixture's features come from `match_features.csv`, using only what is known
+before kick-off:
+
+- Elo: each team's rating after its last played match; promoted teams start a new
+  season the way `clean_data` starts them.
+- Games in the last 14 days: league games only (played ones and earlier fixtures), so
+  a cup or European game in that window is missed.
+- Player slots: the line-up is unknown before kick-off, so a team gets the starters of
+  its last played match and their values from then: the likely XI, one game old.
+
+The schedule covers the seasons from `understat.start_year` up to, not including,
+`understat.end_year`. To predict the season in progress, set `end_year` past it
+(`UNDERSTAT__END_YEAR=2027` for 2026-27) and run `collect_data` and `clean_data`.
+`collect_data` skips a schedule file that already holds every season, so delete
+`data/raw/xg_schedule.csv` to pick up newer results and fixtures.
 
 ## `notebook`
 

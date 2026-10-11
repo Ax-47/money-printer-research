@@ -14,6 +14,12 @@ def _keep_played_matches(stat_df: DataFrame[UnderstatScheduleRaw]) -> pl.DataFra
     return stat_df.filter(pl.col(UnderstatScheduleRaw.is_result))
 
 
+@returns(UnderstatScheduleRaw)
+def _keep_unplayed_matches(stat_df: DataFrame[UnderstatScheduleRaw]) -> pl.DataFrame:
+    """Fixtures not played yet (is_result False): what `predict` forecasts."""
+    return stat_df.filter(~pl.col(UnderstatScheduleRaw.is_result))
+
+
 @returns(ScheduleCols)
 def _add_season_start(stat_df: DataFrame[UnderstatScheduleRaw]) -> pl.DataFrame:
     """Add season_start from Understat's season code: 1415 -> 2014."""
@@ -36,3 +42,8 @@ clean_match_stat: K[DataFrame[UnderstatScheduleRaw], DataFrame[ScheduleCols]] = 
     *MATCH_STAT_STEPS
 )
 """Raw Understat schedule -> played matches with season_start and canonical team names."""
+
+clean_upcoming: K[DataFrame[UnderstatScheduleRaw], DataFrame[ScheduleCols]] = compose(
+    _keep_unplayed_matches, *MATCH_STAT_STEPS[1:]
+)
+"""Raw Understat schedule -> unplayed fixtures, cleaned the same way as the played matches."""
