@@ -152,6 +152,8 @@ def test_backtest_summarises_bets_above_the_threshold(client: TestClient) -> Non
     assert body["games"] == 3
     assert body["total"]["bets"] == 2
     assert body["total"]["profit"] == pytest.approx(0.0)
+    assert body["total"]["roi_se"] == pytest.approx(1.0)
+    assert body["walk_forward"] == []  # one season: nothing earlier to choose from
     assert [r["profit"] for r in body["cumulative_profit"]] == pytest.approx([1.0, 0.0])
     assert [r["season_start"] for r in body["by_season"]] == [2024]
     assert body["log_loss"]["model"] > 0

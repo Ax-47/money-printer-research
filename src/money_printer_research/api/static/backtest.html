@@ -11,6 +11,8 @@
   .tile { padding: 12px 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; }
   .tile small { display: block; color: var(--muted); font-size: .8rem; }
   .tile b { font-size: 1.3rem; }
+  .tile .ci { margin-top: 2px; }
+  .note { padding: 10px 14px; margin-bottom: 16px; border: 1px solid var(--red); border-radius: 10px; }
   .plus { color: var(--green); } .minus { color: var(--red); }
   .card { padding: 14px; margin-bottom: 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; }
   .card h2 { font-size: 1rem; margin: 0 0 10px; }
@@ -48,9 +50,13 @@
   const signed = (x, fmt) => `${x > 0 ? "+" : ""}${fmt(x)}`;
   const tone = (x) => (x > 0 ? "plus" : x < 0 ? "minus" : "");
 
-  function tile(label, value, className = "") {
-    return el("div", { className: "tile" }, el("small", {}, label), el("b", { className }, value));
+  function tile(label, value, className = "", note = "") {
+    return el("div", { className: "tile" }, el("small", {}, label), el("b", { className }, value),
+      ...(note ? [el("small", { className: "ci" }, note)] : []));
   }
+
+  // ROI ± 1.96 standard errors: where the true ROI could be, given how much it swings.
+  const ci = (t) => [t.roi - 1.96 * t.roi_se, t.roi + 1.96 * t.roi_se];
 
   function svg(tag, attrs, ...children) {
     const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
@@ -80,14 +86,40 @@
       svg("text", { x: w - pad.r, y: h - 4, "text-anchor": "end" }, points.at(-1).day));
   }
 
+  // 2024 -> "2024/25"
+  const seasonLabel = (start) => `${start}/${String((start + 1) % 100).padStart(2, "0")}`;
+
   function seasonTable(rows) {
     const head = ["Season", "Bets", "Hit rate", "Profit", "ROI"].map((t) => el("th", {}, t));
     return el("table", {}, el("tr", {}, ...head), ...rows.map((r) => el("tr", {},
-      el("td", {}, `${r.season_start}/${String((r.season_start + 1) % 100).padStart(2, "0")}`),
+      el("td", {}, seasonLabel(r.season_start)),
       el("td", {}, r.bets),
       el("td", {}, pct(r.hit_rate)),
       el("td", { className: tone(r.profit) }, signed(r.profit, (v) => v.toFixed(1))),
       el("td", { className: tone(r.roi) }, signed(r.roi, pct)))));
+  }
+
+  // Each season bet at the threshold that did best before it, as a live bettor must choose.
+  function walkForwardCard(rows) {
+    const sum = (key) => rows.reduce((total, r) => total + r[key], 0);
+    const bets = sum("bets"), profit = sum("profit");
+    const pickedLeague = $("league").value !== "";
+    const head = ["Season", "Threshold", "Bets", "Profit", "ROI"].map((t) => el("th", {}, t));
+    return el("div", { className: "card" },
+      el("h2", {}, "Threshold chosen without hindsight"),
+      el("p", { className: "sub" }, "The slider lets you pick the threshold after seeing the results, "
+        + "which flatters them. Here each season bets at the threshold that made the most on the "
+        + "seasons before it only. Total: ",
+        el("b", { className: tone(profit) }, `${signed(profit, (v) => v.toFixed(1))} units`),
+        ` on ${bets.toLocaleString()} bets` + (bets ? `, ROI ${signed(profit / bets, pct)}` : "") + "."
+        + (pickedLeague ? " Choosing the league after seeing its results flatters them "
+          + "the same way; All leagues makes no such choice." : "")),
+      el("table", {}, el("tr", {}, ...head), ...rows.map((r) => el("tr", {},
+        el("td", {}, seasonLabel(r.season_start)),
+        el("td", {}, pct(r.min_ev, 0)),
+        el("td", {}, r.bets),
+        el("td", { className: tone(r.profit) }, signed(r.profit, (v) => v.toFixed(1))),
+        el("td", { className: tone(r.roi ?? 0) }, r.roi == null ? "–" : signed(r.roi, pct))))));
   }
 
   let latest = null;
@@ -100,16 +132,22 @@
       $("result").replaceChildren(el("div", { className: "empty" }, "No bet clears this threshold."));
       return;
     }
+    const [lo, hi] = ci(t);
+    const couldBeLuck = t.roi_se != null && lo < 0 && hi > 0;
     $("result").replaceChildren(
+      ...(couldBeLuck ? [el("div", { className: "note" }, "The 95% range of the ROI includes zero: "
+        + "this result is within what luck alone produces. It is not evidence of an edge.")] : []),
       el("div", { className: "tiles" },
         tile("Bets", t.bets.toLocaleString()),
         tile("Hit rate", pct(t.hit_rate)),
         tile("Profit (units)", signed(t.profit, (v) => v.toFixed(1)), tone(t.profit)),
-        tile("ROI", signed(t.roi, pct), tone(t.roi)),
+        tile("ROI", signed(t.roi, pct), tone(t.roi),
+          t.roi_se == null ? "" : `95% range ${signed(lo, pct)} to ${signed(hi, pct)}`),
         tile("Log loss: model / bookmaker",
           `${data.log_loss.model.toFixed(3)} / ${data.log_loss.market.toFixed(3)}`)),
       el("div", { className: "card", id: "chart" }, el("h2", {}, "Cumulative profit")),
-      el("div", { className: "card" }, el("h2", {}, "By season"), seasonTable(data.by_season)));
+      el("div", { className: "card" }, el("h2", {}, "By season"), seasonTable(data.by_season)),
+      ...(data.walk_forward.length ? [walkForwardCard(data.walk_forward)] : []));
     drawChart();
   }
 

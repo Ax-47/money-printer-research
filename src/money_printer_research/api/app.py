@@ -7,7 +7,8 @@
     GET /predictions?season=...      walk_forward H/D/A probabilities for one season
     GET /predictions/metrics?...     log loss, RPS and accuracy for that season
     GET /upcoming?league=...&team=...  the `predict` command's H/D/A for unplayed fixtures
-    GET /backtest?min_ev=...&league=...  the `backtest` command's results for one EV threshold
+    GET /backtest?min_ev=...&league=...  the `backtest` command's results for one EV threshold,
+                                     and for thresholds chosen season by season
     GET /, /backtest.html            web pages over /upcoming and /backtest (static/)
 
 Tables, upcoming.csv and backtest.csv are read from disk on each request, so a new
@@ -23,7 +24,12 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 from pandera.typing.polars import DataFrame
 
-from money_printer_research.analysis.backtest import cumulative_profit, log_loss_vs_market, summary
+from money_printer_research.analysis.backtest import (
+    cumulative_profit,
+    log_loss_vs_market,
+    summary,
+    walk_forward_thresholds,
+)
 from money_printer_research.config import Settings
 from money_printer_research.config import settings as default_settings
 from money_printer_research.features.elo import evaluate, walk_forward
@@ -170,6 +176,7 @@ def create_app(settings: Settings = default_settings) -> FastAPI:
             "total": _rows(summary(table, min_ev))[0],
             "by_season": _rows(summary(table, min_ev, ["season_start"])),
             "cumulative_profit": _rows(cumulative_profit(table, min_ev)),
+            "walk_forward": _rows(walk_forward_thresholds(table)) if table.height else [],
         }
 
     # Last, so the API routes above take precedence: the pages and their CSS and JS.
