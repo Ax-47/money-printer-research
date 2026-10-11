@@ -154,19 +154,52 @@ def picks(games: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def log_loss_vs_market(table: pl.DataFrame) -> dict[str, float]:
-    """Mean log loss of the model and of the bookmaker's margin-free probabilities."""
+def _row_losses(table: pl.DataFrame) -> pl.DataFrame:
+    """The table with loss_model and loss_market: -ln of each one's probability of the result.
+
+    The bookmaker's probabilities are 1 / odds scaled to sum to 1, which removes its margin.
+    """
     actual = pl.col(TARGET)
 
-    def loss(prob: dict[str, pl.Expr]) -> float:
-        p = pl.coalesce(pl.when(actual == k).then(e) for k, e in prob.items())
-        return float(table.select(-p.log().mean()).item())
+    def loss(prob: dict[str, pl.Expr]) -> pl.Expr:
+        return -pl.coalesce(pl.when(actual == k).then(e) for k, e in prob.items()).log()
 
     overround = pl.sum_horizontal(1 / pl.col(f"odds_{k}") for k in OUTCOMES)
-    return {
-        "model": loss({k: pl.col(f"p_{k}") for k in OUTCOMES}),
-        "market": loss({k: 1 / pl.col(f"odds_{k}") / overround for k in OUTCOMES}),
-    }
+    return table.with_columns(
+        loss_model=loss({k: pl.col(f"p_{k}") for k in OUTCOMES}),
+        loss_market=loss({k: 1 / pl.col(f"odds_{k}") / overround for k in OUTCOMES}),
+    )
+
+
+def log_loss_vs_market(table: pl.DataFrame) -> dict[str, float]:
+    """Mean log loss of the model and of the bookmaker's margin-free probabilities."""
+    row = _row_losses(table).select(
+        model=pl.col("loss_model").mean(), market=pl.col("loss_market").mean()
+    )
+    return {k: float(v) for k, v in row.row(0, named=True).items()}
+
+
+def log_loss_by(table: pl.DataFrame, by: str | pl.Expr) -> pl.DataFrame:
+    """Games, model and market log loss and gap (model minus market) per value of `by`.
+
+    A positive gap is how much worse than the bookmaker the model is in that group.
+    """
+    return (
+        _row_losses(table)
+        .group_by(by)
+        .agg(
+            pl.len().alias("games"),
+            pl.col("loss_model").mean().alias("model"),
+            pl.col("loss_market").mean().alias("market"),
+        )
+        .with_columns(gap=pl.col("model") - pl.col("market"))
+        .sort(by if isinstance(by, str) else by.meta.output_name())
+    )
+
+
+def ev_band(edges: tuple[float, ...] = THRESHOLDS) -> pl.Expr:
+    """ev_band: each game's pick EV cut at `edges` ("(-inf, 0]", "(0, 0.02]", ...)."""
+    return pl.col("ev").cut(list(edges)).alias("ev_band")
 
 
 def summary(table: pl.DataFrame, min_ev: float, by: list[str] | None = None) -> pl.DataFrame:
@@ -216,6 +249,9 @@ def main(settings: Settings = default_settings) -> pl.DataFrame:
                 summary(table, t).select(pl.lit(t).alias("min_ev"), pl.all()) for t in THRESHOLDS
             )
         )
+    with pl.Config(float_precision=4, tbl_rows=40):
+        for by in ("season_start", "league", ev_band()):
+            print(log_loss_by(table, by))
     print(f"Saved {out}")
     return table
 
@@ -228,6 +264,8 @@ def exec_backtest() -> None:
 __all__ = [
     "attach_odds",
     "cumulative_profit",
+    "ev_band",
+    "log_loss_by",
     "log_loss_vs_market",
     "picks",
     "read_odds",

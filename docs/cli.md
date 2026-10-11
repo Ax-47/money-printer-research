@@ -107,7 +107,9 @@ to Pinnacle's opening price, the market average at closing, then Bet365).
 
 Each game's pick is the outcome with the highest expected value of a 1-unit stake,
 `p * odds - 1`. It prints the model's and the bookmaker's log loss and, for a few EV
-thresholds, the bets, hit rate, profit and ROI of betting every pick above it, and
+thresholds, the bets, hit rate, profit and ROI of betting every pick above it. It then
+splits both log losses by season, by league and by the pick's EV band, with the gap
+(model minus bookmaker; positive means the model is worse there), and
 writes every game to `modeling.backtest_file` (`data/predictions/backtest.csv`).
 Needs `data/clean/model_frame.csv`, as `modeling` does, and the odds from `collect_data`. The web page at
 `/backtest.html` shows the same with a threshold slider.

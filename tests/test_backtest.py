@@ -8,6 +8,8 @@ import pytest
 from money_printer_research.analysis.backtest import (
     attach_odds,
     cumulative_profit,
+    ev_band,
+    log_loss_by,
     log_loss_vs_market,
     picks,
     read_odds,
@@ -147,3 +149,16 @@ def test_market_log_loss_removes_the_margin() -> None:
     losses = log_loss_vs_market(table)
     assert losses["market"] == pytest.approx(-(np.log(0.5) + 2 * np.log(0.25)) / 3)
     assert losses["model"] == pytest.approx(-(np.log(0.6) + np.log(0.3) + np.log(0.2)) / 3)
+
+
+def test_log_loss_by_splits_the_overall_loss() -> None:
+    table = picks(_table())
+    total = log_loss_vs_market(table)
+    by_season = log_loss_by(table, "season_start").row(0, named=True)
+    assert by_season["games"] == table.height
+    assert by_season["model"] == pytest.approx(total["model"])
+    assert by_season["gap"] == pytest.approx(total["model"] - total["market"])
+    bands = log_loss_by(table, ev_band((0.0, 0.05)))
+    assert bands["games"].sum() == table.height
+    weighted = (bands["games"] * bands["model"]).sum() / table.height
+    assert weighted == pytest.approx(total["model"])
