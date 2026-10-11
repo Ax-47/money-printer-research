@@ -11,6 +11,7 @@ from ..features import (
     get_fatigue,
     get_player_features,
     missing_table,
+    model_frame,
     reason_counts,
     team_schedule_features,
     to_elo_input,
@@ -53,7 +54,10 @@ class Cleaned(SavesFrames):
 
 @dataclass(frozen=True)
 class ExtractedFeatures(SavesFrames):
-    """Pre-match features, the matches with all of them joined on, and its null cells."""
+    """Pre-match features, the matches with all of them joined on, and its null cells.
+
+    model_frame is the same matches with the gaps of known meaning filled (features.impute).
+    """
 
     elo: DataFrame[EloCols]
     fatigue: DataFrame[TeamFatigueCols]
@@ -61,6 +65,7 @@ class ExtractedFeatures(SavesFrames):
     players: pl.DataFrame
     match_features: DataFrame[MatchFeaturesCols]
     missing: DataFrame[MissingCols]
+    model_frame: pl.DataFrame
 
 
 @monad
@@ -126,6 +131,7 @@ def extract_features(cleaned: Cleaned) -> Result[ExtractedFeatures]:
             players=players,
             match_features=match_features,
             missing=missing,
+            model_frame=model_frame(match_features),
         )
     )
 

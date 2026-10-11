@@ -31,6 +31,7 @@ from money_printer_research.schema.match.features import (
     MISSING_REASONS,
     MissingCols,
     match_features_schema,
+    model_frame_schema,
 )
 
 __all__ = [
@@ -60,6 +61,7 @@ __all__ = [
     "UnderstatSchedule",
     "UnderstatScheduleRaw",
     "match_features_schema",
+    "model_frame_schema",
     "slot_column",
     "slot_columns",
 ]

@@ -19,6 +19,7 @@ Transfermarkt games from download to the final modelling table.
 | Features | `PLAYER_SLOTS` | `players.csv` |
 | Features | `MatchFeaturesCols` | `match_features.csv` |
 | Features | `MissingCols` | `missing.csv` |
+| Features | `model_frame_schema` | `model_frame.csv`: `match_features.csv` plus `h_formation_imputed`, `a_formation_imputed` |
 
 ## Raw
 
