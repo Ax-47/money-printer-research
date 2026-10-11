@@ -42,41 +42,35 @@ theme:
   font:
     text: Open Sans
     code: Source Code Pro
-  # The five mdBook themes; the header button cycles through them in order.
+  # Catppuccin flavors; the header button cycles through them in order.
   # Colors live in docs/stylesheets/extra.css.
   palette:
     - media: "(prefers-color-scheme: light)"
-      scheme: light
+      scheme: latte
       primary: custom
       accent: custom
       toggle:
         icon: material/palette
-        name: "Light theme (switch to Rust)"
-    - scheme: rust
+        name: "Latte theme (switch to Frappé)"
+    - scheme: frappe
       primary: custom
       accent: custom
       toggle:
         icon: material/palette
-        name: "Rust theme (switch to Coal)"
-    - scheme: coal
+        name: "Frappé theme (switch to Macchiato)"
+    - scheme: macchiato
       primary: custom
       accent: custom
       toggle:
         icon: material/palette
-        name: "Coal theme (switch to Navy)"
+        name: "Macchiato theme (switch to Mocha)"
     - media: "(prefers-color-scheme: dark)"
-      scheme: navy
+      scheme: mocha
       primary: custom
       accent: custom
       toggle:
         icon: material/palette
-        name: "Navy theme (switch to Ayu)"
-    - scheme: ayu
-      primary: custom
-      accent: custom
-      toggle:
-        icon: material/palette
-        name: "Ayu theme (switch to Light)"
+        name: "Mocha theme (switch to Latte)"
   features:
     - navigation.instant
     - navigation.instant.progress
