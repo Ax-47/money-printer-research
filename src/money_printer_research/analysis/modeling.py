@@ -13,12 +13,19 @@ Scores are log loss (what selection minimised), the ranked probability score (th
 one for football: it treats H, D, A as ordered, so calling a home win a draw costs less
 than calling it an away win), the multiclass Brier score and accuracy. calibration bins
 each class's predicted probability by decile and compares it with how often it happened.
+
+After the comparison, fit_final refits the logistic baseline on every season (the held-out
+ones too: they have been scored, and the newest games matter most) and save_model writes
+it with joblib to settings.modeling.out_file. load_model reads it back; SavedModel.predict
+takes model_frame rows and returns P(A), P(D), P(H) per game.
 """
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import joblib
 import numpy as np
 import polars as pl
 from scipy.stats import poisson
@@ -39,6 +46,7 @@ from money_printer_research.analysis.feature_importance import (
     columns,
     load,
     make_model,
+    with_derived,
 )
 from money_printer_research.config import settings
 
@@ -206,18 +214,56 @@ def calibration(y: np.ndarray, proba: np.ndarray, bins: int = 10) -> pl.DataFram
 
 def calibration_error(table: pl.DataFrame) -> pl.DataFrame:
     """Per class: expected calibration error, the games-weighted mean |predicted - observed|."""
-    return (
-        table.group_by("class", maintain_order=True)
-        .agg(
+    return table.group_by("class", maintain_order=True).agg(
+        (
             ((pl.col("predicted") - pl.col("observed")).abs() * pl.col("games")).sum()
             / pl.col("games").sum()
-        )
-        .rename({"predicted": "ece"})
+        ).alias("ece")
     )
 
 
-def main(path: Path) -> None:
-    """Print the walk-forward comparison, the baseline's calibration, then the held-out scores."""
+@dataclass(frozen=True)
+class SavedModel:
+    """A fitted H/D/A model with what it needs to predict: its feature columns and classes."""
+
+    pipeline: Any
+    columns: list[str]
+    classes: list[str]
+    seasons: tuple[int, int]
+    """First and last season_start it was fitted on."""
+
+    def predict(self, frame: pl.DataFrame) -> pl.DataFrame:
+        """P(A), P(D), P(H) for each row of `frame` (model_frame columns), plus its game_id."""
+        x = with_derived(frame).select(pl.col(self.columns).cast(pl.Float64)).to_numpy()
+        proba = self.pipeline.predict_proba(x)
+        out = pl.DataFrame({f"p_{c}": proba[:, i] for i, c in enumerate(self.classes)})
+        return frame.select("game_id").hstack(out) if "game_id" in frame.columns else out
+
+
+def fit_final(df: pl.DataFrame, groups: list[str] = SELECTED) -> SavedModel:
+    """The logistic baseline fitted on every game in `df` (load's output) with `groups`."""
+    cols = columns(groups)
+    pipeline = make_model().fit(df.select(cols).to_numpy(), df[TARGET].to_numpy())
+    assert list(pipeline.classes_) == CLASSES
+    season = df["season_start"]
+    return SavedModel(pipeline, cols, CLASSES, (int(season.min()), int(season.max())))  # pyright: ignore[reportArgumentType]
+
+
+def save_model(model: SavedModel, path: Path) -> None:
+    """Write `model` to `path` with joblib, creating its folder."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(model, path)
+
+
+def load_model(path: Path) -> SavedModel:
+    """Read a model save_model wrote. joblib runs code from the file: load only your own."""
+    model = joblib.load(path)
+    assert isinstance(model, SavedModel), type(model)
+    return model
+
+
+def main(path: Path, out_file: Path) -> None:
+    """Print the comparison, the baseline's calibration and the held-out scores; save the model."""
     df = load(path)
     print(f"{df.height} games, features {SELECTED}, test from {TEST_FROM}\n")
     with pl.Config(float_precision=4, tbl_rows=40):
@@ -229,8 +275,11 @@ def main(path: Path) -> None:
         print(table)
         print("\nHeld out:")
         print(held_out(df))
+    model = fit_final(df)
+    save_model(model, out_file)
+    print(f"\nSaved the logistic model, fitted on seasons {model.seasons}, to {out_file}")
 
 
 def exec_modeling() -> None:
-    """Entry point `modeling`: compare the H/D/A models on model_frame.csv."""
-    main(settings.clean.out_dir / "model_frame.csv")
+    """Entry point `modeling`: compare the H/D/A models on model_frame.csv, save the chosen one."""
+    main(settings.clean.out_dir / "model_frame.csv", settings.modeling.out_file)

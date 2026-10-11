@@ -26,7 +26,7 @@ in effect. See [Configuration](docs/configuration.md).
 uv run collect_data        # Understat schedule and player stats, Transfermarkt tables -> data/raw
 uv run clean_data          # cleaned tables and pre-match features -> data/clean
 uv run feature_importance  # feature selection for the H/D/A model
-uv run modeling            # compare H/D/A models on the selected features
+uv run modeling            # compare H/D/A models, save the chosen one -> data/models
 uv run notebook            # JupyterLab at the project root
 uv run check_clean         # validate every CSV in data/clean against its schema
 uv run show_config         # print the settings in effect

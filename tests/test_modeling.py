@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import polars as pl
 import pytest
@@ -8,8 +10,11 @@ from money_printer_research.analysis.modeling import (
     calibration,
     calibration_error,
     compare,
+    fit_final,
     held_out,
+    load_model,
     rps,
+    save_model,
     score_grid_proba,
     scores,
 )
@@ -88,3 +93,21 @@ def test_calibration_of_a_calibrated_forecast() -> None:
     assert table.height == 3 * 10
     assert table["games"].sum() == 3 * len(y)
     assert (calibration_error(table)["ece"] < 0.02).all()
+
+
+def test_saved_model_loads_and_predicts_from_model_frame_rows(tmp_path: Path) -> None:
+    model = fit_final(_games(), groups=["elo"])
+    assert model.seasons == (2015, 2018)
+    path = tmp_path / "models" / "hda.joblib"
+    save_model(model, path)
+    loaded = load_model(path)
+
+    raw = _frame(seed=2).with_row_index("game_id")  # model_frame columns, nothing derived
+    proba = loaded.predict(raw)
+    assert proba.columns == ["game_id", "p_A", "p_D", "p_H"]
+    assert proba.height == raw.height
+    assert proba.select(pl.sum_horizontal("p_A", "p_D", "p_H")).to_series().to_list() == (
+        pytest.approx([1.0] * raw.height)
+    )
+    strong_home = proba.filter(raw["elo_diff"] > 200)
+    assert (strong_home["p_H"] > strong_home["p_A"]).all()
