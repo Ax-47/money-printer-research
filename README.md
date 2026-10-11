@@ -38,8 +38,12 @@ uv run show_config         # print the settings in effect
 ## API
 
 ```bash
-uv run api  # http://localhost:8000/docs
+uv run api  # web page on http://localhost:8000, API docs on http://localhost:8000/docs
 ```
+
+The page at `/` lists the `predict` command's H/D/A probabilities for the unplayed
+fixtures, filterable by league and team; run `uv run predict` first. The same rows are
+`GET /upcoming?league=...&team=...`.
 
 Serves the tables in `data/clean` (`GET /tables`, `GET /tables/{name}`) and the Elo
 model's walk-forward predictions (`GET /predictions?season=2024/25`,

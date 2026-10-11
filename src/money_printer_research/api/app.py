@@ -6,9 +6,12 @@
     GET /predictions/seasons         seasons the Elo model can predict
     GET /predictions?season=...      walk_forward H/D/A probabilities for one season
     GET /predictions/metrics?...     log loss, RPS and accuracy for that season
+    GET /upcoming?league=...&team=...  the `predict` command's H/D/A for unplayed fixtures
+    GET /                            a web page over /upcoming
 
-Tables are read from disk on each request, so a new clean_data run shows up without a
-restart. Predictions are cached per season until elo.csv changes.
+Tables and upcoming.csv are read from disk on each request, so a new clean_data or
+predict run shows up without a restart. Predictions are cached per season until elo.csv
+changes.
 """
 
 from pathlib import Path
@@ -16,6 +19,7 @@ from typing import Annotated, Any
 
 import polars as pl
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import FileResponse
 from pandera.typing.polars import DataFrame
 
 from money_printer_research.config import Settings
@@ -25,6 +29,7 @@ from money_printer_research.schema import EloCols, PredictionCols
 
 ELO_TABLE = "elo"
 MAX_LIMIT = 1000
+INDEX_HTML = Path(__file__).parent / "static" / "index.html"
 
 
 def _rows(df: pl.DataFrame) -> list[dict[str, Any]]:
@@ -127,6 +132,22 @@ def create_app(settings: Settings = default_settings) -> FastAPI:
     @app.get("/predictions/metrics")
     def prediction_metrics(season: str, dixon_coles: bool = True) -> dict[str, Any]:
         return evaluate(tables.predictions(season, dixon_coles))
+
+    @app.get("/upcoming")
+    def upcoming(league: str | None = None, team: str | None = None) -> list[dict[str, Any]]:
+        path = settings.modeling.predictions_file
+        if not path.is_file():
+            raise HTTPException(404, f"no {path}; run `uv run predict` first")
+        pred = pl.read_csv(path, try_parse_dates=True)
+        if league is not None:
+            pred = pred.filter(pl.col("league") == league)
+        if team is not None:
+            pred = pred.filter((pl.col("home_team") == team) | (pl.col("away_team") == team))
+        return _rows(pred)
+
+    @app.get("/", include_in_schema=False)
+    def index() -> FileResponse:
+        return FileResponse(INDEX_HTML)
 
     return app
 
