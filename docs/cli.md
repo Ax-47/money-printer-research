@@ -10,6 +10,7 @@ everything they read comes from the [settings](configuration.md).
 | `clean_data` | `clean_data.exec_clean_data` | Clean the collected files and build the pre-match features; write nine CSVs. See [Clean](pipeline/clean.md) and [Features](pipeline/features.md). |
 | `check_clean` | `schema.check_clean` | Validate every CSV in the clean output folder against its schema. |
 | `feature_importance` | `analysis.exec_feature_importance` | Forward feature selection for the home / draw / away model on `model_frame.csv`, walk-forward by season. |
+| `modeling` | `analysis.exec_modeling` | Compare home / draw / away models on the selected features, check the baseline's calibration, score them on the held-out seasons. |
 | `notebook` | `notebook.exec_notebook` | Open JupyterLab at the project root with the project's environment. |
 | `show_config` | `config.show_config` | Print the settings in effect and the file they came from. See [Configuration](configuration.md). |
 | `api` | `api.exec_api` | Start the HTTP API. See [Docker and API](docker-api.md). |
@@ -53,14 +54,19 @@ Exits with status 1 if any file is missing or fails.
 
 ## `feature_importance`
 
-Trains a `HistGradientBoostingClassifier` on seasons before 2024 and scores it on
-the rest, then reports how much the test log loss rises when each feature, or
-each group of related features, is permuted.
+Reads `model_frame.csv` and selects feature groups for a multinomial logistic
+regression by greedy forward selection from Elo: each step adds the group that
+lowers the walk-forward log loss (seasons 2021 to 2023, each predicted by a model
+fitted on the seasons before it) the most, until no group gains `MIN_GAIN`. It
+then scores Elo alone, the selection and every group once on the held-out
+seasons from 2024, and says so if the selection differs from `SELECTED`.
 
-!!! warning
-    It currently reads `data/clean/matches.csv`, which `clean_data` no longer
-    writes (it writes `match_features.csv`). This is tracked in
-    [issue #13](https://github.com/Ax-47/money-printer-research/issues/13).
+## `modeling`
+
+Fits each model in `analysis.modeling.MODELS` on the `SELECTED` features, on the
+same walk-forward seasons, and prints log loss, ranked probability score, Brier
+score and accuracy; then the logistic baseline's calibration by probability
+decile; then every model once on the held-out seasons from 2024.
 
 ## `notebook`
 

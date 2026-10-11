@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from money_printer_research.api import exec_api
-    from money_printer_research.analysis import exec_feature_importance
+    from money_printer_research.analysis import exec_feature_importance, exec_modeling
     from money_printer_research.clean_data import clean_data, exec_clean_data
     from money_printer_research.data_collection import collect_data
     from money_printer_research.notebook import exec_notebook
@@ -22,6 +22,7 @@ _ENTRY_POINTS = {
     "clean_data": "money_printer_research.clean_data",
     "exec_clean_data": "money_printer_research.clean_data",
     "exec_feature_importance": "money_printer_research.analysis",
+    "exec_modeling": "money_printer_research.analysis",
     "exec_notebook": "money_printer_research.notebook",
 }
 
@@ -43,5 +44,6 @@ __all__ = [
     "exec_api",
     "exec_clean_data",
     "exec_feature_importance",
+    "exec_modeling",
     "exec_notebook",
 ]
