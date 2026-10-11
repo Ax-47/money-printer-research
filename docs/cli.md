@@ -10,7 +10,7 @@ everything they read comes from the [settings](configuration.md).
 | `clean_data` | `clean_data.exec_clean_data` | Clean the collected files and build the pre-match features; write nine CSVs. See [Clean](pipeline/clean.md) and [Features](pipeline/features.md). |
 | `check_clean` | `schema.check_clean` | Validate every CSV in the clean output folder against its schema. |
 | `feature_importance` | `analysis.exec_feature_importance` | Forward feature selection for the home / draw / away model on `model_frame.csv`, walk-forward by season. |
-| `modeling` | `analysis.exec_modeling` | Compare home / draw / away models on the selected features, check the baseline's calibration, score them on the held-out seasons. |
+| `modeling` | `analysis.exec_modeling` | Compare home / draw / away models on the selected features, check the baseline's calibration, score them on the held-out seasons, then save the logistic model. |
 | `notebook` | `notebook.exec_notebook` | Open JupyterLab at the project root with the project's environment. |
 | `show_config` | `config.show_config` | Print the settings in effect and the file they came from. See [Configuration](configuration.md). |
 | `api` | `api.exec_api` | Start the HTTP API. See [Docker and API](docker-api.md). |
@@ -66,7 +66,11 @@ seasons from 2024, and says so if the selection differs from `SELECTED`.
 Fits each model in `analysis.modeling.MODELS` on the `SELECTED` features, on the
 same walk-forward seasons, and prints log loss, ranked probability score, Brier
 score and accuracy; then the logistic baseline's calibration by probability
-decile; then every model once on the held-out seasons from 2024.
+decile; then every model once on the held-out seasons from 2024. Last, it refits the
+logistic model on every season and saves it with joblib to `modeling.out_file`
+(`data/models/hda_logistic.joblib`); `analysis.modeling.load_model` reads it back and
+its `predict` takes `model_frame` rows. joblib runs code from the file, so load only
+models you saved yourself.
 
 ## `notebook`
 

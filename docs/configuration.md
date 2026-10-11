@@ -66,6 +66,12 @@ uv run show_config
 | --- | --- | --- |
 | `out_dir` | `data/clean` | cleaned CSVs and features |
 
+### `[modeling]`
+
+| Key | Default | Notes |
+| --- | --- | --- |
+| `out_file` | `data/models/hda_logistic.joblib` | the H/D/A model `uv run modeling` fits on every season and saves |
+
 ### `[api_settings]`
 
 | Key | Default | Notes |
