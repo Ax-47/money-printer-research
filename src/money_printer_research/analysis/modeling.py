@@ -69,9 +69,13 @@ def logistic_sigmoid(train: pl.DataFrame, test: pl.DataFrame, cols: list[str]) -
 
 
 def boosted_trees(train: pl.DataFrame, test: pl.DataFrame, cols: list[str]) -> np.ndarray:
-    """Shallow, slow gradient boosting; trees take the nulls as they are."""
+    """Shallow, slow gradient boosting; trees take the nulls as they are.
+
+    On more than 10,000 games scikit-learn stops early on a random 10% of the training
+    games; random_state fixes that split, so the scores are the same on every run.
+    """
     model = HistGradientBoostingClassifier(
-        max_depth=3, learning_rate=0.03, max_iter=300, l2_regularization=1.0
+        max_depth=3, learning_rate=0.03, max_iter=300, l2_regularization=1.0, random_state=0
     )
     return _fit_predict(model, train, test, cols)
 
