@@ -27,7 +27,9 @@ class BacktestCols(pa.DataFrameModel):
         isin=list(OUTCOMES), description="H home win, D draw, A away win."
     )
 
-    odds_H: F[float] = pa.Field(gt=1, description="Decimal odds on a home win; see ODDS_SOURCES.")
+    odds_H: F[float] = pa.Field(
+        gt=1, description="Decimal odds on a home win; see ODDS_PREFERENCE."
+    )
     odds_D: F[float] = pa.Field(gt=1, description="Decimal odds on a draw.")
     odds_A: F[float] = pa.Field(gt=1, description="Decimal odds on an away win.")
 

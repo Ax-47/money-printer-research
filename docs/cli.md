@@ -103,7 +103,10 @@ The schedule covers the seasons from `understat.start_year` up to, not including
 Reads the football-data.co.uk 1X2 odds `collect_data` downloaded to
 `modeling.odds_dir`, predicts every season from `modeling.backtest_from` with the logistic baseline fitted only on
 the seasons before it, and prices each game with Pinnacle's closing odds (falling back
-to Pinnacle's opening price, the market average at closing, then Bet365).
+to Pinnacle's early price, the market average at closing, then Bet365's early price).
+Every other price in the files (all bookmakers, early and closing, Asian handicap and
+over/under 2.5) is available from `analysis.odds.read_prices`; see
+[Bet schemas](schema/bet.md#oddscols).
 
 Each game's pick is the outcome with the highest expected value of a 1-unit stake,
 `p * odds - 1`. It prints the model's and the bookmaker's log loss and, for a few EV
