@@ -85,6 +85,17 @@ def test_compare_catches_values_lost_in_a_csv_round_trip(tmp_path) -> None:
     assert compare(_before(), _before(), "game_id")["new_nulls"].item() == 0
 
 
+def test_compare_casts_a_key_read_back_as_another_dtype(tmp_path) -> None:
+    path = tmp_path / "t.csv"
+    before = _before().with_columns(pl.col("game_id").cast(pl.String))
+    before.write_csv(path)
+    saved = pl.read_csv(path)
+    assert saved.schema["game_id"] == pl.Int64
+    report = compare(before, saved, "game_id").row(0, named=True)
+    assert (report["lost_keys"], report["new_keys"], report["changed"]) == (0, 0, 0)
+    assert changed_rows(before, saved, "game_id").height == 0
+
+
 def test_compare_takes_a_compound_key() -> None:
     before = pl.DataFrame({"game_id": [1, 1], "player_id": [7, 8], "minutes": [90, 45]})
     after = before.with_columns(pl.Series("minutes", [90, 46]))
