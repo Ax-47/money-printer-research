@@ -4,7 +4,6 @@ import polars as pl
 from pandera.typing.polars import DataFrame
 
 from ..cool_stuff import returns
-from ..features.missing import add_missing_flags
 from ..schema import (
     CleanedMatchCols,
     MatchFeaturesCols,
@@ -30,8 +29,8 @@ def join_features(
 
     Left joins, each 1:1, so every match keeps its row: a feature is null where its
     source has no value for the game (fatigue and the player slots for the two games
-    without Understat line-ups). add_missing_flags then says on each row which sources
-    were missing (see features.missing). players is get_player_features' output (PLAYER_SLOTS).
+    without Understat line-ups); features.missing.missing_table says why, cell by cell.
+    players is get_player_features' output (PLAYER_SLOTS).
     """
     elo_cols = elo.select(
         *ELO_KEYS, EloCols.full_time_result, EloCols.elo_home, EloCols.elo_away, EloCols.elo_diff
@@ -42,7 +41,6 @@ def join_features(
         .join(fatigue, on=CleanedMatchCols.game_id, how="left", validate="1:1")
         .join(schedule, on=CleanedMatchCols.game_id, how="left", validate="1:1")
         .join(players, on=CleanedMatchCols.game_id, how="left", validate="1:1")
-        .pipe(add_missing_flags)
     )
 
 

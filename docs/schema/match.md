@@ -18,6 +18,7 @@ Transfermarkt games from download to the final modelling table.
 | Features | `TeamScheduleCols` | `schedule.csv` |
 | Features | `PLAYER_SLOTS` | `players.csv` |
 | Features | `MatchFeaturesCols` | `match_features.csv` |
+| Features | `MissingCols` | `missing.csv` |
 
 ## Raw
 
@@ -83,3 +84,10 @@ above; `match_features_schema()` returns both together. The columns below
 exclude the slots.
 
 <!-- columns: money_printer_research.schema.MatchFeaturesCols -->
+
+### MissingCols
+
+One row per null cell of `match_features.csv`. See
+[Missing values](../pipeline/features.md#missing-values).
+
+<!-- columns: money_printer_research.schema.MissingCols -->

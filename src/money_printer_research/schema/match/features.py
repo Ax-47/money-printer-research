@@ -6,6 +6,7 @@
     TeamScheduleCols   schedule.csv: each side's full-calendar schedule features
     PLAYER_SLOTS       players.csv: each side's starters as slot columns
     MatchFeaturesCols  match_features.csv: cleaned_matches plus every feature above
+    MissingCols        missing.csv: every null cell of match_features, with its reason
 
 Every feature uses only what was known at kick-off.
 """
@@ -171,9 +172,9 @@ class MatchFeaturesCols(CleanedMatchCols, TeamFatigueCols, TeamScheduleCols):
 
     One row per Understat game_id, the rows of cleaned_matches. CleanedMatchCols gives the
     match, its result and the Transfermarkt columns; TeamFatigueCols the h_/a_ fatigue;
-    TeamScheduleCols the h_/a_ full-calendar schedule; the Elo columns and the missing-value
-    flags are below. A feature is null where its source has no value for the game; the flags
-    say which source (features.missing). Key: game_id.
+    TeamScheduleCols the h_/a_ full-calendar schedule; the Elo columns are below. A feature
+    is null where its source has no value for the game; missing.csv (MissingCols) says why,
+    cell by cell. Key: game_id.
     """
 
     game_id: F[int] = pa.Field(unique=True, description="Understat match id; one row per game.")
@@ -198,28 +199,49 @@ class MatchFeaturesCols(CleanedMatchCols, TeamFatigueCols, TeamScheduleCols):
         )
     )
 
-    h_has_lineup: F[bool] = pa.Field(
-        description="Understat has the home starters; false means fatigue and home slots are null."
+
+MISSING_REASONS = (
+    "no_lineup",
+    "short_lineup",
+    "too_few_minutes",
+    "no_schedule",
+    "no_next_game",
+    "no_tm_game",
+    "other",
+)
+"""Why a cell of match_features is null; see features.missing for each one."""
+
+
+class MissingCols(pa.DataFrameModel):
+    """missing.csv: one row per null cell of match_features, and why it is null.
+
+    Built by features.missing.missing_table. Key: game_id and column.
+    """
+
+    game_id: F[int] = pa.Field(description="Understat match id: the row of match_features.")
+    column: F[str] = pa.Field(description='The null column of match_features: "h_player3_xg90".')
+    side: F[str] = pa.Field(
+        nullable=True,
+        isin=["h", "a"],
+        description="h or a for a column of one side; null for one of the match (fatigue_diff).",
     )
-    h_has_schedule: F[bool] = pa.Field(
-        description="The home club has a Transfermarkt game; false means h_ schedule is null."
+    reason: F[str] = pa.Field(
+        isin=list(MISSING_REASONS),
+        description=(
+            "no_lineup: Understat has no starters for the side. short_lineup: fewer than 11"
+            " starters, so this slot is empty. too_few_minutes: the starter has under"
+            " MIN_PREV_MIN previous minutes. no_schedule: the club has no Transfermarkt game."
+            " no_next_game: the club's last game in the data. no_tm_game: the match has no"
+            " Transfermarkt game. other: none of these."
+        ),
     )
-    h_rated_starters: F[int] = pa.Field(
-        ge=0,
-        le=11,
-        description="Home starters with per-90 rates (at least MIN_PREV_MIN previous minutes).",
-    )
-    a_has_lineup: F[bool] = pa.Field(
-        description="Understat has the away starters; false means fatigue and away slots are null."
-    )
-    a_has_schedule: F[bool] = pa.Field(
-        description="The away club has a Transfermarkt game; false means a_ schedule is null."
-    )
-    a_rated_starters: F[int] = pa.Field(
-        ge=0,
-        le=11,
-        description="Away starters with per-90 rates (at least MIN_PREV_MIN previous minutes).",
-    )
+
+    @pa.dataframe_check  # pyright: ignore[reportUnknownMemberType]  (pandera is untyped here)
+    def one_row_per_cell(self, data: PolarsData) -> pl.LazyFrame:
+        """game_id and column together are unique."""
+        return data.lazyframe.select(
+            pl.struct("game_id", "column").is_unique().alias("one_row_per_cell")
+        )
 
 
 def match_features_schema() -> pa.DataFrameSchema:
@@ -230,8 +252,10 @@ def match_features_schema() -> pa.DataFrameSchema:
 __all__ = [
     "EloCols",
     "EloInputCols",
+    "MISSING_REASONS",
     "MatchFeaturesCols",
     "MatchSideCols",
+    "MissingCols",
     "N_SLOTS",
     "OUTCOMES",
     "PLAYER_SLOTS",

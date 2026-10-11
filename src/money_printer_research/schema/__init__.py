@@ -51,6 +51,8 @@ from money_printer_research.schema.match import (
     FormationCols,
     GameFormationCols,
     MatchFeaturesCols,
+    MISSING_REASONS,
+    MissingCols,
     MatchLeaguesCols,
     MatchSideCols,
     PredictionCols,
@@ -94,6 +96,7 @@ CLEAN_FILES: dict[str, pa.DataFrameSchema] = {
     "schedule": TeamScheduleCols.to_schema(),
     "players": PLAYER_SLOTS,
     "match_features": match_features_schema(),
+    "missing": MissingCols.to_schema(),
 }
 
 
@@ -143,7 +146,9 @@ __all__ = [
     "FatigueInputCols",
     "FormationCols",
     "GameFormationCols",
+    "MISSING_REASONS",
     "MatchFeaturesCols",
+    "MissingCols",
     "MatchLeaguesCols",
     "MatchSideCols",
     "PlayerFatigueCols",

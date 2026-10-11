@@ -28,6 +28,8 @@ from money_printer_research.schema.match.features import (
     slot_columns,
     PLAYER_SLOTS,
     MatchFeaturesCols,
+    MISSING_REASONS,
+    MissingCols,
     match_features_schema,
 )
 
@@ -38,9 +40,11 @@ __all__ = [
     "FORMATION_COLUMNS",
     "FormationCols",
     "GameFormationCols",
+    "MISSING_REASONS",
     "MatchFeaturesCols",
     "MatchLeaguesCols",
     "MatchSideCols",
+    "MissingCols",
     "N_SLOTS",
     "OUTCOMES",
     "OUTFIELD",

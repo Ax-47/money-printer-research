@@ -1,26 +1,36 @@
-"""Missing values in match_features: where they come from, and how the table marks them.
+"""Missing values in match_features, as their own table: missing.csv, one row per null cell.
 
-A feature is null for one of four reasons:
+match_features keeps its nulls and gains no columns. missing_table lists every null cell
+(game_id, column) with the side it belongs to and the reason it is null:
 
-    no line-up        fatigue and the player slots, for a side Understat has no starters for
-    no TM game        the schedule features, for a side whose club has no Transfermarkt game
-    too few minutes   a starter's per-90 rates, below MIN_PREV_MIN previous minutes
-    no next game      days_to_next_all, for a club's last game in the Transfermarkt data
+    no_lineup         fatigue and the player slots, for a side Understat has no starters for
+    short_lineup      a player slot left empty because fewer than 11 starters are recorded
+    too_few_minutes   a starter's per-90 rates, below MIN_PREV_MIN previous minutes
+    no_schedule       the schedule features, for a side whose club has no Transfermarkt game
+    no_next_game      days_to_next_all, for a club's last game in the Transfermarkt data
+    no_tm_game        the Transfermarkt columns, for a match with no Transfermarkt game
+    other             none of these, such as a formation that did not parse
 
 (A club's first game has no previous one either; club_calendar gives it MAX_GAP_DAYS of
 rest rather than null, since the cap already means "a month or more".)
 
 The nulls are kept: filling them with a value computed from the table (a mean, a median)
 would leak later seasons into earlier ones, and a constant would pass for a real reading.
-Instead add_missing_flags puts the reason on the row, so a model can tell "missing" from
-"low", and null_report counts what is left.
+reason_counts summarises missing.csv, and null_report counts nulls per feature group.
 """
 
 import re
 
 import polars as pl
 
-from money_printer_research.schema import N_SLOTS, slot_column
+from money_printer_research.cool_stuff import returns
+from money_printer_research.schema import (
+    CleanedMatchCols,
+    MissingCols,
+    ScheduleCols,
+    TeamFatigueCols,
+    TeamScheduleCols,
+)
 
 SIDES = ("h", "a")
 
@@ -30,46 +40,88 @@ LINEUP_PROBE = "min_7d"
 SCHEDULE_PROBE = "games_7d_all"
 """h_games_7d_all / a_games_7d_all: never null once a side has a Transfermarkt game."""
 
-RATED_PROBE = "form90"
-"""A starter has per-90 rates when his form90 slot is not null."""
+EMPTY_SLOT_PROBE = "prev_min"
+"""A slot's prev_min is 0, not null, for any starter; null means the slot is empty."""
 
+PER90 = ("xg90", "xa90", "form90")
+"""The slot features that are null below MIN_PREV_MIN previous minutes."""
 
-def has_lineup(side: str) -> str:
-    """Flag column: Understat has this side's starters ("h" -> "h_has_lineup")."""
-    return f"{side}_has_lineup"
-
-
-def has_schedule(side: str) -> str:
-    """Flag column: this side's club has a matched Transfermarkt game ("h" -> "h_has_schedule")."""
-    return f"{side}_has_schedule"
-
-
-def rated_starters(side: str) -> str:
-    """Count column: starters with per-90 rates ("h" -> "h_rated_starters")."""
-    return f"{side}_rated_starters"
-
-
-FLAG_COLUMNS = [
-    col for side in SIDES for col in (has_lineup(side), has_schedule(side), rated_starters(side))
+FATIGUE_COLUMNS = [c for c in TeamFatigueCols.to_schema().columns if c != "game_id"]
+SCHEDULE_COLUMNS = [c for c in TeamScheduleCols.to_schema().columns if c != "game_id"]
+TM_COLUMNS = [
+    c for c in CleanedMatchCols.to_schema().columns if c not in ScheduleCols.to_schema().columns
 ]
+"""cleaned_matches' columns from the Transfermarkt game: tm_*, formations."""
+
+_SLOT = r"^[ha]_player(\d+)_(.+)$"
 
 
-def add_missing_flags(df: pl.DataFrame) -> pl.DataFrame:
-    """Add has_lineup, has_schedule and rated_starters for both sides; never null.
+@returns(MissingCols)
+def missing_table(match_features: pl.DataFrame) -> pl.DataFrame:
+    """One row per null cell of match_features: game_id, column, side and reason (MissingCols)."""
+    key = CleanedMatchCols.game_id
+    cells = (
+        match_features.select(
+            key, *(pl.col(c).is_null().alias(c) for c in match_features.columns if c != key)
+        )
+        .unpivot(index=key, variable_name="column", value_name="is_null")
+        .filter(pl.col("is_null"))
+        .drop("is_null")
+    )
+    sources = match_features.select(
+        key,
+        *(pl.col(f"{s}_{LINEUP_PROBE}").is_null().alias(f"{s}_no_lineup") for s in SIDES),
+        *(pl.col(f"{s}_{SCHEDULE_PROBE}").is_null().alias(f"{s}_no_schedule") for s in SIDES),
+        pl.col(CleanedMatchCols.tm_game_id).is_null().alias("no_tm_game"),
+    )
+    column = pl.col("column")
+    side = pl.col("side")
+    per_side = {
+        name: pl.when(side == "h").then(pl.col(f"h_{name}")).otherwise(pl.col(f"a_{name}"))
+        for name in ("no_lineup", "no_schedule")
+    }
+    is_slot = pl.col("slot").is_not_null()
+    empty_slot = (pl.col("feature") == EMPTY_SLOT_PROBE).any().over(key, "side", "slot") & is_slot
+    either_no_lineup = pl.col("h_no_lineup") | pl.col("a_no_lineup")
+    reason = (
+        pl.when(is_slot & per_side["no_lineup"])
+        .then(pl.lit("no_lineup"))
+        .when(empty_slot)
+        .then(pl.lit("short_lineup"))
+        .when(is_slot & pl.col("feature").is_in(PER90))
+        .then(pl.lit("too_few_minutes"))
+        .when(column.is_in(FATIGUE_COLUMNS) & side.is_not_null() & per_side["no_lineup"])
+        .then(pl.lit("no_lineup"))
+        .when((column == "fatigue_diff") & either_no_lineup)
+        .then(pl.lit("no_lineup"))
+        .when(column.is_in(SCHEDULE_COLUMNS) & per_side["no_schedule"])
+        .then(pl.lit("no_schedule"))
+        .when(column.is_in(SCHEDULE_COLUMNS) & column.str.ends_with("_days_to_next_all"))
+        .then(pl.lit("no_next_game"))
+        .when(column.is_in(TM_COLUMNS) & pl.col("no_tm_game"))
+        .then(pl.lit("no_tm_game"))
+        .otherwise(pl.lit("other"))
+    )
+    return (
+        cells.join(sources, on=key, how="left")
+        .with_columns(
+            column.str.extract(r"^([ha])_", 1).alias("side"),
+            column.str.extract(_SLOT, 1).alias("slot"),
+            column.str.extract(_SLOT, 2).alias("feature"),
+        )
+        .with_columns(reason.alias("reason"))
+        .select(key, "column", "side", "reason")
+        .sort(key, maintain_order=True)
+    )
 
-    Reads the fatigue, schedule and player slot columns that join_features puts on
-    match_features, and leaves them as they are.
-    """
-    flags: list[pl.Expr] = []
-    for side in SIDES:
-        slots = range(1, N_SLOTS + 1)
-        rated = [pl.col(slot_column(side, s, RATED_PROBE)).is_not_null() for s in slots]
-        flags += [
-            pl.col(f"{side}_{LINEUP_PROBE}").is_not_null().alias(has_lineup(side)),
-            pl.col(f"{side}_{SCHEDULE_PROBE}").is_not_null().alias(has_schedule(side)),
-            pl.sum_horizontal(rated).cast(pl.Int64).alias(rated_starters(side)),
-        ]
-    return df.with_columns(flags)
+
+def reason_counts(missing: pl.DataFrame) -> pl.DataFrame:
+    """Null cells per reason in a missing table, most first, with the matches they touch."""
+    return (
+        missing.group_by("reason")
+        .agg(pl.len().alias("cells"), pl.col("game_id").n_unique().alias("matches"))
+        .sort("cells", "reason", descending=[True, False])
+    )
 
 
 def feature_group(col: str) -> str:
@@ -100,12 +152,4 @@ def null_report(df: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-__all__ = [
-    "FLAG_COLUMNS",
-    "add_missing_flags",
-    "feature_group",
-    "has_lineup",
-    "has_schedule",
-    "null_report",
-    "rated_starters",
-]
+__all__ = ["feature_group", "missing_table", "null_report", "reason_counts"]
