@@ -43,6 +43,14 @@ def _cols(
     return _shared(before, after, key) if cols is None else [c for c in cols if c not in key]
 
 
+def _keys_like(before: pl.DataFrame, after: pl.DataFrame, key: Sequence[str]) -> pl.DataFrame:
+    """`after` with its key cast to `before`'s dtypes, so the two can be joined.
+
+    A CSV round trip can read an id stored as str back as an int ("123" -> 123).
+    """
+    return after.with_columns(pl.col(k).cast(before.schema[k], strict=False) for k in key)
+
+
 def _aligned(
     before: pl.DataFrame, after: pl.DataFrame, key: Sequence[str], cols: Sequence[str]
 ) -> pl.DataFrame:
@@ -77,6 +85,7 @@ def compare(
     """
     key = [key] if isinstance(key, str) else list(key)
     cols = _cols(before, after, key, cols)
+    after = _keys_like(before, after, key)
     both = _aligned(before, after, key, cols)
     keys_before, keys_after = before.select(key).unique(), after.select(key).unique()
 
@@ -112,6 +121,7 @@ def changed_rows(
     """
     key = [key] if isinstance(key, str) else list(key)
     cols = _cols(before, after, key, cols)
+    after = _keys_like(before, after, key)
     both = _aligned(before, after, key, cols)
     parts = [
         both.filter(
