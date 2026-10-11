@@ -101,3 +101,11 @@ from money_printer_research.clean_data.rename_team_names import alias_block
 
 print(alias_block(schedule))
 ```
+
+## Checking a step did no damage
+
+`clean_data.integrity` compares a step's input with its output on a key and counts
+keys lost, added or duplicated, values changed, and values turned into null.
+`notebooks/data_integrity.ipynb` runs it over every step, from the raw files to
+`match_features.csv` and on to the CSVs on disk, and checks that Understat and
+Transfermarkt agree on the score of every matched game.
