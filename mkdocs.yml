@@ -7,25 +7,24 @@ edit_uri: edit/main/docs/
 repo_name: Ax-47/money-printer-research
 copyright: Maintained by <a href="https://Ax-47.com">Ax-47</a>.
 nav:
-  - Home:
-    - index.md
-    - Getting started: getting-started.md
-    - Commands: cli.md
-    - Data pipeline:
-      - pipeline/index.md
-      - 1. Collect: pipeline/collect.md
-      - 2. Clean: pipeline/clean.md
-      - 3. Features: pipeline/features.md
-    - Schemas:
-      - schema/index.md
-      - Match: schema/match.md
-      - Player: schema/player.md
-      - Club: schema/club.md
-      - Competition: schema/competition.md
-    - Docker and API: docker-api.md
-    - About: about.md
-    - Configuration: configuration.md
-  - Source Code API Reference:
+  - Introduction: index.md
+  - Getting started: getting-started.md
+  - Commands: cli.md
+  - Data pipeline:
+    - pipeline/index.md
+    - Collect: pipeline/collect.md
+    - Clean: pipeline/clean.md
+    - Features: pipeline/features.md
+  - Schemas:
+    - schema/index.md
+    - Match: schema/match.md
+    - Player: schema/player.md
+    - Club: schema/club.md
+    - Competition: schema/competition.md
+  - Docker and API: docker-api.md
+  - Configuration: configuration.md
+  - About: about.md
+  - Source code API reference:
     - api/index.md
     - data_collection: api/data_collection.md
     - clean_data: api/clean_data.md
@@ -41,46 +40,49 @@ theme:
     repo: fontawesome/brands/github
   favicon: assets/favicon.svg
   font:
-    text: Inter
-    code: JetBrains Mono
+    text: Open Sans
+    code: Source Code Pro
+  # Catppuccin flavors; the header button cycles through them in order.
+  # Colors live in docs/stylesheets/extra.css.
   palette:
-    # Follow the OS setting until the reader picks a scheme
-    - media: "(prefers-color-scheme)"
-      toggle:
-        icon: material/brightness-auto
-        name: Switch to light mode
     - media: "(prefers-color-scheme: light)"
-      scheme: default
-      primary: green
-      accent: amber
+      scheme: latte
+      primary: custom
+      accent: custom
       toggle:
-        icon: material/weather-sunny
-        name: Switch to dark mode
+        icon: material/palette
+        name: "Latte theme (switch to Frappé)"
+    - scheme: frappe
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/palette
+        name: "Frappé theme (switch to Macchiato)"
+    - scheme: macchiato
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/palette
+        name: "Macchiato theme (switch to Mocha)"
     - media: "(prefers-color-scheme: dark)"
-      scheme: slate
-      primary: green
-      accent: amber
+      scheme: mocha
+      primary: custom
+      accent: custom
       toggle:
-        icon: material/weather-night
-        name: Switch to system preference
+        icon: material/palette
+        name: "Mocha theme (switch to Latte)"
   features:
     - navigation.instant
     - navigation.instant.progress
     - navigation.tracking
     - navigation.indexes
-    - navigation.sections
     - navigation.expand
-    - navigation.path
-    - navigation.tabs
-    - navigation.tabs.sticky
     - navigation.top
     - navigation.footer
-    - toc.follow
     - search.suggest
     - search.highlight
     - search.share
     - content.action.edit
-    - content.action.view
     - content.code.copy
     - content.code.select
     - content.code.annotate
