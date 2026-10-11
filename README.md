@@ -28,6 +28,7 @@ uv run clean_data          # cleaned tables and pre-match features -> data/clean
 uv run feature_importance  # feature selection for the H/D/A model
 uv run modeling            # compare H/D/A models, save the chosen one -> data/models
 uv run predict             # H/D/A probabilities for unplayed fixtures -> data/predictions
+uv run backtest            # bet the model's +EV picks against historical odds -> data/predictions
 uv run notebook            # JupyterLab at the project root
 uv run check_clean         # validate every CSV in data/clean against its schema
 uv run show_config         # print the settings in effect
@@ -42,8 +43,10 @@ uv run api  # web page on http://localhost:8000, API docs on http://localhost:80
 ```
 
 The page at `/` lists the `predict` command's H/D/A probabilities for the unplayed
-fixtures, filterable by league and team; run `uv run predict` first. The same rows are
-`GET /upcoming?league=...&team=...`.
+fixtures, filterable by league and team, and turns bookmaker odds you type in into
+expected value; run `uv run predict` first. `/backtest.html` shows the `backtest`
+command's profit and ROI for any EV threshold. The data behind them is
+`GET /upcoming?league=...&team=...` and `GET /backtest?min_ev=...&league=...`.
 
 Serves the tables in `data/clean` (`GET /tables`, `GET /tables/{name}`) and the Elo
 model's walk-forward predictions (`GET /predictions?season=2024/25`,

@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from money_printer_research.api import exec_api
     from money_printer_research.analysis import (
+        exec_backtest,
         exec_feature_importance,
         exec_modeling,
         exec_predict,
@@ -24,6 +25,7 @@ _ENTRY_POINTS = {
     "exec_api": "money_printer_research.api",
     "collect_data": "money_printer_research.data_collection",
     "clean_data": "money_printer_research.clean_data",
+    "exec_backtest": "money_printer_research.analysis",
     "exec_clean_data": "money_printer_research.clean_data",
     "exec_feature_importance": "money_printer_research.analysis",
     "exec_modeling": "money_printer_research.analysis",
@@ -47,6 +49,7 @@ __all__ = [
     "clean_data",
     "collect_data",
     "exec_api",
+    "exec_backtest",
     "exec_clean_data",
     "exec_feature_importance",
     "exec_modeling",

@@ -66,8 +66,27 @@ def client(tmp_path: Path) -> TestClient:
             "p_A": [0.2, 0.4, 0.15],
         }
     ).write_csv(upcoming)
+    backtest = upcoming.parent / "backtest.csv"
+    pl.DataFrame(
+        {
+            "date": [datetime.datetime(2024, 8, d) for d in (17, 17, 24)],
+            "league": ["ENG-Premier League", "ESP-La Liga", "ENG-Premier League"],
+            "season_start": 2024,
+            "full_time_result": ["H", "D", "A"],
+            "p_H": [0.6, 0.3, 0.5],
+            "p_D": [0.2, 0.3, 0.3],
+            "p_A": [0.2, 0.4, 0.2],
+            "odds_H": [2.0, 3.0, 1.8],
+            "odds_D": [3.5, 3.2, 3.6],
+            "odds_A": [4.0, 2.5, 4.5],
+            "pick": ["H", "A", "D"],
+            "ev": [0.2, 0.0, 0.08],
+            "profit": [1.0, -1.0, -1.0],
+        }
+    ).write_csv(backtest)
     settings = Settings(
-        clean=CleanSettings(out_dir=tmp_path), modeling=ModelingSettings(predictions_file=upcoming)
+        clean=CleanSettings(out_dir=tmp_path),
+        modeling=ModelingSettings(predictions_file=upcoming, backtest_file=backtest),
     )
     return TestClient(create_app(settings))
 
@@ -140,8 +159,38 @@ def test_upcoming_without_predict_run_is_404(tmp_path: Path) -> None:
     assert "uv run predict" in response.json()["detail"]
 
 
-def test_index_serves_the_page(client: TestClient) -> None:
-    response = client.get("/")
+def test_backtest_summarises_bets_above_the_threshold(client: TestClient) -> None:
+    body = client.get("/backtest", params={"min_ev": 0.05}).json()
+    assert body["games"] == 3
+    assert body["total"]["bets"] == 2
+    assert body["total"]["profit"] == pytest.approx(0.0)
+    assert [r["profit"] for r in body["cumulative_profit"]] == pytest.approx([1.0, 0.0])
+    assert [r["season_start"] for r in body["by_season"]] == [2024]
+    assert body["log_loss"]["model"] > 0
+
+
+def test_backtest_filters_by_league(client: TestClient) -> None:
+    body = client.get("/backtest", params={"league": "ESP-La Liga"}).json()
+    assert body["games"] == 1
+    assert body["total"]["bets"] == 0
+
+
+def test_backtest_without_a_run_is_404(tmp_path: Path) -> None:
+    settings = Settings(modeling=ModelingSettings(backtest_file=tmp_path / "none.csv"))
+    response = TestClient(create_app(settings)).get("/backtest")
+    assert response.status_code == 404
+    assert "uv run backtest" in response.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    ("path", "needle"),
+    [
+        ("/", 'fetch("upcoming")'),
+        ("/backtest.html", "fetch(`backtest?"),
+        ("/common.js", "setTheme"),
+    ],
+)
+def test_pages_are_served(client: TestClient, path: str, needle: str) -> None:
+    response = client.get(path)
     assert response.status_code == 200
-    assert response.headers["content-type"].startswith("text/html")
-    assert 'fetch("upcoming")' in response.text
+    assert needle in response.text

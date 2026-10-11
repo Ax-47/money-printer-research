@@ -1,0 +1,49 @@
+/* Shared by every page. Catppuccin flavors (https://catppuccin.com/palette), as on the docs site. */
+:root, [data-theme="latte"] {
+  --base: #eff1f5; --mantle: #e6e9ef; --surface0: #ccd0da; --text: #4c4f69;
+  --subtext0: #6c6f85; --overlay1: #8c8fa1; --blue: #1e66f5; --peach: #fe640b; --mauve: #8839ef;
+  --green: #40a02b; --red: #d20f39;
+}
+[data-theme="frappe"] {
+  --base: #303446; --mantle: #292c3c; --surface0: #414559; --text: #c6d0f5;
+  --subtext0: #a5adce; --overlay1: #838ba7; --blue: #8caaee; --peach: #ef9f76; --mauve: #ca9ee6;
+  --green: #a6d189; --red: #e78284;
+}
+[data-theme="macchiato"] {
+  --base: #24273a; --mantle: #1e2030; --surface0: #363a4f; --text: #cad3f5;
+  --subtext0: #a5adcb; --overlay1: #8087a2; --blue: #8aadf4; --peach: #f5a97f; --mauve: #c6a0f6;
+  --green: #a6da95; --red: #ed8796;
+}
+[data-theme="mocha"] {
+  --base: #1e1e2e; --mantle: #181825; --surface0: #313244; --text: #cdd6f4;
+  --subtext0: #a6adc8; --overlay1: #7f849c; --blue: #89b4fa; --peach: #fab387; --mauve: #cba6f7;
+  --green: #a6e3a1; --red: #f38ba8;
+}
+:root {
+  --bg: var(--base); --panel: var(--mantle); --muted: var(--subtext0); --border: var(--surface0);
+  --home: var(--blue); --draw: var(--overlay1); --away: var(--peach); --bar-text: var(--base);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 24px 16px; background: var(--bg); color: var(--text);
+  font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+main { max-width: 960px; margin: 0 auto; }
+nav { display: flex; gap: 16px; margin-bottom: 16px; font-size: .9rem; }
+nav a { color: var(--muted); text-decoration: none; }
+nav a[aria-current] { color: var(--mauve); font-weight: 600; }
+header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+h1 { font-size: 1.4rem; margin: 0 0 4px; color: var(--mauve); }
+#theme {
+  padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer;
+  background: var(--panel); color: var(--text); font: inherit; font-size: .85rem;
+}
+.sub { color: var(--muted); margin: 0 0 20px; }
+.filters { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+.filters label { display: flex; flex-direction: column; gap: 4px; font-size: .8rem; color: var(--muted); }
+select, input {
+  min-width: 200px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--panel); color: var(--text); font: inherit;
+}
+.empty { padding: 32px; text-align: center; color: var(--muted); }
+code { background: var(--panel); padding: 1px 6px; border-radius: 4px; }

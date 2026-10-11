@@ -12,6 +12,7 @@ everything they read comes from the [settings](configuration.md).
 | `feature_importance` | `analysis.exec_feature_importance` | Forward feature selection for the home / draw / away model on `model_frame.csv`, walk-forward by season. |
 | `modeling` | `analysis.exec_modeling` | Compare home / draw / away models on the selected features, check the baseline's calibration, score them on the held-out seasons, then save the logistic model. |
 | `predict` | `analysis.exec_predict` | H/D/A probabilities for every unplayed fixture in the schedule, from the saved model. |
+| `backtest` | `analysis.exec_backtest` | Bet the model's best-EV outcome against historical bookmaker odds, season by season, and report profit and ROI. |
 | `notebook` | `notebook.exec_notebook` | Open JupyterLab at the project root with the project's environment. |
 | `show_config` | `config.show_config` | Print the settings in effect and the file they came from. See [Configuration](configuration.md). |
 | `api` | `api.exec_api` | Start the HTTP API. See [Docker and API](docker-api.md). |
@@ -95,6 +96,24 @@ The schedule covers the seasons from `understat.start_year` up to, not including
 (`UNDERSTAT__END_YEAR=2027` for 2026-27) and run `collect_data` and `clean_data`.
 `collect_data` skips a schedule file that already holds every season, so delete
 `data/raw/xg_schedule.csv` to pick up newer results and fixtures.
+
+## `backtest`
+
+Downloads football-data.co.uk's 1X2 odds for each league and season to
+`modeling.odds_dir` (once; the latest season is fetched again each run), predicts
+every season from `modeling.backtest_from` with the logistic baseline fitted only on
+the seasons before it, and prices each game with Pinnacle's closing odds (falling back
+to Pinnacle's opening price, the market average at closing, then Bet365).
+
+Each game's pick is the outcome with the highest expected value of a 1-unit stake,
+`p * odds - 1`. It prints the model's and the bookmaker's log loss and, for a few EV
+thresholds, the bets, hit rate, profit and ROI of betting every pick above it, and
+writes every game to `modeling.backtest_file` (`data/predictions/backtest.csv`).
+Needs `data/clean/model_frame.csv`, as `modeling` does. The web page at
+`/backtest.html` shows the same with a threshold slider.
+
+football-data names teams differently from Understat; each name is matched to the
+team it shares the most match days with, so there is no alias list to keep.
 
 ## `notebook`
 
