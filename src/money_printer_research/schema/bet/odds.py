@@ -58,7 +58,13 @@ class OddsCols(_GameKey):
 
 
 class ResultCols(_GameKey):
-    """A played game's full-time score, as football-data reports it. Key: the game."""
+    """A played game's full-time score and shots on target, as football-data reports them."""
 
     home_goals: F[pl.Int32] = pa.Field(ge=0, description="Home goals at full time.")
     away_goals: F[pl.Int32] = pa.Field(ge=0, description="Away goals at full time.")
+    home_shots_on_target: F[pl.Int32] = pa.Field(
+        ge=0, nullable=True, description="Home shots on target; null where the file has none."
+    )
+    away_shots_on_target: F[pl.Int32] = pa.Field(
+        ge=0, nullable=True, description="Away shots on target."
+    )
