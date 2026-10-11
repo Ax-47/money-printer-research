@@ -156,14 +156,15 @@ def create_app(settings: Settings = default_settings) -> FastAPI:
         min_ev: Annotated[float, Query(ge=-1)] = 0.0, league: str | None = None
     ) -> dict[str, Any]:
         table = _read_output(settings.modeling.backtest_file, "backtest")
+        leagues = sorted(table["league"].unique())
         if league is not None:
             table = table.filter(pl.col("league") == league)
         return {
+            "leagues": leagues,
             "games": table.height,
             "log_loss": log_loss_vs_market(table) if table.height else None,
             "total": _rows(summary(table, min_ev))[0],
             "by_season": _rows(summary(table, min_ev, ["season_start"])),
-            "by_league": _rows(summary(table, min_ev, ["league"])),
             "cumulative_profit": _rows(cumulative_profit(table, min_ev)),
         }
 

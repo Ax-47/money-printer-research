@@ -134,7 +134,7 @@
     }
     const data = await res.json();
     if ($("league").options.length === 1) {
-      options($("league"), data.by_league.map((r) => r.league), (v) => el("option", { value: v }, v));
+      options($("league"), data.leagues, (v) => el("option", { value: v }, v));
     }
     render(data);
   }

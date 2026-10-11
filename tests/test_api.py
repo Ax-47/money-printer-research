@@ -8,10 +8,12 @@ import pytest
 from fastapi.testclient import TestClient
 from pandera.typing.polars import DataFrame
 
+from money_printer_research.analysis.backtest import picks
 from money_printer_research.api import create_app
 from money_printer_research.config import CleanSettings, ModelingSettings, Settings
 from money_printer_research.features.elo import get_elo
 from money_printer_research.schema import EloInputCols
+from tests.test_backtest import _table  # pyright: ignore[reportPrivateUsage]
 
 TEAMS = ["Arsenal", "Chelsea", "Everton", "Fulham"]
 SEASONS = ["2014/15", "2015/16", "2016/17"]
@@ -67,23 +69,8 @@ def client(tmp_path: Path) -> TestClient:
         }
     ).write_csv(upcoming)
     backtest = upcoming.parent / "backtest.csv"
-    pl.DataFrame(
-        {
-            "date": [datetime.datetime(2024, 8, d) for d in (17, 17, 24)],
-            "league": ["ENG-Premier League", "ESP-La Liga", "ENG-Premier League"],
-            "season_start": 2024,
-            "full_time_result": ["H", "D", "A"],
-            "p_H": [0.6, 0.3, 0.5],
-            "p_D": [0.2, 0.3, 0.3],
-            "p_A": [0.2, 0.4, 0.2],
-            "odds_H": [2.0, 3.0, 1.8],
-            "odds_D": [3.5, 3.2, 3.6],
-            "odds_A": [4.0, 2.5, 4.5],
-            "pick": ["H", "A", "D"],
-            "ev": [0.2, 0.0, 0.08],
-            "profit": [1.0, -1.0, -1.0],
-        }
-    ).write_csv(backtest)
+    leagues = ["ENG-Premier League", "ESP-La Liga", "ENG-Premier League"]
+    picks(_table()).with_columns(league=pl.Series(leagues)).write_csv(backtest)
     settings = Settings(
         clean=CleanSettings(out_dir=tmp_path),
         modeling=ModelingSettings(predictions_file=upcoming, backtest_file=backtest),
@@ -161,6 +148,7 @@ def test_upcoming_without_predict_run_is_404(tmp_path: Path) -> None:
 
 def test_backtest_summarises_bets_above_the_threshold(client: TestClient) -> None:
     body = client.get("/backtest", params={"min_ev": 0.05}).json()
+    assert body["leagues"] == ["ENG-Premier League", "ESP-La Liga"]
     assert body["games"] == 3
     assert body["total"]["bets"] == 2
     assert body["total"]["profit"] == pytest.approx(0.0)
