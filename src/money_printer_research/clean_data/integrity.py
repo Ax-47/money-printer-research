@@ -7,25 +7,26 @@ behind a count. Columns a step renames must be renamed in `before` first; column
 rewrites on purpose (canonical team names) are left out of `cols`.
 
 at_morphism(f) does the same from inside a pipeline: it is f as a Kleisli arrow that
-writes, at that morphism, what happened to the rows, the keys and the nulls (a Writer,
-cool_stuff.writer). Logged steps compose with >> like any K, and log_report turns the
-log into a table:
+writes, at that morphism, missing(f, before, before.shape, after, after.shape) to a log
+(a Writer, cool_stuff.writer). Logged steps compose with >> like any K, and log_report
+turns the log into a table:
 
     pipeline = at_morphism(f, key="game_id") >> at_morphism(g, key="game_id")
-    log_report(pipeline(told(df)).expect("pipeline"))
+    logged = pipeline(told(df)).expect("pipeline")
+    log_report(logged)    # one row per morphism: shapes, nulls, keys lost
+    logged.log[0].after   # the frame f returned
 
 notebooks/data_integrity.ipynb runs these over every step of clean_data.
 """
 
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from typing import Any
 
 import polars as pl
 
 from ..cool_stuff import K, Logged, Morphism, compose, name_of, writer
 
-type Entry = dict[str, Any]
-"""One log entry: what a step did, as a row of log_report."""
 
 _AFTER = "__after"
 
@@ -139,39 +140,85 @@ def _nulls(df: pl.DataFrame) -> dict[str, int]:
     return df.null_count().row(0, named=True)
 
 
-def missing_note(
-    step: str,
-    key: str | Sequence[str] | None = None,
-    source: Callable[[Any], pl.DataFrame] | None = None,
-) -> Callable[[Any, Any], Entry]:
-    """The note at_morphism writes: rows, nulls and, with a key, compare's counts.
+@dataclass(frozen=True)
+class Missing:
+    """What one morphism did to the data: missing(f, before, before.shape, after, after.shape).
 
-    The input frame is `source(input)` when given (for a step taking several frames),
-    else the input itself if it is a DataFrame; without one, the *_in fields and
-    compare's counts are None. more_nulls lists the output columns with more nulls
-    than in the input, a column the step added counting from 0.
+    The log entry at_morphism writes. It keeps both frames, so any step's input and
+    output can be looked at afterwards; row() works out the counts from them.
+    before is None when the morphism's input is not a frame (and no source picks one),
+    after when its output is not.
     """
 
-    def note(a: Any, b: Any) -> Entry:
-        before = source(a) if source is not None else a
-        before = before if isinstance(before, pl.DataFrame) else None
-        after = b if isinstance(b, pl.DataFrame) else None
+    morphism: str
+    before: pl.DataFrame | None
+    before_shape: tuple[int, int] | None
+    after: pl.DataFrame | None
+    after_shape: tuple[int, int] | None
+    key: tuple[str, ...] | None = None
+
+    def row(self) -> dict[str, Any]:
+        """One row of log_report: shapes, nulls and, with a key, compare's counts.
+
+        more_nulls lists the output columns with more nulls than in the input, a
+        column the morphism added counting from 0.
+        """
+        before, after = self.before, self.after
         nulls_in = _nulls(before) if before is not None else {}
         nulls_out = _nulls(after) if after is not None else {}
-        counts: Entry = dict.fromkeys(
+        counts: dict[str, Any] = dict.fromkeys(
             ("lost_keys", "new_keys", "dup_keys", "changed", "new_nulls")
         )
-        if key is not None and before is not None and after is not None:
-            counts = compare(before, after, key).drop("step").row(0, named=True)
+        if self.key is not None and before is not None and after is not None:
+            report = compare(before, after, list(self.key)).row(0, named=True)
+            counts = {k: report[k] for k in counts}
         return {
-            "step": step,
-            "rows_in": before.height if before is not None else None,
-            "rows_out": after.height if after is not None else None,
+            "morphism": self.morphism,
+            "before_shape": list(self.before_shape) if self.before_shape else None,
+            "after_shape": list(self.after_shape) if self.after_shape else None,
             "nulls_in": sum(nulls_in.values()) if before is not None else None,
             "nulls_out": sum(nulls_out.values()) if after is not None else None,
             "more_nulls": [c for c, n in nulls_out.items() if n > nulls_in.get(c, 0)],
-            **{k: v for k, v in counts.items() if k not in ("rows_before", "rows_after")},
+            **counts,
         }
+
+
+def missing(
+    morphism: str,
+    before: pl.DataFrame | None,
+    before_shape: tuple[int, int] | None,
+    after: pl.DataFrame | None,
+    after_shape: tuple[int, int] | None,
+    key: str | Sequence[str] | None = None,
+) -> Missing:
+    """The log entry for one morphism; see Missing."""
+    keys = (key,) if isinstance(key, str) else tuple(key) if key is not None else None
+    return Missing(morphism, before, before_shape, after, after_shape, keys)
+
+
+def missing_note(
+    morphism: str,
+    key: str | Sequence[str] | None = None,
+    source: Callable[[Any], pl.DataFrame] | None = None,
+) -> Callable[[Any, Any], Missing]:
+    """The note at_morphism writes: missing(morphism, before, before.shape, after, after.shape).
+
+    The input frame is `source(input)` when given (for a morphism taking several
+    frames), else the input itself if it is a DataFrame.
+    """
+
+    def note(a: Any, b: Any) -> Missing:
+        before = source(a) if source is not None else a
+        before = before if isinstance(before, pl.DataFrame) else None
+        after = b if isinstance(b, pl.DataFrame) else None
+        return missing(
+            morphism,
+            before,
+            before.shape if before is not None else None,
+            after,
+            after.shape if after is not None else None,
+            key,
+        )
 
     return note
 
@@ -180,30 +227,35 @@ def at_morphism(
     f: Morphism[Any, Any],
     key: str | Sequence[str] | None = None,
     source: Callable[[Any], pl.DataFrame] | None = None,
-) -> K[Logged[Any, Entry], Logged[Any, Entry]]:
-    """F as a logged arrow: run it, and write missing_note's entry for this morphism."""
+) -> K[Logged[Any, Missing], Logged[Any, Missing]]:
+    """F as a logged arrow: run it, and write a Missing entry for this morphism.
+
+    at_morphism(f) >> at_morphism(g) applied to told(df) logs
+    missing(f, df, df.shape, f(df), f(df).shape) then the same for g.
+    """
     return writer(f, missing_note(name_of(f), key, source))
 
 
 def trace(
     *steps: Morphism[Any, Any], key: str | Sequence[str] | None = None
-) -> K[Logged[Any, Entry], Logged[Any, Entry]]:
+) -> K[Logged[Any, Missing], Logged[Any, Missing]]:
     """at_morphism on every step, composed with >>: a whole pipeline, logged step by step."""
     return compose(*(at_morphism(f, key) for f in steps))
 
 
-def log_report(logged: Logged[Any, Entry]) -> pl.DataFrame:
-    """The log as a table, one row per morphism, in the order they ran."""
-    return pl.DataFrame(list(logged.log), infer_schema_length=None)
+def log_report(logged: Logged[Any, Missing]) -> pl.DataFrame:
+    """The log as a table, one row per morphism (Missing.row), in the order they ran."""
+    return pl.DataFrame([m.row() for m in logged.log], infer_schema_length=None)
 
 
 __all__ = [
-    "Entry",
+    "Missing",
     "at_morphism",
     "changed_rows",
     "compare",
     "disagree",
     "log_report",
+    "missing",
     "missing_note",
     "trace",
 ]
