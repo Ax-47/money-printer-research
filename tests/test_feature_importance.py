@@ -10,6 +10,8 @@ from money_printer_research.analysis.feature_importance import (
     columns,
     forward_selection,
     held_out,
+    held_out_split,
+    last_finished_season,
     walk_forward,
     with_derived,
 )
@@ -87,3 +89,23 @@ def test_held_out_beats_the_prior_with_elo() -> None:
     scores = dict(held_out(df, {"elo": ["elo"]}).iter_rows())
     assert scores["elo"] < scores["class prior"]
     assert sorted(CLASSES) == CLASSES
+
+
+def _seasons(games: dict[int, int]) -> pl.DataFrame:
+    return pl.DataFrame({"season_start": [s for s, n in games.items() for _ in range(n)]})
+
+
+def test_last_finished_season_skips_a_season_still_being_played() -> None:
+    assert last_finished_season(_seasons({2024: 380, 2025: 380, 2026: 40})) == 2025
+
+
+def test_last_finished_season_keeps_a_smaller_but_finished_league() -> None:
+    # Ligue 1 went from 380 games to 306 when it cut to 18 clubs.
+    assert last_finished_season(_seasons({2022: 380, 2023: 306})) == 2023
+    assert last_finished_season(_seasons({2023: 306})) == 2023
+
+
+def test_held_out_split_drops_the_unfinished_season_from_the_test() -> None:
+    train, test = held_out_split(_seasons({2023: 10, 2024: 10, 2025: 10, 2026: 2}))
+    assert train["season_start"].unique().to_list() == [2023]
+    assert sorted(test["season_start"].unique().to_list()) == [2024, 2025]

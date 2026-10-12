@@ -8,8 +8,10 @@ difference, so a side is never kept without the other.
 Selection is greedy and forward, by group, starting from Elo: add the group that lowers
 the walk-forward log loss most, until no group lowers it by MIN_GAIN. Walk-forward means
 each season in VALID_SEASONS is scored by a model fitted on the seasons before it only.
-The seasons from TEST_FROM on are touched once, at the end, to compare the selection
-with Elo alone and with every group.
+The finished seasons from TEST_FROM on are touched once, at the end, to compare the
+selection with Elo alone and with every group. A season still being played is left out
+of that test (held_out_split): its games are a few weeks of one part of the calendar, and
+the newest ones have no Transfermarkt schedule yet.
 
 The model is a multinomial logistic regression on standardised features, nulls filled
 with the training median: on this data it beats gradient-boosted trees, which overfit
@@ -39,6 +41,9 @@ TEST_FROM = 2024
 VALID_SEASONS = (2021, 2022, 2023)
 MIN_GAIN = 0.0005
 """Smallest drop in mean walk-forward log loss for which a group is added."""
+
+UNFINISHED_SHARE = 0.5
+"""The newest season counts as still being played below this share of the games before it."""
 
 POST_MATCH = re.compile(
     r"^(full_time_.*|half_time_.*|(home|away)_(goals|xg)|tm_(home|away)_goals|is_result)$"
@@ -196,10 +201,29 @@ def forward_selection(
     )
 
 
+def last_finished_season(df: pl.DataFrame) -> int:
+    """The newest season in df, or the one before it when the newest is still being played.
+
+    A season is taken as still being played when it has fewer than UNFINISHED_SHARE of the
+    games of the season before it; a league shrinking (Ligue 1 from 20 clubs to 18) does not
+    come near that.
+    """
+    counts = df.group_by("season_start").len().sort("season_start")
+    seasons, games = counts["season_start"].to_list(), counts["len"].to_list()
+    if len(seasons) > 1 and games[-1] < UNFINISHED_SHARE * games[-2]:
+        return seasons[-2]
+    return seasons[-1]
+
+
+def held_out_split(df: pl.DataFrame) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """(train, test): the seasons before TEST_FROM, and the finished seasons from it on."""
+    season, last = pl.col("season_start"), last_finished_season(df)
+    return df.filter(season < TEST_FROM), df.filter(season.is_between(TEST_FROM, last))
+
+
 def held_out(df: pl.DataFrame, candidates: dict[str, list[str]]) -> pl.DataFrame:
-    """Log loss on the seasons from TEST_FROM of each candidate, fitted on the seasons before."""
-    season = pl.col("season_start")
-    train, test = df.filter(season < TEST_FROM), df.filter(season >= TEST_FROM)
+    """Log loss of each candidate on the finished seasons from TEST_FROM, fitted before them."""
+    train, test = held_out_split(df)
     rows = [{"features": "class prior", "log_loss": prior_score(train, test)}]
     rows += [{"features": n, "log_loss": fit_score(train, test, g)} for n, g in candidates.items()]
     return pl.DataFrame(rows)
@@ -208,7 +232,11 @@ def held_out(df: pl.DataFrame, candidates: dict[str, list[str]]) -> pl.DataFrame
 def main(path: Path) -> None:
     """Print the forward selection, then the held-out comparison."""
     df = load(path)
-    print(f"{df.height} games, {len(FEATURE_GROUPS)} feature groups, test from {TEST_FROM}\n")
+    last = last_finished_season(df)
+    print(
+        f"{df.height} games, {len(FEATURE_GROUPS)} feature groups,"
+        f" test {TEST_FROM} to {last} (finished seasons)\n"
+    )
     steps = forward_selection(df.filter(pl.col("season_start") < TEST_FROM))
     chosen = [g for s in steps["added"] for g in s.split("+")]
     with pl.Config(float_precision=4):

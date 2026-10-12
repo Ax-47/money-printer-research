@@ -2,7 +2,8 @@
 
 Every model is fitted and scored the way feature selection was: walk-forward over
 VALID_SEASONS (each season predicted by a model fitted on the seasons before it), and
-once on the held-out seasons from TEST_FROM, fitted on everything before.
+once on the finished held-out seasons from TEST_FROM (feature_importance.held_out_split),
+fitted on everything before.
 
 The baseline is feature_importance.make_model, a multinomial logistic regression. It is
 compared with the same model recalibrated (sigmoid, 5-fold on the training seasons),
@@ -45,6 +46,8 @@ from money_printer_research.analysis.feature_importance import (
     TEST_FROM,
     VALID_SEASONS,
     columns,
+    held_out_split,
+    last_finished_season,
     load,
     make_model,
     with_derived,
@@ -180,9 +183,9 @@ def compare(
 def held_out(
     df: pl.DataFrame, models: dict[str, Model] = MODELS, groups: list[str] = SELECTED
 ) -> pl.DataFrame:
-    """One row per model: its scores on the seasons from TEST_FROM, fitted on those before."""
-    season, cols = pl.col("season_start"), columns(groups)
-    train, test = df.filter(season < TEST_FROM), df.filter(season >= TEST_FROM)
+    """One row per model: its scores on the finished seasons from TEST_FROM, fitted before."""
+    cols = columns(groups)
+    train, test = held_out_split(df)
     y = test[TARGET].to_numpy()
     return pl.DataFrame(
         [{"model": n, **scores(y, m(train, test, cols))} for n, m in models.items()]
@@ -266,7 +269,9 @@ def load_model(path: Path) -> SavedModel:
 def main(path: Path, out_file: Path) -> None:
     """Print the comparison, the baseline's calibration and the held-out scores; save the model."""
     df = load(path)
-    print(f"{df.height} games, features {SELECTED}, test from {TEST_FROM}\n")
+    last = last_finished_season(df)
+    print(f"{df.height} games, features {SELECTED},", end=" ")
+    print(f"test {TEST_FROM} to {last} (finished seasons)\n")
     with pl.Config(float_precision=4, tbl_rows=40):
         print("Walk-forward over", VALID_SEASONS)
         print(compare(df))

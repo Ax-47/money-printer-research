@@ -1,7 +1,8 @@
 """How the H/D/A models learn as they see more games: the learning curve.
 
 Each model is fitted on the most recent n games before TEST_FROM, for n doubling from
-SMALLEST up to all of them, and scored on the same held-out games from TEST_FROM on.
+SMALLEST up to all of them, and scored on the same held-out games: the finished seasons
+from TEST_FROM on.
 Two numbers per fit:
 
     train_log_loss  on the games it was fitted on
@@ -34,6 +35,7 @@ from money_printer_research.analysis.feature_importance import (
     TARGET,
     TEST_FROM,
     columns,
+    held_out_split,
     load,
 )
 from money_printer_research.analysis.modeling import MODELS, Model
@@ -65,11 +67,11 @@ def game_log_loss(y: np.ndarray, proba: np.ndarray) -> np.ndarray:
 
 
 def held_out_games(df: pl.DataFrame, odds: pl.DataFrame | None) -> pl.DataFrame:
-    """The games from TEST_FROM on, with odds_H/D/A when `odds` is given.
+    """The games of the finished seasons from TEST_FROM on, with odds_H/D/A when `odds` is given.
 
     Games without a price are then dropped, so the market is scored on the same games.
     """
-    test = df.filter(pl.col("season_start") >= TEST_FROM)
+    _, test = held_out_split(df)
     if odds is None:
         return test
     priced = attach_odds(test.select("game_id", "date", *GAME), odds)
