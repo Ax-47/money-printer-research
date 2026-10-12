@@ -581,7 +581,7 @@ code {{ font-size: .88em; }}
 strategies.toml {suite_commit} · {n_games} games of {leagues}, {seasons}</p>
 
 <p>The strongest honest attempt we could build with public data: a model anchored on the
-market, 18 betting strategies fixed in advance, four staking plans, and the cost of
+market, 18 betting strategies fixed in advance, five staking plans, and the cost of
 collecting any edge found. Every number below comes from the run named above; checking
 out those commits and running <code>uv run collect_data</code> then <code>uv run report</code>
 rebuilds this page.</p>
