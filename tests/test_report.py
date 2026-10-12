@@ -140,6 +140,7 @@ def test_to_json_is_plain_data_for_the_api() -> None:
 
     data = json.loads(json.dumps(to_json(_results())))
     assert data["meta"]["first_season"] == 2014
-    assert data["summary"][0]["headline"] == "No model built here forecasts better than the market."
+    headline = data["summary"][0]["headline"]
+    assert headline == "No model built here forecasts better than the market."
     assert data["practicality"]["limits"][0]["last_day"] == "2024-08-17"
     assert {r["league"] for r in data["strategies"]["scores"]} == {"ALL"}
