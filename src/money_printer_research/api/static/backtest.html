@@ -26,13 +26,13 @@
 </head>
 <body>
 <main>
-  <nav><a href="./">Upcoming</a><a href="backtest.html" aria-current="page">Backtest</a><a href="analysis.html">Analysis</a></nav>
+  <nav><a href="./" data-i18n="nav_upcoming">Upcoming</a><a href="backtest.html" data-i18n="nav_backtest" aria-current="page">Backtest</a><a href="analysis.html" data-i18n="nav_analysis">Analysis</a></nav>
   <header>
     <div>
       <h1>Backtest</h1>
       <p class="sub" id="summary">Loading…</p>
     </div>
-    <button id="theme" title="Switch Catppuccin flavor"></button>
+    <div class="tools"><button id="lang"></button><button id="theme" data-i18n-title="theme_title"></button></div>
   </header>
   <p class="sub">Each season is predicted by a model fitted only on the seasons before it.
     Every game, the strategy bets 1 unit on the outcome with the highest expected value at

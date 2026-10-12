@@ -3,120 +3,236 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Upcoming predictions</title>
+<title>Upcoming Predictions</title>
 <link rel="stylesheet" href="common.css">
 <style>
-  .legend { display: flex; gap: 16px; font-size: .8rem; color: var(--muted); margin-bottom: 8px; }
-  .legend span::before {
-    content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px;
-    margin-right: 6px; background: var(--c);
-  }
-  .match {
-    display: grid; grid-template-columns: 110px 1fr minmax(220px, 1.2fr); gap: 12px; align-items: center;
-    padding: 12px 14px; margin-bottom: 8px; background: var(--panel);
-    border: 1px solid var(--border); border-radius: 10px;
-  }
-  .when { font-size: .85rem; }
-  .when small { display: block; color: var(--muted); }
-  .teams { font-weight: 600; }
-  .teams span { text-transform: capitalize; }
-  .teams .fav { text-decoration: underline; text-underline-offset: 3px; }
-  .teams small { display: block; font-weight: 400; color: var(--muted); }
-  .bar { display: flex; height: 26px; border-radius: 6px; overflow: hidden; }
-  .bar div {
-    display: flex; align-items: center; justify-content: center; min-width: 0;
-    color: var(--bar-text); font-size: .8rem; font-weight: 600; white-space: nowrap; overflow: hidden;
-  }
+  .notice { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; margin-bottom: 16px;
+    background: var(--panel); border: 1px solid var(--border); border-left: 4px solid var(--peach);
+    border-radius: 10px; font-size: .88rem; color: var(--muted); }
+  .notice b { color: var(--text); }
+  .notice a { color: var(--mauve); }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 16px; }
+  .tile { padding: 10px 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; }
+  .tile small { display: block; color: var(--muted); font-size: .78rem; }
+  .tile b { font-size: 1.15rem; }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: .8rem; color: var(--muted); margin: 0 0 12px; }
+  .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+    margin-right: 6px; background: var(--c); }
+  .day { position: sticky; top: 0; z-index: 1; margin: 18px 0 8px; padding: 6px 0;
+    background: var(--bg); color: var(--muted); font-size: .85rem; font-weight: 600; }
+  .match { padding: 12px 14px; margin-bottom: 8px; background: var(--panel);
+    border: 1px solid var(--border); border-radius: 10px; }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px;
+    font-size: .8rem; color: var(--muted); }
+  .chip { padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; white-space: nowrap; }
+  .side { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; align-items: baseline; }
+  .name { text-transform: capitalize; }
+  .side .fav { font-weight: 700; }
+  .side .p { font-variant-numeric: tabular-nums; color: var(--muted); }
+  .side .fav + .p { color: var(--text); font-weight: 700; }
+  .bar { display: flex; height: 10px; margin: 10px 0 6px; border-radius: 5px; overflow: hidden; gap: 2px; }
+  .bar div { min-width: 2px; }
   .H { background: var(--home); } .D { background: var(--draw); } .A { background: var(--away); }
-  .ev { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: .85rem; }
-  .ev label { display: flex; align-items: center; gap: 6px; color: var(--muted); }
-  .ev input { min-width: 0; width: 76px; padding: 4px 8px; }
-  .ev output { min-width: 72px; font-weight: 600; }
-  .ev .plus { color: var(--green); } .ev .minus { color: var(--red); }
-  @media (max-width: 640px) {
-    .match { grid-template-columns: 1fr; gap: 6px; }
+  .outcomes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; font-size: .82rem; }
+  .outcome { padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; }
+  .outcome .k { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+  .outcome .k i { width: 8px; height: 8px; border-radius: 2px; background: var(--c); }
+  .outcome .v { display: flex; justify-content: space-between; gap: 6px; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .outcome .fair { color: var(--muted); }
+  .outcome input { min-width: 0; width: 100%; margin-top: 6px; padding: 4px 8px; font-size: .85rem; }
+  .outcome output { display: block; min-height: 1.2em; margin-top: 4px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .plus { color: var(--green); } .minus { color: var(--red); }
+  .toggle { margin-top: 8px; padding: 0; border: 0; background: none; color: var(--mauve);
+    font: inherit; font-size: .82rem; cursor: pointer; }
+  .match:not(.open) input, .match:not(.open) output { display: none; }
+  .hint { font-size: .8rem; color: var(--muted); margin: 0 0 8px; }
+  @media (max-width: 520px) {
+    .outcome { padding: 6px; }
+    .outcome .v { flex-direction: column; gap: 0; }
+    .outcome .fair { font-size: .75rem; }
   }
 </style>
 </head>
 <body>
 <main>
-  <nav><a href="./" aria-current="page">Upcoming</a><a href="backtest.html">Backtest</a><a href="analysis.html">Analysis</a></nav>
+  <nav><a href="./" data-i18n="nav_upcoming" aria-current="page">Upcoming</a><a href="backtest.html" data-i18n="nav_backtest">Backtest</a><a href="analysis.html" data-i18n="nav_analysis">Analysis</a></nav>
   <header>
     <div>
-      <h1>Upcoming predictions</h1>
-      <p class="sub" id="summary">Loading…</p>
+      <h1 data-i18n="title">Upcoming predictions</h1>
+      <p class="sub" id="summary"></p>
     </div>
-    <button id="theme" title="Switch Catppuccin flavor"></button>
+    <div class="tools"><button id="lang"></button><button id="theme" data-i18n-title="theme_title"></button></div>
   </header>
+
+  <div class="notice" role="note">
+    <span aria-hidden="true">⚠</span>
+    <div><b data-i18n="notice_title">These are the model's probabilities, not tips.</b>
+      <span data-i18n="notice_body">On past seasons it forecasts results slightly worse than the bookmakers' own prices, and no strategy built on it beat the market.</span>
+      <a href="analysis.html" data-i18n="notice_link">See the analysis</a></div>
+  </div>
+
+  <div class="tiles" id="tiles"></div>
+
   <div class="filters">
-    <label>League <select id="league"><option value="">All leagues</option></select></label>
-    <label>Team <input id="team" list="teams" placeholder="Any team"></label>
+    <label><span data-i18n="league">League</span> <select id="league"><option value="" data-i18n="all_leagues">All leagues</option></select></label>
+    <label><span data-i18n="team">Team</span> <input id="team" list="teams" data-i18n-placeholder="any_team" placeholder="Any team"></label>
+    <label><span data-i18n="sort">Sort</span>
+      <select id="sort">
+        <option value="date" data-i18n="sort_date">Kick-off</option>
+        <option value="sure" data-i18n="sort_sure">Clearest favourite</option>
+        <option value="close" data-i18n="sort_close">Closest call</option>
+      </select></label>
     <datalist id="teams"></datalist>
   </div>
-  <p class="sub">Enter a bookmaker's decimal odds to see the expected value of a 1-unit bet
-    (EV = probability × odds − 1). The grey number in each box is the fair price.</p>
   <div class="legend">
-    <span style="--c: var(--home)">Home win</span>
-    <span style="--c: var(--draw)">Draw</span>
-    <span style="--c: var(--away)">Away win</span>
+    <span style="--c: var(--home)" data-i18n="home_win">Home win</span>
+    <span style="--c: var(--draw)" data-i18n="draw">Draw</span>
+    <span style="--c: var(--away)" data-i18n="away_win">Away win</span>
   </div>
+  <p class="hint" data-i18n="hint">The fair price is 1 ÷ probability. Enter a bookmaker's decimal odds under a match to see its expected value: probability × odds − 1.</p>
   <div id="matches"></div>
 </main>
 <script src="common.js"></script>
 <script>
+  addStrings({
+    en: {
+      title: "Upcoming predictions",
+      summary: "{shown} of {all} unplayed fixtures",
+      notice_title: "These are the model's probabilities, not tips.",
+      notice_body: "On past seasons it forecasts results slightly worse than the bookmakers' own prices, and no strategy built on it beat the market.",
+      notice_link: "See the analysis",
+      fixtures: "Fixtures", leagues: "Leagues", next_kickoff: "Next kick-off", home_wins: "Home favourites",
+      league: "League", all_leagues: "All leagues", team: "Team", any_team: "Any team",
+      sort: "Sort", sort_date: "Kick-off", sort_sure: "Clearest favourite", sort_close: "Closest call",
+      home_win: "Home win", draw: "Draw", away_win: "Away win",
+      H: "Home", D: "Draw", A: "Away",
+      hint: "The fair price is 1 ÷ probability. Enter a bookmaker's decimal odds under a match to see its expected value: probability × odds − 1.",
+      fair: "fair {odds}", odds_for: "Bookmaker's decimal odds: {outcome}",
+      ev: "EV {ev}", ev_title: "Expected profit of 1 unit at these odds, if the model's probability is right",
+      enter_odds: "Enter bookmaker odds", hide_odds: "Hide odds",
+      vs: "vs", none: "No fixture matches these filters.", today: "Today", tomorrow: "Tomorrow",
+    },
+    th: {
+      title: "ผลทำนายนัดถัดไป",
+      summary: "แสดง {shown} จาก {all} นัดที่ยังไม่แข่ง",
+      notice_title: "นี่คือความน่าจะเป็นจากโมเดล ไม่ใช่ทีเด็ด",
+      notice_body: "เมื่อทดสอบกับฤดูกาลที่ผ่านมา โมเดลทายผลแม่นน้อยกว่าราคาของเจ้ามือเล็กน้อย และไม่มีกลยุทธ์ไหนที่สร้างจากโมเดลนี้ชนะตลาดได้",
+      notice_link: "ดูบทวิเคราะห์",
+      fixtures: "จำนวนนัด", leagues: "ลีก", next_kickoff: "นัดถัดไปเริ่ม", home_wins: "เจ้าบ้านเป็นต่อ",
+      league: "ลีก", all_leagues: "ทุกลีก", team: "ทีม", any_team: "ทุกทีม",
+      sort: "เรียงตาม", sort_date: "เวลาแข่ง", sort_sure: "ทีมต่อชัดที่สุด", sort_close: "สูสีที่สุด",
+      home_win: "เจ้าบ้านชนะ", draw: "เสมอ", away_win: "ทีมเยือนชนะ",
+      H: "เจ้าบ้าน", D: "เสมอ", A: "ทีมเยือน",
+      hint: "ราคาที่เป็นธรรม = 1 ÷ ความน่าจะเป็น ใส่ราคาทศนิยมของเจ้ามือใต้แต่ละนัด เพื่อดูค่าคาดหวัง (EV) = ความน่าจะเป็น × ราคา − 1",
+      fair: "ราคาธรรม {odds}", odds_for: "ราคาทศนิยมของเจ้ามือ: {outcome}",
+      ev: "EV {ev}", ev_title: "กำไรที่คาดหวังต่อการแทง 1 หน่วยที่ราคานี้ ถ้าความน่าจะเป็นของโมเดลถูกต้อง",
+      enter_odds: "ใส่ราคาเจ้ามือ", hide_odds: "ซ่อนราคา",
+      vs: "พบ", none: "ไม่มีนัดที่ตรงกับตัวกรอง", today: "วันนี้", tomorrow: "พรุ่งนี้",
+    },
+  });
+
+  const OUTCOMES = ["H", "D", "A"];
+  const COLOURS = { H: "var(--home)", D: "var(--draw)", A: "var(--away)" };
   const pct = (p) => `${Math.round(p * 100)}%`;
+  const signedPct = (x) => `${x >= 0 ? "+" : ""}${(x * 100).toFixed(1)}%`;
   let fixtures = [];
 
-  const OUTCOMES = { H: "Home", D: "Draw", A: "Away" };
+  // How clear the favourite is: the top probability minus the second.
+  const margin = (f) => { const p = OUTCOMES.map((k) => f[`p_${k}`]).sort((a, b) => b - a); return p[0] - p[1]; };
 
-  // EV of a 1-unit stake at decimal odds: p * odds - 1. The placeholder is the fair
-  // price 1 / p, so any odds above it are +EV.
-  function evCell(f, k) {
+  function dayLabel(date) {
+    const day = new Date(date); day.setHours(0, 0, 0, 0);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const diff = Math.round((day - today) / 86400000);
+    const text = date.toLocaleDateString(locale(), { weekday: "long", day: "numeric", month: "long" });
+    return diff === 0 ? `${t("today")} · ${text}` : diff === 1 ? `${t("tomorrow")} · ${text}` : text;
+  }
+
+  function outcomeBox(f, k) {
     const p = f[`p_${k}`];
     const key = `odds:${f.game_id}:${k}`;
-    const input = el("input", {
-      type: "number", min: "1.01", step: "0.01", inputMode: "decimal",
-      placeholder: (1 / p).toFixed(2), value: stored(key), title: `Decimal odds for ${OUTCOMES[k]}`,
-    });
-    const out = el("output");
+    const input = el("input", { type: "number", min: "1.01", step: "0.01", inputMode: "decimal",
+      placeholder: (1 / p).toFixed(2), value: stored(key), title: t("odds_for", { outcome: t(k) }) });
+    const out = el("output", { title: t("ev_title") });
     const update = () => {
       const odds = parseFloat(input.value);
       const ev = p * odds - 1;
-      out.textContent = odds > 1 ? `EV ${ev >= 0 ? "+" : ""}${(ev * 100).toFixed(1)}%` : "";
+      out.textContent = odds > 1 ? t("ev", { ev: signedPct(ev) }) : "";
       out.className = odds > 1 ? (ev > 0 ? "plus" : "minus") : "";
     };
     input.addEventListener("input", () => { store(key, input.value); update(); });
     update();
-    return el("label", {}, OUTCOMES[k], input, out);
+    return el("div", { className: "outcome" },
+      el("div", { className: "k", style: `--c: ${COLOURS[k]}` }, el("i"), t(k)),
+      el("div", { className: "v" }, el("b", {}, pct(p)), el("span", { className: "fair" }, t("fair", { odds: (1 / p).toFixed(2) }))),
+      input, out);
   }
 
-  function row(f) {
+  function bar(f) {
+    const node = el("div", { className: "bar" },
+      ...OUTCOMES.map((k) => el("div", { className: k, style: `flex: ${f[`p_${k}`]}`, title: `${t(k)} ${pct(f[`p_${k}`])}` })));
+    node.setAttribute("role", "img");
+    node.setAttribute("aria-label", OUTCOMES.map((k) => `${t(k)} ${pct(f[`p_${k}`])}`).join(", "));
+    return node;
+  }
+
+  function card(f) {
     const date = new Date(f.date);
-    const fav = f.p_H >= f.p_A ? f.home_team : f.away_team;
-    const team = (name) => el("span", { className: name === fav ? "fav" : "" }, name);
-    const bar = el("div", { className: "bar" }, ...["H", "D", "A"].map((k) =>
-      el("div", { className: k, style: `width: ${f[`p_${k}`] * 100}%`, title: pct(f[`p_${k}`]) },
-        f[`p_${k}`] >= 0.12 ? pct(f[`p_${k}`]) : "")));
-    return el("div", { className: "match" },
-      el("div", { className: "when" },
-        date.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }),
-        el("small", {}, date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }))),
-      el("div", { className: "teams" }, team(f.home_team), " vs ", team(f.away_team),
-        el("small", {}, f.league)),
-      bar,
-      el("div", { className: "ev" }, ...Object.keys(OUTCOMES).map((k) => evCell(f, k))));
+    // A side is the favourite only if its win is the likeliest outcome, draw included.
+    const top = Math.max(f.p_H, f.p_D, f.p_A);
+    const side = (name, p, fav) => [el("span", { className: `name${fav ? " fav" : ""}` }, name), el("span", { className: "p" }, pct(p))];
+    const hasOdds = OUTCOMES.some((k) => stored(`odds:${f.game_id}:${k}`));
+    const node = el("article", { className: `match${hasOdds ? " open" : ""}` });
+    const toggle = el("button", { className: "toggle", type: "button" });
+    const label = () => { toggle.textContent = node.classList.contains("open") ? t("hide_odds") : t("enter_odds"); };
+    toggle.addEventListener("click", () => { node.classList.toggle("open"); label(); });
+    label();
+    node.append(
+      el("div", { className: "top" },
+        el("span", {}, date.toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" })),
+        el("span", { className: "chip" }, f.league)),
+      el("div", { className: "side" }, ...side(f.home_team, f.p_H, f.p_H === top), ...side(f.away_team, f.p_A, f.p_A === top && f.p_H !== top)),
+      bar(f),
+      el("div", { className: "outcomes" }, ...OUTCOMES.map((k) => outcomeBox(f, k))),
+      toggle);
+    return node;
+  }
+
+  function tile(label, value) {
+    return el("div", { className: "tile" }, el("small", {}, label), el("b", {}, value));
   }
 
   function render() {
     const league = $("league").value;
     const team = $("team").value.trim().toLowerCase();
-    const shown = fixtures.filter((f) =>
+    const sort = $("sort").value;
+    let shown = fixtures.filter((f) =>
       (!league || f.league === league) &&
       (!team || f.home_team.toLowerCase().includes(team) || f.away_team.toLowerCase().includes(team)));
-    $("summary").textContent = `${shown.length} of ${fixtures.length} unplayed fixtures`;
-    $("matches").replaceChildren(...(shown.length
-      ? shown.map(row)
-      : [el("div", { className: "empty" }, "No fixture matches these filters.")]));
+    shown = [...shown].sort((a, b) =>
+      sort === "sure" ? margin(b) - margin(a) : sort === "close" ? margin(a) - margin(b) : new Date(a.date) - new Date(b.date));
+
+    $("summary").textContent = t("summary", { shown: shown.length, all: fixtures.length });
+    const next = shown.map((f) => new Date(f.date)).sort((a, b) => a - b)[0];
+    $("tiles").replaceChildren(
+      tile(t("fixtures"), shown.length.toLocaleString(locale())),
+      tile(t("leagues"), new Set(shown.map((f) => f.league)).size),
+      tile(t("next_kickoff"), next ? next.toLocaleString(locale(), { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "–"),
+      tile(t("home_wins"), shown.length ? pct(shown.filter((f) => f.p_H >= Math.max(f.p_D, f.p_A)).length / shown.length) : "–"));
+
+    if (!shown.length) {
+      $("matches").replaceChildren(el("div", { className: "empty" }, t("none")));
+      return;
+    }
+    // Grouped by day when sorted by kick-off; one list otherwise.
+    const nodes = [];
+    let lastDay = null;
+    for (const f of shown) {
+      const day = new Date(f.date).toDateString();
+      if (sort === "date" && day !== lastDay) { nodes.push(el("h2", { className: "day" }, dayLabel(new Date(f.date)))); lastDay = day; }
+      nodes.push(card(f));
+    }
+    $("matches").replaceChildren(...nodes);
   }
 
   async function load() {
@@ -128,13 +244,16 @@
     }
     fixtures = await res.json();
     options($("league"), fixtures.map((f) => f.league), (v) => el("option", { value: v }, v));
-    options($("teams"), fixtures.flatMap((f) => [f.home_team, f.away_team]),
-      (v) => el("option", { value: v }));
+    options($("teams"), fixtures.flatMap((f) => [f.home_team, f.away_team]), (v) => el("option", { value: v }));
+    $("league").value = stored("upcoming-league");
+    $("sort").value = stored("upcoming-sort") || "date";
     render();
   }
 
-  $("league").addEventListener("change", render);
+  $("league").addEventListener("change", () => { store("upcoming-league", $("league").value); render(); });
+  $("sort").addEventListener("change", () => { store("upcoming-sort", $("sort").value); render(); });
   $("team").addEventListener("input", render);
+  onLang(() => fixtures.length && render());
   load();
 </script>
 </body>
