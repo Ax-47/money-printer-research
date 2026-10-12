@@ -161,17 +161,35 @@ def read_prices(odds_dir: Path) -> pl.DataFrame:
     return OddsCols.validate(prices.unique(key, keep="first", maintain_order=True), lazy=True)
 
 
+RESULT_COLUMNS = {
+    "FTHG": "home_goals",
+    "FTAG": "away_goals",
+    "HST": "home_shots_on_target",
+    "AST": "away_shots_on_target",
+}
+"""football-data column -> ResultCols column."""
+
+
+def _results_of_file(path: Path, league: str, season_start: int) -> pl.DataFrame:
+    df = _read_file(path)
+    return df.select(
+        *_game_keys(league, season_start),
+        *(
+            (pl.col(column) if column in df.columns else pl.lit(None))
+            .cast(pl.Int32, strict=False)
+            .alias(name)
+            for column, name in RESULT_COLUMNS.items()
+        ),
+    )
+
+
 def read_results(odds_dir: Path) -> pl.DataFrame:
-    """Full-time score of every game in the odds files (ResultCols), to settle bets."""
-    frames = [
-        _read_file(path).select(
-            *_game_keys(league, season),
-            pl.col("FTHG").cast(pl.Int32, strict=False).alias("home_goals"),
-            pl.col("FTAG").cast(pl.Int32, strict=False).alias("away_goals"),
-        )
-        for path, league, season in _files(odds_dir)
-    ]
-    results = pl.concat(frames).drop_nulls().unique(GAME_KEY, keep="first", maintain_order=True)
+    """Full-time score and shots on target of every game in the odds files (ResultCols)."""
+    results = (
+        pl.concat(_results_of_file(*f) for f in _files(odds_dir))
+        .drop_nulls(["home_goals", "away_goals"])
+        .unique(GAME_KEY, keep="first", maintain_order=True)
+    )
     return ResultCols.validate(results, lazy=True)
 
 

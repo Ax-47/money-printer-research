@@ -118,6 +118,28 @@ Needs `data/clean/model_frame.csv`, as `modeling` does, and the odds from `colle
 football-data names teams differently from Understat; each name is matched to the
 team it shares the most match days with, so there is no alias list to keep.
 
+## `market_test`
+
+Can a model forecast results better than the betting market? Reads only the
+football-data.co.uk files `collect_data` downloaded (prices, results, shots on target),
+so it does not need the Understat pipeline.
+
+It removes the bookmaker's margin from Pinnacle's early and closing 1X2 prices
+(proportional, power and Shin methods, compared), then scores five forecasters on every
+game from 2016/17, each season predicted only from the seasons before it:
+
+| Forecaster | What it is |
+| --- | --- |
+| `early` | Pinnacle's early price, margin removed: what a bettor can act on |
+| `close` | Pinnacle's closing price, margin removed |
+| `market_refit` | The early price recalibrated by a logistic regression |
+| `market_and_form` | The early price plus team form: Elo, recent goals and shots on target |
+| `form_only` | Team form without the market |
+
+It prints each one's mean log loss and RPS, and for the pairs in `market.COMPARISONS`
+the mean per-game difference with a 95% interval. A model beats the market only if
+that interval is entirely below zero.
+
 ## `notebook`
 
 Starts JupyterLab with the project root as the notebook directory. The analysis

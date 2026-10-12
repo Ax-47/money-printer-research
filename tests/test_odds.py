@@ -49,6 +49,8 @@ def _write(odds_dir: Path) -> None:
             "AwayTeam": ["Wolfsburg", "Frankfurt"],
             "FTHG": ["3", "2"],
             "FTAG": ["2", "0"],
+            "HST": ["7", ""],
+            "AST": ["3", ""],
             "PSH": ["1.25", ""],
             "PSD": ["7.0", ""],
             "PSA": ["11.0", ""],
@@ -80,6 +82,8 @@ def test_read_results(tmp_path: Path) -> None:
     results = read_results(tmp_path).sort("fd_home")
     assert results["home_goals"].to_list() == [3, 2]
     assert results["day"].dt.day().to_list() == [23, 24]
+    # Bayern's file row has shots on target; Dortmund's cell is empty.
+    assert results["home_shots_on_target"].to_list() == [7, None]
 
 
 def test_one_price_takes_the_first_source_that_prices_every_outcome(tmp_path: Path) -> None:
