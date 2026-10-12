@@ -1,5 +1,6 @@
-// Shared by every page: DOM helpers, localStorage that tolerates being blocked, and the
-// Catppuccin flavor button (#theme), which cycles the flavors and remembers the choice.
+// Shared by every page: DOM helpers, localStorage that tolerates being blocked, the
+// Catppuccin flavor button (#theme), which cycles the flavors and remembers the choice,
+// and the language button (#lang), English or Thai, also remembered.
 const $ = (id) => document.getElementById(id);
 
 function el(tag, attrs = {}, ...children) {
@@ -10,8 +11,8 @@ function el(tag, attrs = {}, ...children) {
 
 // Shown in place of a page's content when its command has not been run yet.
 function notRun(what, command) {
-  return el("div", { className: "empty" },
-    `No ${what} yet. Run `, el("code", {}, `uv run ${command}`), " and reload.");
+  const [before, after] = t("not_run", { what, command: "{command}" }).split("{command}");
+  return el("div", { className: "empty" }, before, el("code", {}, `uv run ${command}`), after ?? "");
 }
 
 function options(target, values, make) {
@@ -24,6 +25,61 @@ function stored(key) {
 
 function store(key, value) {
   try { localStorage.setItem(key, value); } catch {}
+}
+
+// --- Language ------------------------------------------------------------------------
+// Each page adds its own strings with addStrings({ en: {...}, th: {...} }). Elements with
+// data-i18n="key" get t(key) as their text (data-i18n-placeholder / -title for those
+// attributes); code that builds the page calls t() itself and re-renders on onLang().
+
+const STRINGS = {
+  en: { nav_upcoming: "Upcoming", nav_backtest: "Backtest", nav_analysis: "Analysis",
+    theme_title: "Switch Catppuccin flavor", lang_title: "ภาษาไทย", lang_button: "ไทย",
+    not_run: "No {what} yet. Run {command} and reload." },
+  th: { nav_upcoming: "นัดถัดไป", nav_backtest: "ย้อนทดสอบ", nav_analysis: "บทวิเคราะห์",
+    theme_title: "เปลี่ยนธีมสี", lang_title: "English", lang_button: "EN",
+    not_run: "ยังไม่มีข้อมูล ({what}) รัน {command} แล้วโหลดหน้าใหม่" },
+};
+const LANGS = Object.keys(STRINGS);
+let lang = LANGS.includes(stored("lang")) ? stored("lang")
+  : (navigator.language || "").startsWith("th") ? "th" : "en";
+const langListeners = [];
+
+function addStrings(more) {
+  for (const l of LANGS) Object.assign(STRINGS[l], more[l]);
+  applyLang();
+}
+
+// t("key", { n: 3 }) fills {n} in the string; a missing key falls back to English.
+function t(key, vars = {}) {
+  const text = STRINGS[lang][key] ?? STRINGS.en[key] ?? key;
+  return text.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? "");
+}
+
+const locale = () => (lang === "th" ? "th-TH" : "en-GB");
+
+function onLang(listener) { langListeners.push(listener); }
+
+function applyLang() {
+  document.documentElement.lang = lang;
+  for (const node of document.querySelectorAll("[data-i18n]")) node.textContent = t(node.dataset.i18n);
+  for (const node of document.querySelectorAll("[data-i18n-placeholder]")) node.placeholder = t(node.dataset.i18nPlaceholder);
+  for (const node of document.querySelectorAll("[data-i18n-title]")) node.title = t(node.dataset.i18nTitle);
+  const button = $("lang");
+  if (button) { button.textContent = t("lang_button"); button.title = t("lang_title"); }
+}
+
+function setLang(next) {
+  lang = next;
+  store("lang", next);
+  applyLang();
+  for (const listener of langListeners) listener();
+}
+
+{
+  const button = $("lang");
+  if (button) button.addEventListener("click", () => setLang(LANGS[(LANGS.indexOf(lang) + 1) % LANGS.length]));
+  applyLang();
 }
 
 const THEMES = { latte: "Latte", frappe: "Frappé", macchiato: "Macchiato", mocha: "Mocha" };

@@ -34,7 +34,8 @@ nav a { color: var(--muted); text-decoration: none; }
 nav a[aria-current] { color: var(--mauve); font-weight: 600; }
 header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 h1 { font-size: 1.4rem; margin: 0 0 4px; color: var(--mauve); }
-#theme {
+.tools { display: flex; gap: 6px; }
+#theme, #lang {
   padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer;
   background: var(--panel); color: var(--text); font: inherit; font-size: .85rem;
 }

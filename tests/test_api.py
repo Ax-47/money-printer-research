@@ -229,3 +229,11 @@ def test_analysis_page_is_served(client: TestClient) -> None:
     page = client.get("/analysis.html")
     assert page.status_code == 200
     assert "fetch(`analysis?league=" in page.text
+
+
+def test_pages_carry_english_and_thai(client: TestClient) -> None:
+    common = client.get("/common.js").text
+    assert 'nav_upcoming: "Upcoming"' in common and 'nav_upcoming: "นัดถัดไป"' in common
+    page = client.get("/").text
+    assert 'title: "ผลทำนายนัดถัดไป"' in page
+    assert 'data-i18n="notice_title"' in page
