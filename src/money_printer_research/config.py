@@ -181,6 +181,10 @@ class ModelingSettings(_Section):
         default=Path("data/predictions/backtest.csv"),
         description="`backtest`'s output: each game's odds, probabilities, pick and profit.",
     )
+    strategies_file: RootPath = Field(
+        default=Path("strategies.toml"),
+        description="The pre-registered strategy suite `strategies` runs.",
+    )
 
 
 class ApiSettings(_Section):

@@ -140,6 +140,32 @@ It prints each one's mean log loss and RPS, and for the pairs in `market.COMPARI
 the mean per-game difference with a 95% interval. A model beats the market only if
 that interval is entirely below zero.
 
+## `strategies`
+
+Runs every strategy in `strategies.toml` (`modeling.strategies_file`), the
+pre-registered suite: written before any strategy was run, and changed only in commits
+that say so. It prints the commit of the file it ran with.
+
+Each strategy is a rule for which bets to place at which price: back the favourite,
+always the draw, the model's best EV above a threshold, any price that beats Pinnacle's
+margin-free probability (line shopping), and so on, over 1X2, Asian handicap and
+over/under 2.5. Every bet is 1 unit, settled from the score; Asian handicap quarter lines
+split the stake.
+
+For every variant (a strategy with one parameter value) and league it reports:
+
+| Column | Meaning |
+| --- | --- |
+| `roi` | profit per unit staked, with its 95% interval |
+| `close_ev` | expected profit per unit if Pinnacle's closing price is right: a far less noisy measure of edge than profit |
+| `p_value`, `q_value` | one-sided test of ROI above zero, and the Benjamini-Hochberg q-value over every cell of the suite |
+
+and, per strategy, the ROI when each season uses the parameter value that made the most
+on the seasons before it.
+
+Prices whose implied probabilities sum to under 0.97 (an arbitrage of 3% or more) are
+dropped as data errors, mostly in football-data's best-price columns.
+
 ## `notebook`
 
 Starts JupyterLab with the project root as the notebook directory. The analysis
