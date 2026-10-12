@@ -52,6 +52,8 @@ lists 22.0 on one side of an Asian handicap whose other side is 2.1). Keeping th
 credit a strategy with money no bettor could win.
 """
 
+MODEL_KINDS = {"model_ev", "model_draw"}
+
 PARAMETERS = {
     "model_ev": "min_edge",
     "model_draw": "min_edge",
@@ -104,9 +106,11 @@ def file_commit(path: Path) -> str:
             cwd=path.parent,
             capture_output=True,
             text=True,
-            check=True,
+            check=False,
         )
-    except OSError, subprocess.CalledProcessError:
+    except OSError:  # no git
+        return "unknown"
+    if out.returncode != 0:  # not a git checkout
         return "unknown"
     return out.stdout.strip() or "uncommitted"
 
@@ -283,7 +287,8 @@ def all_bets(
     """Every bet of every variant of every strategy, from test_from on.
 
     Columns: strategy, variant, value (the parameter, as text), league, season_start,
-    day, selection, odds, profit, close_ev.
+    day, selection, odds, profit, close_ev, believed_p (the probability the strategy bets
+    on: the model's for model kinds, Pinnacle's margin-free one otherwise), close_fair.
     """
     frames = []
     cache: dict[tuple[str, str, str], pl.DataFrame] = {}
@@ -306,6 +311,10 @@ def all_bets(
                     "odds",
                     "profit",
                     (pl.col("close_fair") * pl.col("odds") - 1).alias("close_ev"),
+                    pl.col("model_p" if strategy.kind in MODEL_KINDS else "fair").alias(
+                        "believed_p"
+                    ),
+                    "close_fair",
                 )
             )
     return pl.concat(frames)
