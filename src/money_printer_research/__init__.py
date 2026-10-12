@@ -16,6 +16,7 @@ if TYPE_CHECKING:
         exec_market_test,
         exec_modeling,
         exec_predict,
+        exec_strategies,
     )
     from money_printer_research.clean_data import clean_data, exec_clean_data
     from money_printer_research.data_collection import collect_data
@@ -32,6 +33,7 @@ _ENTRY_POINTS = {
     "exec_market_test": "money_printer_research.analysis",
     "exec_modeling": "money_printer_research.analysis",
     "exec_predict": "money_printer_research.analysis",
+    "exec_strategies": "money_printer_research.analysis",
     "exec_notebook": "money_printer_research.notebook",
 }
 
@@ -58,4 +60,5 @@ __all__ = [
     "exec_modeling",
     "exec_notebook",
     "exec_predict",
+    "exec_strategies",
 ]

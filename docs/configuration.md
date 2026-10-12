@@ -75,6 +75,7 @@ uv run show_config
 | `odds_dir` | `data/raw/odds` | football-data.co.uk odds CSVs `uv run collect_data` downloads for `uv run backtest`: `<league>/<season>.csv` |
 | `backtest_from` | `2017` | first season (start year) `uv run backtest` bets on; 2015 or later |
 | `backtest_file` | `data/predictions/backtest.csv` | `uv run backtest`'s output: each game's odds, probabilities, pick and profit |
+| `strategies_file` | `strategies.toml` | the pre-registered strategy suite `uv run strategies` runs |
 
 ### `[api_settings]`
 

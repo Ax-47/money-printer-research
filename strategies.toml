@@ -1,0 +1,149 @@
+# The pre-registered strategy suite (issue #39), read by `uv run strategies`.
+#
+# Written before any of these strategies was run on the data. Change it only in a
+# commit that says so: the report prints the commit of this file it ran with, so a
+# reader can check nothing was added or tuned after seeing the results.
+#
+# Every strategy bets 1 unit per bet. A list of values for a parameter means each
+# value is its own variant, and every variant counts towards the multiple-comparison
+# correction. On top of that, `strategies` picks the value walk-forward: each season
+# uses the value that made the most on the seasons before it.
+#
+# kind        what it bets
+#   model_ev    the outcome with the highest expected value under the model, when that
+#               EV is above min_edge (the model is market.py's market_and_form)
+#   model_draw  the draw, when the model's P(draw) is above the market's by min_edge
+#   favourite   the outcome with the shortest price
+#   longshot    the outcome with the longest price
+#   odds_band   every outcome priced from low (inclusive) to high (exclusive)
+#   always      one fixed selection in every game
+#   value       any selection whose price, times Pinnacle's margin-free probability at
+#               the same moment, is above 1 + min_edge (Kaunitz et al. 2017)
+#
+# price is [source, timing] from analysis/odds.py: where the bet is placed.
+
+test_from = 2016  # seasons scored; earlier ones only train the model and choices
+
+[[strategy]]
+name = "model EV, Pinnacle early"
+kind = "model_ev"
+market = "1x2"
+price = ["pinnacle", "early"]
+min_edge = [0.0, 0.02, 0.05, 0.1, 0.2]
+
+[[strategy]]
+name = "model EV, best price early"
+kind = "model_ev"
+market = "1x2"
+price = ["max", "early"]
+min_edge = [0.0, 0.02, 0.05, 0.1, 0.2]
+
+[[strategy]]
+name = "model draw"
+kind = "model_draw"
+market = "1x2"
+price = ["pinnacle", "early"]
+min_edge = [0.0, 0.02, 0.05]
+
+[[strategy]]
+name = "favourite"
+kind = "favourite"
+market = "1x2"
+price = ["pinnacle", "early"]
+
+[[strategy]]
+name = "longshot"
+kind = "longshot"
+market = "1x2"
+price = ["pinnacle", "early"]
+
+[[strategy]]
+name = "odds band"
+kind = "odds_band"
+market = "1x2"
+price = ["pinnacle", "early"]
+band = [[1.0, 1.5], [1.5, 2.0], [2.0, 3.0], [3.0, 5.0], [5.0, 1000.0]]
+
+[[strategy]]
+name = "always home"
+kind = "always"
+market = "1x2"
+price = ["pinnacle", "early"]
+selection = "H"
+
+[[strategy]]
+name = "always draw"
+kind = "always"
+market = "1x2"
+price = ["pinnacle", "early"]
+selection = "D"
+
+[[strategy]]
+name = "always away"
+kind = "always"
+market = "1x2"
+price = ["pinnacle", "early"]
+selection = "A"
+
+[[strategy]]
+name = "always over 2.5"
+kind = "always"
+market = "ou25"
+price = ["pinnacle", "early"]
+selection = "over"
+
+[[strategy]]
+name = "always under 2.5"
+kind = "always"
+market = "ou25"
+price = ["pinnacle", "early"]
+selection = "under"
+
+[[strategy]]
+name = "always AH home"
+kind = "always"
+market = "ah"
+price = ["pinnacle", "early"]
+selection = "home"
+
+[[strategy]]
+name = "always AH away"
+kind = "always"
+market = "ah"
+price = ["pinnacle", "early"]
+selection = "away"
+
+[[strategy]]
+name = "value 1X2, best price early"
+kind = "value"
+market = "1x2"
+price = ["max", "early"]
+min_edge = [0.0, 0.02, 0.05]
+
+[[strategy]]
+name = "value 1X2, best price close"
+kind = "value"
+market = "1x2"
+price = ["max", "close"]
+min_edge = [0.0, 0.02, 0.05]
+
+[[strategy]]
+name = "value 1X2, Bet365 early"
+kind = "value"
+market = "1x2"
+price = ["bet365", "early"]
+min_edge = [0.0, 0.02, 0.05]
+
+[[strategy]]
+name = "value AH, best price early"
+kind = "value"
+market = "ah"
+price = ["max", "early"]
+min_edge = [0.0, 0.02, 0.05]
+
+[[strategy]]
+name = "value O/U 2.5, best price early"
+kind = "value"
+market = "ou25"
+price = ["max", "early"]
+min_edge = [0.0, 0.02, 0.05]
