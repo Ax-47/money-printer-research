@@ -33,6 +33,7 @@ uv run market_test         # can a model forecast better than the market's own p
 uv run strategies          # the pre-registered strategy suite in strategies.toml
 uv run staking             # what flat, Kelly and martingale staking do to a bankroll
 uv run practicality        # what collecting an edge would take: time, account limits, the exchange
+uv run report              # all of the above as one page -> data/report/report.html
 uv run notebook            # JupyterLab at the project root
 uv run check_clean         # validate every CSV in data/clean against its schema
 uv run show_config         # print the settings in effect

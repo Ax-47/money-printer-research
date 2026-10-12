@@ -17,6 +17,7 @@ if TYPE_CHECKING:
         exec_modeling,
         exec_practicality,
         exec_predict,
+        exec_report,
         exec_staking,
         exec_strategies,
     )
@@ -36,6 +37,7 @@ _ENTRY_POINTS = {
     "exec_modeling": "money_printer_research.analysis",
     "exec_practicality": "money_printer_research.analysis",
     "exec_predict": "money_printer_research.analysis",
+    "exec_report": "money_printer_research.analysis",
     "exec_staking": "money_printer_research.analysis",
     "exec_strategies": "money_printer_research.analysis",
     "exec_notebook": "money_printer_research.notebook",
@@ -65,6 +67,7 @@ __all__ = [
     "exec_notebook",
     "exec_practicality",
     "exec_predict",
+    "exec_report",
     "exec_staking",
     "exec_strategies",
 ]

@@ -191,6 +191,18 @@ prints:
 - what is collected when soft bookmakers close each account once it is a few stakes up
 - the same rule on the Betfair exchange, which does not close winners, after commission
 
+## `report`
+
+Runs `market_test`, `strategies`, `staking` and `practicality` from the raw
+football-data files and writes one self-contained HTML page to `modeling.report_file`
+(`data/report/report.html`). The page:
+
+- answers whether any of it beats the market, in sentences built from the numbers
+- names the commit of the code and of `strategies.toml` it ran with, so the page can be rebuilt
+- holds every table and chart from those commands
+
+The only hand-written text is the method and the limitations.
+
 ## `notebook`
 
 Starts JupyterLab with the project root as the notebook directory. The analysis

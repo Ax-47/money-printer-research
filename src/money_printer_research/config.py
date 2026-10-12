@@ -185,6 +185,10 @@ class ModelingSettings(_Section):
         default=Path("strategies.toml"),
         description="The pre-registered strategy suite `strategies` runs.",
     )
+    report_file: RootPath = Field(
+        default=Path("data/report/report.html"),
+        description="`report`'s output: the one-page answer, rebuilt from the raw data.",
+    )
 
 
 class ApiSettings(_Section):
