@@ -237,3 +237,5 @@ def test_pages_carry_english_and_thai(client: TestClient) -> None:
     page = client.get("/").text
     assert 'title: "ผลทำนายนัดถัดไป"' in page
     assert 'data-i18n="notice_title"' in page
+    backtest = client.get("/backtest.html").text
+    assert 'title: "Backtest"' in backtest and 'title: "ทดสอบย้อนหลัง"' in backtest

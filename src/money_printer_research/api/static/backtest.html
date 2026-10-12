@@ -4,51 +4,80 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Backtest</title>
+<link rel="icon" href="favicon.svg">
 <link rel="stylesheet" href="common.css">
 <style>
-  .filters input[type="range"] { min-width: 200px; padding: 0; border: 0; background: none; accent-color: var(--mauve); }
-  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 16px; }
-  .tile { padding: 12px 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; }
-  .tile small { display: block; color: var(--muted); font-size: .8rem; }
-  .tile b { font-size: 1.3rem; }
-  .tile .ci { margin-top: 2px; }
-  .note { padding: 10px 14px; margin-bottom: 16px; border: 1px solid var(--red); border-radius: 10px; }
-  .plus { color: var(--green); } .minus { color: var(--red); }
-  .card { padding: 14px; margin-bottom: 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; }
-  .card h2 { font-size: 1rem; margin: 0 0 10px; }
+  .tile .ci { display: block; margin-top: 4px; font-size: .78rem; }
+  .note { display: flex; gap: 10px; padding: 12px 14px; margin-bottom: 16px; border-radius: var(--radius);
+    border: 1px solid color-mix(in srgb, var(--red) 45%, transparent);
+    background: color-mix(in srgb, var(--red) 8%, var(--panel)); }
+  .ev-label { display: flex; justify-content: space-between; }
+  .ev-label output { color: var(--accent); font-weight: 700; }
   svg { display: block; width: 100%; height: 240px; }
-  svg text { fill: var(--muted); font-size: 11px; }
-  table { width: 100%; border-collapse: collapse; font-size: .9rem; font-variant-numeric: tabular-nums; }
-  th, td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--border); }
-  th:first-child, td:first-child { text-align: left; }
-  th { color: var(--muted); font-weight: 500; }
+  svg text { fill: var(--muted); font: 11px var(--font); }
 </style>
 </head>
 <body>
-<main>
+<header class="topbar"><div class="in">
+  <a class="brand" href="./"><span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V13M10 19V9M16 19V12M3 8l6-4 5 4 7-5"/></svg></span>
+    <span>Money Printer<small data-i18n="brand_sub">Football market research</small></span></a>
   <nav><a href="./" data-i18n="nav_upcoming">Upcoming</a><a href="backtest.html" data-i18n="nav_backtest" aria-current="page">Backtest</a><a href="analysis.html" data-i18n="nav_analysis">Analysis</a></nav>
-  <header>
-    <div>
-      <h1>Backtest</h1>
-      <p class="sub" id="summary">Loading…</p>
-    </div>
-    <div class="tools"><button id="lang"></button><button id="theme" data-i18n-title="theme_title"></button></div>
-  </header>
-  <p class="sub">Each season is predicted by a model fitted only on the seasons before it.
+  <div class="tools"><div id="lang" class="seg" role="group"></div><button id="theme" type="button" data-i18n-title="theme_title"></button></div>
+</div></header>
+<main>
+  <div class="hero">
+    <h1 data-i18n="title">Backtest</h1>
+    <p class="sub" id="summary" data-i18n="loading">Loading…</p>
+  </div>
+  <p class="sub" data-i18n="intro">Each season is predicted by a model fitted only on the seasons before it.
     Every game, the strategy bets 1 unit on the outcome with the highest expected value at
     Pinnacle's closing odds, when that EV is above the threshold.</p>
   <div class="filters">
-    <label>Minimum EV: <output id="min-ev-label"></output>
+    <label><span class="ev-label"><span data-i18n="min_ev">Minimum EV</span> <output id="min-ev-label"></output></span>
       <input id="min-ev" type="range" min="0" max="30" step="1" value="5"></label>
-    <label>League <select id="league"><option value="">All leagues</option></select></label>
+    <label><span data-i18n="league">League</span> <select id="league"><option value="" data-i18n="all_leagues">All leagues</option></select></label>
   </div>
   <div id="result"></div>
 </main>
 <script src="common.js"></script>
 <script>
+  addStrings({
+    en: {
+      title: "Backtest", loading: "Loading…",
+      intro: "Each season is predicted by a model fitted only on the seasons before it. Every game, the strategy bets 1 unit on the outcome with the highest expected value at Pinnacle's closing odds, when that EV is above the threshold.",
+      min_ev: "Minimum EV", league: "League", all_leagues: "All leagues",
+      summary: "{games} games with odds", none: "No bet clears this threshold.",
+      luck: "The 95% range of the ROI includes zero: this result is within what luck alone produces. It is not evidence of an edge.",
+      bets: "Bets", hit_rate: "Hit rate", profit: "Profit (units)", roi: "ROI", season: "Season", threshold: "Threshold",
+      range: "95% range {lo} to {hi}", log_loss: "Log loss: model / bookmaker",
+      cumulative: "Cumulative profit", cumulative_aria: "Cumulative profit, ending at {n} units", by_season: "By season",
+      wf_title: "Threshold chosen without hindsight",
+      wf_body: "The slider lets you pick the threshold after seeing the results, which flatters them. Here each season bets at the threshold that made the most on the seasons before it only. Total: ",
+      units: "{n} units", wf_on: " on {bets} bets{roi}.", wf_roi: ", ROI {roi}",
+      wf_league: " Choosing the league after seeing its results flatters them the same way; All leagues makes no such choice.",
+      backtest: "backtest",
+    },
+    th: {
+      title: "ทดสอบย้อนหลัง", loading: "กำลังโหลด…",
+      intro: "แต่ละฤดูกาลทำนายด้วยโมเดลที่ฝึกจากฤดูกาลก่อนหน้าเท่านั้น ทุกนัด กลยุทธ์จะแทง 1 หน่วยบนผลที่มีค่าคาดหวัง (EV) สูงสุดตามราคาปิดของ Pinnacle เมื่อ EV นั้นสูงกว่าเกณฑ์",
+      min_ev: "EV ขั้นต่ำ", league: "ลีก", all_leagues: "ทุกลีก",
+      summary: "{games} นัดที่มีราคาต่อรอง", none: "ไม่มีการแทงที่ผ่านเกณฑ์นี้",
+      luck: "ช่วง 95% ของ ROI ครอบคลุมศูนย์: ผลนี้อยู่ในระดับที่ดวงอย่างเดียวก็ทำได้ จึงไม่ใช่หลักฐานว่ามีความได้เปรียบ",
+      bets: "จำนวนครั้งที่แทง", hit_rate: "อัตราแทงถูก", profit: "กำไร (หน่วย)", roi: "ROI", season: "ฤดูกาล", threshold: "เกณฑ์",
+      range: "ช่วง 95% {lo} ถึง {hi}", log_loss: "Log loss: โมเดล / เจ้ามือ",
+      cumulative: "กำไรสะสม", cumulative_aria: "กำไรสะสม จบที่ {n} หน่วย", by_season: "แยกตามฤดูกาล",
+      wf_title: "เกณฑ์ที่เลือกโดยไม่รู้ผลล่วงหน้า",
+      wf_body: "แถบเลื่อนให้เลือกเกณฑ์หลังจากเห็นผลแล้ว ซึ่งทำให้ผลดูดีเกินจริง ตารางนี้ให้แต่ละฤดูกาลแทงที่เกณฑ์ซึ่งทำกำไรได้มากที่สุดในฤดูกาลก่อนหน้าเท่านั้น รวม: ",
+      units: "{n} หน่วย", wf_on: " จากการแทง {bets} ครั้ง{roi}", wf_roi: " ROI {roi}",
+      wf_league: " การเลือกลีกหลังเห็นผลก็ทำให้ผลดูดีเกินจริงแบบเดียวกัน ส่วน \"ทุกลีก\" ไม่ได้เลือกแบบนั้น",
+      backtest: "ผลทดสอบย้อนหลัง",
+    },
+  });
+
   const pct = (x, digits = 1) => `${(x * 100).toFixed(digits)}%`;
   const signed = (x, fmt) => `${x > 0 ? "+" : ""}${fmt(x)}`;
   const tone = (x) => (x > 0 ? "plus" : x < 0 ? "minus" : "");
+  const count = (n) => n.toLocaleString(locale());
 
   function tile(label, value, className = "", note = "") {
     return el("div", { className: "tile" }, el("small", {}, label), el("b", { className }, value),
@@ -74,13 +103,18 @@
     const x = (i) => pad.l + (i / Math.max(points.length - 1, 1)) * (w - pad.l - pad.r);
     const y = (v) => pad.t + (hi - v) / (hi - lo || 1) * (h - pad.t - pad.b);
     const last = ys.at(-1);
+    const colour = last >= 0 ? "var(--green)" : "var(--red)";
+    const line = points.map((p, i) => `${x(i)},${y(p.profit)}`).join(" ");
     // Axis labels at the top, zero and bottom, leaving out any that would overlap zero.
     const ticks = [hi, 0, lo].filter((v) => v === 0 || Math.abs(y(v) - y(0)) > 14);
     return svg("svg", { viewBox: `0 0 ${w} ${h}`, role: "img",
-        "aria-label": `Cumulative profit, ending at ${last.toFixed(1)} units` },
-      svg("line", { x1: pad.l, x2: w - pad.r, y1: y(0), y2: y(0), stroke: "var(--border)" }),
-      svg("polyline", { fill: "none", "stroke-width": 2, stroke: last >= 0 ? "var(--green)" : "var(--red)",
-        points: points.map((p, i) => `${x(i)},${y(p.profit)}`).join(" ") }),
+        "aria-label": t("cumulative_aria", { n: last.toFixed(1) }) },
+      svg("defs", {}, svg("linearGradient", { id: "fill", x1: 0, x2: 0, y1: 0, y2: 1 },
+        svg("stop", { offset: 0, "stop-color": colour, "stop-opacity": 0.28 }),
+        svg("stop", { offset: 1, "stop-color": colour, "stop-opacity": 0 }))),
+      svg("polygon", { fill: "url(#fill)", points: `${x(0)},${y(0)} ${line} ${x(points.length - 1)},${y(0)}` }),
+      svg("line", { x1: pad.l, x2: w - pad.r, y1: y(0), y2: y(0), stroke: "var(--border)", "stroke-dasharray": "3 3" }),
+      svg("polyline", { fill: "none", "stroke-width": 2, "stroke-linejoin": "round", stroke: colour, points: line }),
       ...ticks.map((v) => svg("text", { x: pad.l - 6, y: y(v) + 4, "text-anchor": "end" }, v.toFixed(0))),
       svg("text", { x: pad.l, y: h - 4 }, points[0].day),
       svg("text", { x: w - pad.r, y: h - 4, "text-anchor": "end" }, points.at(-1).day));
@@ -89,11 +123,15 @@
   // 2024 -> "2024/25"
   const seasonLabel = (start) => `${start}/${String((start + 1) % 100).padStart(2, "0")}`;
 
+  function scrollTable(head, rows) {
+    return el("div", { className: "scroll" }, el("table", {},
+      el("thead", {}, el("tr", {}, ...head.map((k) => el("th", {}, t(k))))), el("tbody", {}, ...rows)));
+  }
+
   function seasonTable(rows) {
-    const head = ["Season", "Bets", "Hit rate", "Profit", "ROI"].map((t) => el("th", {}, t));
-    return el("table", {}, el("tr", {}, ...head), ...rows.map((r) => el("tr", {},
+    return scrollTable(["season", "bets", "hit_rate", "profit", "roi"], rows.map((r) => el("tr", {},
       el("td", {}, seasonLabel(r.season_start)),
-      el("td", {}, r.bets),
+      el("td", {}, count(r.bets)),
       el("td", {}, pct(r.hit_rate)),
       el("td", { className: tone(r.profit) }, signed(r.profit, (v) => v.toFixed(1))),
       el("td", { className: tone(r.roi) }, signed(r.roi, pct)))));
@@ -104,20 +142,16 @@
     const sum = (key) => rows.reduce((total, r) => total + r[key], 0);
     const bets = sum("bets"), profit = sum("profit");
     const pickedLeague = $("league").value !== "";
-    const head = ["Season", "Threshold", "Bets", "Profit", "ROI"].map((t) => el("th", {}, t));
     return el("div", { className: "card" },
-      el("h2", {}, "Threshold chosen without hindsight"),
-      el("p", { className: "sub" }, "The slider lets you pick the threshold after seeing the results, "
-        + "which flatters them. Here each season bets at the threshold that made the most on the "
-        + "seasons before it only. Total: ",
-        el("b", { className: tone(profit) }, `${signed(profit, (v) => v.toFixed(1))} units`),
-        ` on ${bets.toLocaleString()} bets` + (bets ? `, ROI ${signed(profit / bets, pct)}` : "") + "."
-        + (pickedLeague ? " Choosing the league after seeing its results flatters them "
-          + "the same way; All leagues makes no such choice." : "")),
-      el("table", {}, el("tr", {}, ...head), ...rows.map((r) => el("tr", {},
+      el("h2", {}, t("wf_title")),
+      el("p", { className: "sub" }, t("wf_body"),
+        el("b", { className: tone(profit) }, t("units", { n: signed(profit, (v) => v.toFixed(1)) })),
+        t("wf_on", { bets: count(bets), roi: bets ? t("wf_roi", { roi: signed(profit / bets, pct) }) : "" }),
+        pickedLeague ? t("wf_league") : ""),
+      scrollTable(["season", "threshold", "bets", "profit", "roi"], rows.map((r) => el("tr", {},
         el("td", {}, seasonLabel(r.season_start)),
         el("td", {}, pct(r.min_ev, 0)),
-        el("td", {}, r.bets),
+        el("td", {}, count(r.bets)),
         el("td", { className: tone(r.profit) }, signed(r.profit, (v) => v.toFixed(1))),
         el("td", { className: tone(r.roi ?? 0) }, r.roi == null ? "–" : signed(r.roi, pct))))));
   }
@@ -126,27 +160,27 @@
 
   function render(data) {
     latest = data;
-    const t = data.total;
-    $("summary").textContent = `${data.games} games with odds`;
-    if (!t.bets) {
-      $("result").replaceChildren(el("div", { className: "empty" }, "No bet clears this threshold."));
+    const total = data.total;
+    document.title = t("title");
+    $("summary").textContent = t("summary", { games: count(data.games) });
+    if (!total.bets) {
+      $("result").replaceChildren(el("div", { className: "empty" }, t("none")));
       return;
     }
-    const [lo, hi] = ci(t);
-    const couldBeLuck = t.roi_se != null && lo < 0 && hi > 0;
+    const [lo, hi] = ci(total);
+    const couldBeLuck = total.roi_se != null && lo < 0 && hi > 0;
     $("result").replaceChildren(
-      ...(couldBeLuck ? [el("div", { className: "note" }, "The 95% range of the ROI includes zero: "
-        + "this result is within what luck alone produces. It is not evidence of an edge.")] : []),
+      ...(couldBeLuck ? [el("div", { className: "note", role: "note" }, el("span", { "aria-hidden": "true" }, "⚠"), t("luck"))] : []),
       el("div", { className: "tiles" },
-        tile("Bets", t.bets.toLocaleString()),
-        tile("Hit rate", pct(t.hit_rate)),
-        tile("Profit (units)", signed(t.profit, (v) => v.toFixed(1)), tone(t.profit)),
-        tile("ROI", signed(t.roi, pct), tone(t.roi),
-          t.roi_se == null ? "" : `95% range ${signed(lo, pct)} to ${signed(hi, pct)}`),
-        tile("Log loss: model / bookmaker",
+        tile(t("bets"), count(total.bets)),
+        tile(t("hit_rate"), pct(total.hit_rate)),
+        tile(t("profit"), signed(total.profit, (v) => v.toFixed(1)), tone(total.profit)),
+        tile(t("roi"), signed(total.roi, pct), tone(total.roi),
+          total.roi_se == null ? "" : t("range", { lo: signed(lo, pct), hi: signed(hi, pct) })),
+        tile(t("log_loss"),
           `${data.log_loss.model.toFixed(3)} / ${data.log_loss.market.toFixed(3)}`)),
-      el("div", { className: "card", id: "chart" }, el("h2", {}, "Cumulative profit")),
-      el("div", { className: "card" }, el("h2", {}, "By season"), seasonTable(data.by_season)),
+      el("div", { className: "card", id: "chart" }, el("h2", {}, t("cumulative"))),
+      el("div", { className: "card" }, el("h2", {}, t("by_season")), seasonTable(data.by_season)),
       ...(data.walk_forward.length ? [walkForwardCard(data.walk_forward)] : []));
     drawChart();
   }
@@ -155,7 +189,7 @@
     const card = $("chart");
     if (!card || !latest) return;
     card.querySelector("svg")?.remove();
-    card.append(chart(latest.cumulative_profit, card.clientWidth - 28));
+    card.append(chart(latest.cumulative_profit, card.clientWidth - 36));
   }
 
   async function load() {
@@ -166,7 +200,7 @@
     const res = await fetch(`backtest?${params}`);
     if (!res.ok) {
       $("summary").textContent = "";
-      $("result").replaceChildren(notRun("backtest", "backtest"));
+      $("result").replaceChildren(notRun(t("backtest"), "backtest"));
       return;
     }
     const data = await res.json();
@@ -180,6 +214,7 @@
   $("min-ev").addEventListener("input", () => { store("min-ev", $("min-ev").value); load(); });
   $("league").addEventListener("change", load);
   addEventListener("resize", drawChart);
+  onLang(() => (latest ? render(latest) : load()));
   load();
 </script>
 </body>

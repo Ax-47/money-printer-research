@@ -1,6 +1,6 @@
 // Shared by every page: DOM helpers, localStorage that tolerates being blocked, the
 // Catppuccin flavor button (#theme), which cycles the flavors and remembers the choice,
-// and the language button (#lang), English or Thai, also remembered.
+// and the language switch (#lang), one button per language, also remembered.
 const $ = (id) => document.getElementById(id);
 
 function el(tag, attrs = {}, ...children) {
@@ -34,13 +34,14 @@ function store(key, value) {
 
 const STRINGS = {
   en: { nav_upcoming: "Upcoming", nav_backtest: "Backtest", nav_analysis: "Analysis",
-    theme_title: "Switch Catppuccin flavor", lang_title: "ภาษาไทย", lang_button: "ไทย",
-    not_run: "No {what} yet. Run {command} and reload." },
-  th: { nav_upcoming: "นัดถัดไป", nav_backtest: "ย้อนทดสอบ", nav_analysis: "บทวิเคราะห์",
-    theme_title: "เปลี่ยนธีมสี", lang_title: "English", lang_button: "EN",
-    not_run: "ยังไม่มีข้อมูล ({what}) รัน {command} แล้วโหลดหน้าใหม่" },
+    brand_sub: "Football market research", lang_label: "Language",
+    theme_title: "Switch Catppuccin flavor", not_run: "No {what} yet. Run {command} and reload." },
+  th: { nav_upcoming: "นัดถัดไป", nav_backtest: "ทดสอบย้อนหลัง", nav_analysis: "บทวิเคราะห์",
+    brand_sub: "งานวิจัยตลาดพนันฟุตบอล", lang_label: "ภาษา",
+    theme_title: "เปลี่ยนธีมสี", not_run: "ยังไม่มีข้อมูล ({what}) รัน {command} แล้วโหลดหน้าใหม่" },
 };
 const LANGS = Object.keys(STRINGS);
+const LANG_NAMES = { en: "EN", th: "ไทย" };
 let lang = LANGS.includes(stored("lang")) ? stored("lang")
   : (navigator.language || "").startsWith("th") ? "th" : "en";
 const langListeners = [];
@@ -65,8 +66,11 @@ function applyLang() {
   for (const node of document.querySelectorAll("[data-i18n]")) node.textContent = t(node.dataset.i18n);
   for (const node of document.querySelectorAll("[data-i18n-placeholder]")) node.placeholder = t(node.dataset.i18nPlaceholder);
   for (const node of document.querySelectorAll("[data-i18n-title]")) node.title = t(node.dataset.i18nTitle);
-  const button = $("lang");
-  if (button) { button.textContent = t("lang_button"); button.title = t("lang_title"); }
+  const group = $("lang");
+  if (group) {
+    group.setAttribute("aria-label", t("lang_label"));
+    for (const button of group.children) button.setAttribute("aria-pressed", button.value === lang);
+  }
 }
 
 function setLang(next) {
@@ -77,8 +81,11 @@ function setLang(next) {
 }
 
 {
-  const button = $("lang");
-  if (button) button.addEventListener("click", () => setLang(LANGS[(LANGS.indexOf(lang) + 1) % LANGS.length]));
+  const group = $("lang");
+  if (group) {
+    group.replaceChildren(...LANGS.map((l) => el("button", { type: "button", value: l, lang: l }, LANG_NAMES[l])));
+    group.addEventListener("click", (e) => { if (e.target.value && e.target.value !== lang) setLang(e.target.value); });
+  }
   applyLang();
 }
 
