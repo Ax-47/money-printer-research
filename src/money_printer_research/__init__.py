@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from money_printer_research.analysis import (
         exec_backtest,
         exec_feature_importance,
+        exec_learning_curve,
         exec_market_test,
         exec_modeling,
         exec_practicality,
@@ -33,6 +34,7 @@ _ENTRY_POINTS = {
     "exec_backtest": "money_printer_research.analysis",
     "exec_clean_data": "money_printer_research.clean_data",
     "exec_feature_importance": "money_printer_research.analysis",
+    "exec_learning_curve": "money_printer_research.analysis",
     "exec_market_test": "money_printer_research.analysis",
     "exec_modeling": "money_printer_research.analysis",
     "exec_practicality": "money_printer_research.analysis",
@@ -63,6 +65,7 @@ __all__ = [
     "exec_clean_data",
     "exec_feature_importance",
     "exec_market_test",
+    "exec_learning_curve",
     "exec_modeling",
     "exec_notebook",
     "exec_practicality",

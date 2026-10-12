@@ -193,6 +193,11 @@ class ModelingSettings(_Section):
         default=Path("data/report/analysis.json"),
         description="`report`'s results as JSON, served by the API at /analysis.",
     )
+    learning_curve_file: RootPath = Field(
+        default=Path("data/report/learning_curve.html"),
+        description="`learning_curve`'s page (also written by `modeling`): log loss by "
+        "training games.",
+    )
 
 
 class ApiSettings(_Section):

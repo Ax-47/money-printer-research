@@ -27,6 +27,7 @@ uv run collect_data        # Understat schedule and player stats, odds, Transfer
 uv run clean_data          # cleaned tables and pre-match features -> data/clean
 uv run feature_importance  # feature selection for the H/D/A model
 uv run modeling            # compare H/D/A models, save the chosen one -> data/models
+uv run learning_curve      # log loss by training games -> data/report/learning_curve.html
 uv run predict             # H/D/A probabilities for unplayed fixtures -> data/predictions
 uv run backtest            # bet the model's +EV picks against historical odds -> data/predictions
 uv run market_test         # can a model forecast better than the market's own prices?

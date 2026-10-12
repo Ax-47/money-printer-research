@@ -17,7 +17,8 @@ each class's predicted probability by decile and compares it with how often it h
 After the comparison, fit_final refits the logistic baseline on every season (the held-out
 ones too: they have been scored, and the newest games matter most) and save_model writes
 it with joblib to settings.modeling.out_file. load_model reads it back; SavedModel.predict
-takes model_frame rows and returns P(A), P(D), P(H) per game.
+takes model_frame rows and returns P(A), P(D), P(H) per game. `uv run modeling` then
+writes the learning curve (analysis.learning_curve).
 """
 
 from collections.abc import Callable
@@ -281,5 +282,9 @@ def main(path: Path, out_file: Path) -> None:
 
 
 def exec_modeling() -> None:
-    """Entry point `modeling`: compare the H/D/A models on model_frame.csv, save the chosen one."""
+    """Entry point `modeling`: compare and save the H/D/A models, then the learning curve."""
+    from money_printer_research.analysis import learning_curve  # it imports this module
+
     main(settings.clean.out_dir / "model_frame.csv", settings.modeling.out_file)
+    print()
+    learning_curve.main(settings)
