@@ -434,19 +434,19 @@ def run(settings: Settings = default_settings) -> dict[str, Any]:
 
 
 def main(settings: Settings = default_settings) -> dict[str, Any]:
-    """Run the suite and print what matters: the best cells and the walk-forward ROI."""
+    """Run the suite and print every variant on all leagues, then the walk-forward ROI."""
     out = run(settings)
     scores = out["scores"]
     print(
         f"{out['suite']} at {out['commit']}: {scores.height} cells, seasons {out['test_from']} on"
     )
-    with pl.Config(float_precision=4, tbl_rows=40, tbl_cols=12, fmt_str_lengths=50):
-        print("All leagues, by ROI:")
-        print(scores.filter(pl.col("league") == "ALL").sort("roi", descending=True).drop("league"))
-        print("Smallest q-values over every cell:")
-        print(scores.sort("q_value").head(10))
-        print("Walk-forward, all leagues:")
-        print(out["walk_forward"].filter(pl.col("league") == "ALL"))
+    shown = ["bets", "roi", "roi_low", "roi_high", "close_ev", "close_ev_low", "q_value"]
+    with pl.Config(float_precision=3, tbl_rows=80, fmt_str_lengths=60, tbl_width_chars=200):
+        print("All leagues, by ROI (close_ev: expected profit per unit at the closing price):")
+        all_leagues = scores.filter(pl.col("league") == "ALL")
+        print(all_leagues.sort("roi", descending=True).select("variant", *shown))
+        print("Walk-forward (each season at the value that did best before it), all leagues:")
+        print(out["walk_forward"].filter(pl.col("league") == "ALL").sort("roi", descending=True))
     return out
 
 
