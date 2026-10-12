@@ -189,6 +189,10 @@ class ModelingSettings(_Section):
         default=Path("data/report/report.html"),
         description="`report`'s output: the one-page answer, rebuilt from the raw data.",
     )
+    analysis_file: RootPath = Field(
+        default=Path("data/report/analysis.json"),
+        description="`report`'s results as JSON, served by the API at /analysis.",
+    )
 
 
 class ApiSettings(_Section):

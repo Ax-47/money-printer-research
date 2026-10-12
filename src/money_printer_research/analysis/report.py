@@ -2,9 +2,10 @@
 
 `uv run report` runs every analysis from the raw football-data files (market_test,
 strategies, staking, practicality) and writes settings.modeling.report_file, a single
-HTML page with no external files. Every number and chart on it comes from that run; the
-only hand-written text is the method and the limitations, which say what was done, not
-what came out.
+HTML page with no external files, and settings.modeling.analysis_file, the same results
+as JSON for the API's /analysis and the analysis.html page. Every number and chart on the
+page comes from that run; the only hand-written text is the method and the limitations,
+which say what was done, not what came out.
 
 The page names the commit of the code and of strategies.toml it ran with, so a reader
 can check out that commit and get the same page.
@@ -12,6 +13,7 @@ can check out that commit and get the same page.
 
 import datetime
 import html
+import json
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -164,8 +166,8 @@ def interval_chart(
 # --- The page --------------------------------------------------------------------------
 
 
-def _summary(r: dict[str, Any]) -> list[str]:
-    """The answer, as sentences built from the numbers."""
+def summary(r: dict[str, Any]) -> list[tuple[str, str]]:
+    """The answer as (headline, detail) pairs, both plain text built from the numbers."""
     comp = {(row["a"], row["b"]): row for row in r["comparisons"].iter_rows(named=True)}
     scores = r["scores"]
     all_leagues = scores.filter(pl.col("league") == "ALL")
@@ -185,41 +187,87 @@ def _summary(r: dict[str, Any]) -> list[str]:
 
     feat = comp[("market_and_form", "early")]
     close = comp[("close", "early")]
-    sentences = [
-        "<b>No model built here forecasts better than the market.</b> Adding team form to "
-        f"Pinnacle's early price changes log loss by {_num(feat['log_loss'])} "
-        f"(95% interval {_num(feat['log_loss_low'])} to {_num(feat['log_loss_high'])}; below "
-        "zero would mean better), while the closing price beats the early one by "
-        f"{_num(close['log_loss'])} ({_num(close['log_loss_low'])} to "
-        f"{_num(close['log_loss_high'])}).",
-        f"<b>No strategy survives the correction for how many were tried.</b> Of "
-        f"{scores.height} strategy × league cells, {significant} "
-        f"{'has' if significant == 1 else 'have'} a Benjamini–Hochberg q-value under 0.05. "
-        f"The simple ones lose: ROI from {_pct(simple['roi'].min())} to "
-        f"{_pct(simple['roi'].max())}.",
+    answer = [
+        (
+            "No model built here forecasts better than the market.",
+            "Adding team form to Pinnacle's early price changes log loss by "
+            f"{_num(feat['log_loss'])} (95% interval {_num(feat['log_loss_low'])} to "
+            f"{_num(feat['log_loss_high'])}; below zero would mean better), while the closing "
+            f"price beats the early one by {_num(close['log_loss'])} "
+            f"({_num(close['log_loss_low'])} to {_num(close['log_loss_high'])}).",
+        ),
+        (
+            "No strategy survives the correction for how many were tried.",
+            f"Of {scores.height} strategy × league cells, {significant} "
+            f"{'has' if significant == 1 else 'have'} a Benjamini–Hochberg q-value under 0.05. "
+            f"The simple ones lose: ROI from {_pct(simple['roi'].min())} to "
+            f"{_pct(simple['roi'].max())}.",
+        ),
     ]
     if shopping.height:
-        sentences.append(
-            "<b>The one family with an expected edge is line shopping</b>: taking the best "
-            "price across bookmakers when it beats Pinnacle's. Its expected profit at the "
-            f"closing price is {_pct(shopping['close_ev'].min())} to "
-            f"{_pct(shopping['close_ev'].max())} per bet. That edge exists only at the "
-            "soft bookmakers that close winning accounts; showing it as profit takes "
-            f"{time['seasons_needed_close_ev'].min():.0f} to "
-            f"{time['seasons_needed_close_ev'].max():.0f} seasons of betting on all five "
-            "leagues, and on the Betfair exchange, which does not close winners, the same "
-            f"rule returns {_pct(exchange['roi'])} after {exchange['commission']:.0%} "
-            "commission."
+        answer.append(
+            (
+                "The one family with an expected edge is line shopping.",
+                "Taking the best price across bookmakers when it beats Pinnacle's has an "
+                f"expected profit at the closing price of {_pct(shopping['close_ev'].min())} "
+                f"to {_pct(shopping['close_ev'].max())} per bet. That edge exists only at the "
+                "soft bookmakers that close winning accounts; showing it as profit takes "
+                f"{time['seasons_needed_close_ev'].min():.0f} to "
+                f"{time['seasons_needed_close_ev'].max():.0f} seasons of betting on all five "
+                "leagues, and on the Betfair exchange, which does not close winners, the same "
+                f"rule returns {_pct(exchange['roi'])} after {exchange['commission']:.0%} "
+                "commission.",
+            )
         )
     if martingale.height:
         lose_half = martingale["p_lose_half"]
-        sentences.append(
-            "<b>Doubling after losses (martingale) is ruinous whatever is bet on</b>: it "
-            "loses half the bankroll within one season in "
-            f"{_pct(lose_half.min(), 0, False)} to {_pct(lose_half.max(), 0, False)} of "
-            "simulated histories."
+        answer.append(
+            (
+                "Doubling after losses (martingale) is ruinous whatever is bet on.",
+                "It loses half the bankroll within one season in "
+                f"{_pct(lose_half.min(), 0, False)} to {_pct(lose_half.max(), 0, False)} of "
+                "simulated histories.",
+            )
         )
-    return sentences
+    return answer
+
+
+def to_json(r: dict[str, Any]) -> dict[str, Any]:
+    """The results of collect as JSON-ready data, for the API's /analysis."""
+
+    def rows(df: pl.DataFrame) -> list[dict[str, Any]]:
+        return df.fill_nan(None).with_columns(pl.selectors.temporal().cast(pl.String)).to_dicts()
+
+    games: pl.DataFrame = r["games"]
+    return {
+        "meta": {
+            "generated": r["generated"],
+            "code_commit": r["code_commit"],
+            "dirty": r["dirty"],
+            "suite_commit": r["suite_commit"],
+            "games": games.height,
+            "first_season": int(games["season_start"].min()),  # pyright: ignore[reportArgumentType]
+            "last_season": int(games["season_start"].max()),  # pyright: ignore[reportArgumentType]
+            "leagues": sorted(games["league"].unique().to_list()),
+            "test_from": r["test_from"],
+            "test_games": r["test_games"],
+        },
+        "summary": [{"headline": h, "detail": d} for h, d in summary(r)],
+        "model": {
+            "names": FORECASTER_NAMES,
+            "forecasters": rows(r["forecasters"].sort("log_loss")),
+            "comparisons": rows(r["comparisons"]),
+            "by_league": rows(r["by_league"]),
+            "margins": rows(r["margins"]),
+        },
+        "strategies": {"scores": rows(r["scores"]), "walk_forward": rows(r["walk_forward"])},
+        "staking": {k: rows(v) for k, v in r["staking"].items()},
+        "practicality": {
+            "time": rows(r["time"]),
+            "limits": rows(r["limits"]),
+            "exchange": rows(r["exchange"]),
+        },
+    }
 
 
 def render(r: dict[str, Any]) -> str:
@@ -384,7 +432,7 @@ def render(r: dict[str, Any]) -> str:
     )
 
     dirty = " (with uncommitted changes)" if r["dirty"] else ""
-    summary = "".join(f"<li>{s}</li>" for s in _summary(r))
+    answer = "".join(f"<li><b>{html.escape(h)}</b> {html.escape(d)}</li>" for h, d in summary(r))
     return PAGE.format(
         generated=r["generated"],
         code_commit=html.escape(r["code_commit"]) + dirty,
@@ -397,7 +445,7 @@ def render(r: dict[str, Any]) -> str:
         first_test=FIRST_TEST_SEASON,
         first_test_next=f"{(FIRST_TEST_SEASON + 1) % 100:02d}",
         test_games=f"{r['test_games']:,}",
-        summary=summary,
+        summary=answer,
         comparison_chart=interval_chart(comp_rows, "Difference in log loss, a minus b", _num),
         forecaster_table=forecaster_table,
         league_table=league_table,
@@ -577,11 +625,12 @@ def write(page: str, path: Path) -> None:
 
 
 def main(settings: Settings = default_settings) -> Path:
-    """Run everything and write settings.modeling.report_file."""
+    """Run everything; write the page and, for the API, settings.modeling.analysis_file."""
     results = collect(settings)
     out = settings.modeling.report_file
     write(render(results), out)
-    print(f"Saved {out}")
+    write(json.dumps(to_json(results), indent=1), settings.modeling.analysis_file)
+    print(f"Saved {out} and {settings.modeling.analysis_file}")
     return out
 
 
@@ -590,4 +639,4 @@ def exec_report() -> None:
     main()
 
 
-__all__ = ["collect", "interval_chart", "render"]
+__all__ = ["collect", "interval_chart", "render", "summary", "to_json"]

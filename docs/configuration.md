@@ -77,6 +77,7 @@ uv run show_config
 | `backtest_file` | `data/predictions/backtest.csv` | `uv run backtest`'s output: each game's odds, probabilities, pick and profit |
 | `strategies_file` | `strategies.toml` | the pre-registered strategy suite `uv run strategies` runs |
 | `report_file` | `data/report/report.html` | `uv run report`'s output: the one-page answer, rebuilt from the raw data |
+| `analysis_file` | `data/report/analysis.json` | `uv run report`'s results as JSON, served by the API at `/analysis` |
 
 ### `[api_settings]`
 

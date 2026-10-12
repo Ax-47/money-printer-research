@@ -1,5 +1,6 @@
 import datetime
 import itertools
+import json
 from pathlib import Path
 
 import numpy as np
@@ -73,7 +74,11 @@ def client(tmp_path: Path) -> TestClient:
     picks(_table()).with_columns(league=pl.Series(leagues)).write_csv(backtest)
     settings = Settings(
         clean=CleanSettings(out_dir=tmp_path),
-        modeling=ModelingSettings(predictions_file=upcoming, backtest_file=backtest),
+        modeling=ModelingSettings(
+            predictions_file=upcoming,
+            backtest_file=backtest,
+            analysis_file=tmp_path / "no-report.json",
+        ),
     )
     return TestClient(create_app(settings))
 
@@ -184,3 +189,43 @@ def test_pages_are_served(client: TestClient, path: str, needle: str) -> None:
     response = client.get(path)
     assert response.status_code == 200
     assert needle in response.text
+
+
+@pytest.fixture
+def analysis_client(tmp_path: Path) -> TestClient:
+    analysis = tmp_path / "analysis.json"
+    row = {"variant": "v", "strategy": "s", "roi": 0.0}
+    analysis.write_text(
+        json.dumps(
+            {
+                "meta": {"games": 1},
+                "summary": [],
+                "strategies": {
+                    "scores": [{**row, "league": "ALL"}, {**row, "league": "GER-Bundesliga"}],
+                    "walk_forward": [{**row, "league": "ALL"}],
+                },
+            }
+        )
+    )
+    return TestClient(create_app(Settings(modeling=ModelingSettings(analysis_file=analysis))))
+
+
+def test_analysis_lists_leagues_and_filters_strategies(analysis_client: TestClient) -> None:
+    body = analysis_client.get("/analysis").json()
+    assert body["strategies"]["leagues"] == ["ALL", "GER-Bundesliga"]
+    assert len(body["strategies"]["scores"]) == 2
+    one = analysis_client.get("/analysis", params={"league": "GER-Bundesliga"}).json()
+    assert [r["league"] for r in one["strategies"]["scores"]] == ["GER-Bundesliga"]
+    assert one["strategies"]["walk_forward"] == []
+
+
+def test_analysis_without_a_report_says_to_run_it(client: TestClient) -> None:
+    response = client.get("/analysis")
+    assert response.status_code == 404
+    assert "uv run report" in response.json()["detail"]
+
+
+def test_analysis_page_is_served(client: TestClient) -> None:
+    page = client.get("/analysis.html")
+    assert page.status_code == 200
+    assert "fetch(`analysis?league=" in page.text

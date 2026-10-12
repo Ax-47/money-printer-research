@@ -201,7 +201,9 @@ football-data files and writes one self-contained HTML page to `modeling.report_
 - names the commit of the code and of `strategies.toml` it ran with, so the page can be rebuilt
 - holds every table and chart from those commands
 
-The only hand-written text is the method and the limitations.
+The only hand-written text is the method and the limitations. It also writes the same
+results as JSON to `modeling.analysis_file`, which the API serves at `GET /analysis` and
+the `/analysis.html` page shows, with a league filter for the strategies.
 
 ## `notebook`
 

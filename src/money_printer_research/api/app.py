@@ -9,13 +9,16 @@
     GET /upcoming?league=...&team=...  the `predict` command's H/D/A for unplayed fixtures
     GET /backtest?min_ev=...&league=...  the `backtest` command's results for one EV threshold,
                                      and for thresholds chosen season by season
-    GET /, /backtest.html            web pages over /upcoming and /backtest (static/)
+    GET /analysis?league=...         the `report` command's results: model vs market,
+                                     strategies (one league, or ALL), staking, practicality
+    GET /, /backtest.html, /analysis.html  web pages over /upcoming, /backtest, /analysis
 
-Tables, upcoming.csv and backtest.csv are read from disk on each request, so a new
-clean_data, predict or backtest run shows up without a restart. Predictions are cached per
-season until elo.csv changes.
+Tables, upcoming.csv, backtest.csv and analysis.json are read from disk on each request,
+so a new clean_data, predict, backtest or report run shows up without a restart.
+Predictions are cached per season until elo.csv changes.
 """
 
+import json
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -178,6 +181,19 @@ def create_app(settings: Settings = default_settings) -> FastAPI:
             "cumulative_profit": _rows(cumulative_profit(table, min_ev)),
             "walk_forward": _rows(walk_forward_thresholds(table)) if table.height else [],
         }
+
+    @app.get("/analysis")
+    def analysis(league: str | None = None) -> dict[str, Any]:
+        path = settings.modeling.analysis_file
+        if not path.is_file():
+            raise HTTPException(404, f"no {path}; run `uv run report` first")
+        result = json.loads(path.read_text(encoding="utf-8"))
+        strategies = result["strategies"]
+        strategies["leagues"] = sorted({row["league"] for row in strategies["scores"]})
+        if league is not None:
+            for key in ("scores", "walk_forward"):
+                strategies[key] = [row for row in strategies[key] if row["league"] == league]
+        return result
 
     # Last, so the API routes above take precedence: the pages and their CSS and JS.
     app.mount("/", StaticFiles(directory=STATIC, html=True), name="pages")
