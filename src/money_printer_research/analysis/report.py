@@ -166,7 +166,66 @@ def interval_chart(
 # --- The page --------------------------------------------------------------------------
 
 
-def summary(r: dict[str, Any]) -> list[tuple[str, str]]:
+ANSWER_TEXT = {
+    "en": {
+        "model": (
+            "No model built here forecasts better than the market.",
+            "Adding team form to Pinnacle's early price changes log loss by {feat} (95% "
+            "interval {feat_low} to {feat_high}; below zero would mean better), while the "
+            "closing price beats the early one by {close} ({close_low} to {close_high}).",
+        ),
+        "strategies": (
+            "No strategy survives the correction for how many were tried.",
+            "Of {cells} strategy × league cells, {significant} {have} a Benjamini–Hochberg "
+            "q-value under 0.05. The simple ones lose: ROI from {simple_low} to {simple_high}.",
+        ),
+        "shopping": (
+            "The one family with an expected edge is line shopping.",
+            "Taking the best price across bookmakers when it beats Pinnacle's has an expected "
+            "profit at the closing price of {ev_low} to {ev_high} per bet. That edge exists "
+            "only at the soft bookmakers that close winning accounts; showing it as profit "
+            "takes {seasons_low} to {seasons_high} seasons of betting on all five leagues, and "
+            "on the Betfair exchange, which does not close winners, the same rule returns "
+            "{exchange_roi} after {commission} commission.",
+        ),
+        "martingale": (
+            "Doubling after losses (martingale) is ruinous whatever is bet on.",
+            "It loses half the bankroll within one season in {ruin_low} to {ruin_high} of "
+            "simulated histories.",
+        ),
+    },
+    "th": {
+        "model": (
+            "ไม่มีโมเดลใดในงานนี้ทายผลได้ดีกว่าตลาด",
+            "การเพิ่มฟอร์มทีมเข้าไปในราคาเปิดของ Pinnacle ทำให้ log loss เปลี่ยนไป {feat} "
+            "(ช่วงความเชื่อมั่น 95% {feat_low} ถึง {feat_high}; ต้องต่ำกว่าศูนย์จึงจะแปลว่าดีขึ้น) "
+            "ขณะที่ราคาปิดดีกว่าราคาเปิด {close} ({close_low} ถึง {close_high})",
+        ),
+        "strategies": (
+            "ไม่มีกลยุทธ์ใดรอด เมื่อปรับแก้ตามจำนวนกลยุทธ์ที่ลองทั้งหมด",
+            "จาก {cells} ช่อง (กลยุทธ์ × ลีก) มี {significant} ช่องที่ q-value แบบ "
+            "Benjamini–Hochberg ต่ำกว่า 0.05 กลยุทธ์ง่าย ๆ ขาดทุน: ROI ตั้งแต่ {simple_low} "
+            "ถึง {simple_high}",
+        ),
+        "shopping": (
+            "กลุ่มเดียวที่มีความได้เปรียบตามคาดหมายคือการเลือกราคาดีที่สุด (line shopping)",
+            "การแทงที่ราคาดีที่สุดในบรรดาเจ้ามือ เมื่อราคานั้นดีกว่าของ Pinnacle มีกำไรคาดหมาย "
+            "ณ ราคาปิด {ev_low} ถึง {ev_high} ต่อการแทง แต่ความได้เปรียบนี้มีเฉพาะที่เจ้ามือทั่วไป "
+            "(soft bookmaker) ซึ่งปิดบัญชีคนที่ชนะ และต้องแทงทั้งห้าลีกนาน {seasons_low} ถึง "
+            "{seasons_high} ฤดูกาลกว่าจะเห็นเป็นกำไรได้ชัด ส่วนบน Betfair exchange "
+            "ซึ่งไม่ปิดบัญชีคนชนะ กฎเดียวกันได้ผลตอบแทน {exchange_roi} หลังหักค่าคอมมิชชัน "
+            "{commission}",
+        ),
+        "martingale": (
+            "การเบิ้ลเงินหลังแพ้ (martingale) พาหมดตัว ไม่ว่าจะแทงอะไร",
+            "ใน {ruin_low} ถึง {ruin_high} ของประวัติจำลอง เงินทุนหายไปครึ่งหนึ่งภายในฤดูกาลเดียว",
+        ),
+    },
+}
+"""The answer's sentences in each language; summary fills in the numbers."""
+
+
+def summary(r: dict[str, Any], lang: str = "en") -> list[tuple[str, str]]:
     """The answer as (headline, detail) pairs, both plain text built from the numbers."""
     comp = {(row["a"], row["b"]): row for row in r["comparisons"].iter_rows(named=True)}
     scores = r["scores"]
@@ -184,52 +243,41 @@ def summary(r: dict[str, Any]) -> list[tuple[str, str]]:
     martingale = ruin.filter((pl.col("plan") == "martingale") & (pl.col("seasons") == 1))
     time = r["time"].filter(pl.col("variant").str.starts_with("value"))
     exchange = r["exchange"].row(0, named=True)
-
     feat = comp[("market_and_form", "early")]
     close = comp[("close", "early")]
-    answer = [
-        (
-            "No model built here forecasts better than the market.",
-            "Adding team form to Pinnacle's early price changes log loss by "
-            f"{_num(feat['log_loss'])} (95% interval {_num(feat['log_loss_low'])} to "
-            f"{_num(feat['log_loss_high'])}; below zero would mean better), while the closing "
-            f"price beats the early one by {_num(close['log_loss'])} "
-            f"({_num(close['log_loss_low'])} to {_num(close['log_loss_high'])}).",
-        ),
-        (
-            "No strategy survives the correction for how many were tried.",
-            f"Of {scores.height} strategy × league cells, {significant} "
-            f"{'has' if significant == 1 else 'have'} a Benjamini–Hochberg q-value under 0.05. "
-            f"The simple ones lose: ROI from {_pct(simple['roi'].min())} to "
-            f"{_pct(simple['roi'].max())}.",
-        ),
-    ]
+
+    numbers = {
+        "feat": _num(feat["log_loss"]),
+        "feat_low": _num(feat["log_loss_low"]),
+        "feat_high": _num(feat["log_loss_high"]),
+        "close": _num(close["log_loss"]),
+        "close_low": _num(close["log_loss_low"]),
+        "close_high": _num(close["log_loss_high"]),
+        "cells": scores.height,
+        "significant": significant,
+        "have": "has" if significant == 1 else "have",
+        "simple_low": _pct(simple["roi"].min()),
+        "simple_high": _pct(simple["roi"].max()),
+    }
+    claims = ["model", "strategies"]
     if shopping.height:
-        answer.append(
-            (
-                "The one family with an expected edge is line shopping.",
-                "Taking the best price across bookmakers when it beats Pinnacle's has an "
-                f"expected profit at the closing price of {_pct(shopping['close_ev'].min())} "
-                f"to {_pct(shopping['close_ev'].max())} per bet. That edge exists only at the "
-                "soft bookmakers that close winning accounts; showing it as profit takes "
-                f"{time['seasons_needed_close_ev'].min():.0f} to "
-                f"{time['seasons_needed_close_ev'].max():.0f} seasons of betting on all five "
-                "leagues, and on the Betfair exchange, which does not close winners, the same "
-                f"rule returns {_pct(exchange['roi'])} after {exchange['commission']:.0%} "
-                "commission.",
-            )
-        )
+        claims.append("shopping")
+        numbers |= {
+            "ev_low": _pct(shopping["close_ev"].min()),
+            "ev_high": _pct(shopping["close_ev"].max()),
+            "seasons_low": f"{time['seasons_needed_close_ev'].min():.0f}",
+            "seasons_high": f"{time['seasons_needed_close_ev'].max():.0f}",
+            "exchange_roi": _pct(exchange["roi"]),
+            "commission": f"{exchange['commission']:.0%}",
+        }
     if martingale.height:
-        lose_half = martingale["p_lose_half"]
-        answer.append(
-            (
-                "Doubling after losses (martingale) is ruinous whatever is bet on.",
-                "It loses half the bankroll within one season in "
-                f"{_pct(lose_half.min(), 0, False)} to {_pct(lose_half.max(), 0, False)} of "
-                "simulated histories.",
-            )
-        )
-    return answer
+        claims.append("martingale")
+        numbers |= {
+            "ruin_low": _pct(martingale["p_lose_half"].min(), 0, False),
+            "ruin_high": _pct(martingale["p_lose_half"].max(), 0, False),
+        }
+    text = ANSWER_TEXT[lang]
+    return [(text[claim][0], text[claim][1].format(**numbers)) for claim in claims]
 
 
 def to_json(r: dict[str, Any]) -> dict[str, Any]:
@@ -253,6 +301,7 @@ def to_json(r: dict[str, Any]) -> dict[str, Any]:
             "test_games": r["test_games"],
         },
         "summary": [{"headline": h, "detail": d} for h, d in summary(r)],
+        "summary_th": [{"headline": h, "detail": d} for h, d in summary(r, "th")],
         "model": {
             "names": FORECASTER_NAMES,
             "forecasters": rows(r["forecasters"].sort("log_loss")),
