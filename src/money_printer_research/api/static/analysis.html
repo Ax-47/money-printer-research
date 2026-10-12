@@ -4,59 +4,58 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Beating the Market?</title>
+<link rel="icon" href="favicon.svg">
 <link rel="stylesheet" href="common.css">
 <style>
   .jump { position: sticky; top: 0; z-index: 2; display: flex; gap: 6px; flex-wrap: wrap;
-    padding: 8px 0; margin-bottom: 8px; background: var(--bg); }
-  .jump a { padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px;
-    color: var(--muted); text-decoration: none; font-size: .85rem; }
-  .jump a:hover { color: var(--text); border-color: var(--overlay1); }
-  .answer { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
-  .claim { padding: 14px 16px; background: var(--panel); border: 1px solid var(--border);
-    border-left: 4px solid var(--mauve); border-radius: 10px; }
-  .claim b { display: block; margin-bottom: 6px; }
+    padding: 10px 0; margin-bottom: 12px; background: color-mix(in srgb, var(--bg) 85%, transparent);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  .jump a { padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--panel);
+    color: var(--muted); text-decoration: none; font-size: .85rem; font-weight: 500; transition: color .15s, border-color .15s; }
+  .jump a:hover { color: var(--accent); border-color: var(--accent); }
+  .answer { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 12px; }
+  .claim { position: relative; padding: 16px 18px 16px 20px; background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  .claim::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px;
+    background: linear-gradient(var(--mauve), var(--blue)); }
+  .claim b { display: block; margin-bottom: 6px; font-size: 1rem; }
   .claim p { margin: 0; color: var(--muted); font-size: .9rem; }
-  section { margin-top: 36px; }
-  h2 { font-size: 1.15rem; margin: 0 0 4px; }
-  h3 { font-size: .95rem; margin: 20px 0 8px; color: var(--muted); font-weight: 600; }
-  .card { padding: 14px; margin-bottom: 12px; background: var(--panel); border: 1px solid var(--border);
-    border-radius: 10px; }
-  .scroll { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: .88rem; font-variant-numeric: tabular-nums; }
-  th, td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
-  th:first-child, td:first-child { text-align: left; white-space: normal; }
-  th { color: var(--muted); font-weight: 500; }
-  th[data-key] { cursor: pointer; }
+  section { margin-top: 44px; scroll-margin-top: 56px; }
+  section > h2 { font-size: 1.3rem; }
+  th, td { white-space: nowrap; }
+  th:first-child, td:first-child { white-space: normal; }
+  th[data-key] { cursor: pointer; user-select: none; }
   th[data-key]:hover { color: var(--text); }
-  th[aria-sort="descending"]::after { content: " ↓"; }
-  th[aria-sort="ascending"]::after { content: " ↑"; }
+  th[aria-sort="descending"]::after { content: " ↓"; color: var(--accent); }
+  th[aria-sort="ascending"]::after { content: " ↑"; color: var(--accent); }
   .ci { color: var(--muted); font-size: .8rem; }
-  .plus { color: var(--green); } .minus { color: var(--red); }
   svg.chart { display: block; max-width: 100%; height: auto; }
-  svg.chart text { font: 12px system-ui, sans-serif; fill: var(--muted); }
+  svg.chart text { font: 12px var(--font); fill: var(--muted); }
   svg.chart .label { fill: var(--text); }
   svg.chart .zero { stroke: var(--overlay1); stroke-dasharray: 3 3; }
-  svg.chart .range { stroke-width: 2; stroke-linecap: round; }
+  svg.chart .range { stroke-width: 2.5; stroke-linecap: round; }
   svg.chart .row .hit { fill: transparent; }
   svg.chart .row:hover .hit { fill: var(--border); opacity: .5; }
   .meter { display: inline-block; vertical-align: middle; width: 80px; height: 8px; margin-left: 8px;
     background: var(--border); border-radius: 4px; overflow: hidden; }
-  .meter span { display: block; height: 100%; background: var(--red); border-radius: 4px; }
+  .meter span { display: block; height: 100%; background: linear-gradient(90deg, var(--peach), var(--red)); border-radius: 4px; }
   .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: .8rem; color: var(--muted); margin: 4px 0 8px; }
   .legend i { display: inline-block; width: 14px; height: 3px; margin-right: 6px; vertical-align: middle; border-radius: 2px; }
-  .note { font-size: .82rem; color: var(--muted); margin: 6px 0 0; }
+  .note { font-size: .82rem; color: var(--muted); margin: 28px 0 0; text-align: center; }
 </style>
 </head>
 <body>
-<main>
+<header class="topbar"><div class="in">
+  <a class="brand" href="./"><span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V13M10 19V9M16 19V12M3 8l6-4 5 4 7-5"/></svg></span>
+    <span>Money Printer<small data-i18n="brand_sub">Football market research</small></span></a>
   <nav><a href="./" data-i18n="nav_upcoming">Upcoming</a><a href="backtest.html" data-i18n="nav_backtest">Backtest</a><a href="analysis.html" data-i18n="nav_analysis" aria-current="page">Analysis</a></nav>
-  <header>
-    <div>
-      <h1 data-i18n="title">Can a bettor beat the football market?</h1>
-      <p class="sub" id="meta" data-i18n="loading">Loading…</p>
-    </div>
-    <div class="tools"><button id="lang"></button><button id="theme" data-i18n-title="theme_title"></button></div>
-  </header>
+  <div class="tools"><div id="lang" class="seg" role="group"></div><button id="theme" type="button" data-i18n-title="theme_title"></button></div>
+</div></header>
+<main>
+  <div class="hero">
+    <h1 data-i18n="title">Can a bettor beat the football market?</h1>
+    <p class="sub" id="meta" data-i18n="loading">Loading…</p>
+  </div>
   <div id="result"></div>
 </main>
 <script src="common.js"></script>
@@ -181,7 +180,7 @@
   function intervalChart(rows, fmt, lowerIsBetter = false) {
     // Drawn at the page's width, so text keeps its size: labels sit beside the lines when
     // there is room and above them on a phone.
-    const w = Math.max(300, Math.min(900, $("result").clientWidth - 30));
+    const w = Math.max(300, Math.min(900, $("result").clientWidth - 40));
     const narrow = w < 600, pad = 12, labelW = narrow ? 0 : Math.min(330, w * 0.42);
     const rowH = narrow ? 40 : 24, h = rows.length * rowH + 30;
     const vals = rows.flatMap((r) => [r.mid, r.low, r.high]).concat(0);

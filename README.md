@@ -56,6 +56,9 @@ command's answer to "can a bettor beat the market?": model vs market, every stra
 (filterable by league), staking and what collecting an edge would take; run
 `uv run report` first. The data behind them is `GET /upcoming?league=...&team=...`,
 `GET /backtest?min_ev=...&league=...` and `GET /analysis?league=...`.
+Every page switches between English and Thai (ไทย) and between the four Catppuccin
+flavors, and remembers both; type is IBM Plex Sans Thai, falling back to the OS's Thai
+font offline.
 
 Serves the tables in `data/clean` (`GET /tables`, `GET /tables/{name}`) and the Elo
 model's walk-forward predictions (`GET /predictions?season=2024/25`,
