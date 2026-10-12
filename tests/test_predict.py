@@ -14,6 +14,7 @@ from money_printer_research.analysis.predict import (
     games_in_window,
     last_starters,
     predict_fixtures,
+    still_to_come,
 )
 from money_printer_research.clean_data.match_stat import clean_upcoming
 from money_printer_research.config import Settings, UnderstatSettings
@@ -88,6 +89,21 @@ def test_clean_upcoming_keeps_only_the_unplayed_fixture() -> None:
     assert fixtures["game_id"].to_list() == [103]
     assert fixtures["season_start"].to_list() == [2023]
     assert fixtures["home_goals"].to_list() == [None]
+
+
+def test_fixtures_before_today_are_dropped_as_cancelled() -> None:
+    fixtures = pl.DataFrame(
+        {
+            "game_id": [1, 2, 3],
+            "date": [
+                datetime.datetime(2020, 3, 14, 18),  # Ligue 1 2019/20, called off
+                datetime.datetime(2026, 10, 12, 20),  # tonight
+                datetime.datetime(2026, 10, 18, 15),
+            ],
+        }
+    )
+    kept = still_to_come(fixtures, datetime.date(2026, 10, 12))
+    assert kept["game_id"].to_list() == [2, 3]
 
 
 def test_fixture_elo_is_the_rating_after_the_last_played_match() -> None:
