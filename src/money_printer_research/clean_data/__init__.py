@@ -40,6 +40,24 @@ from .player_stat import clean_player_stat
 from .read import read_league_info, read_match_info, read_match_stat, read_player_stat
 
 MAX_UNMATCHED_SHARE = 0.01
+"""join_match_w_stat fails if more than this share of matches has no Transfermarkt game,
+counting only the seasons Transfermarkt covers (unmatched_in_covered_seasons)."""
+
+
+def unmatched_in_covered_seasons(
+    cleaned_matches: pl.DataFrame, match_leagues: pl.DataFrame
+) -> tuple[int, int, int]:
+    """(unmatched, matches) up to Transfermarkt's last season, and matches after it.
+
+    The Transfermarkt dataset stopped updating in July 2026, so the seasons after its
+    last one have no Transfermarkt game at all. Their matches keep a null tm_game_id
+    (features.missing marks the cells no_tm_game) and do not count as join failures.
+    """
+    last = match_leagues[MatchLeaguesCols.season_start].max()
+    season = pl.col(CleanedMatchCols.season_start)
+    covered = cleaned_matches.filter(season <= last)
+    unmatched = covered[CleanedMatchCols.tm_game_id].null_count()
+    return unmatched, covered.height, cleaned_matches.height - covered.height
 
 
 @dataclass(frozen=True)
@@ -84,11 +102,17 @@ def clean(settings: Settings) -> Result[Cleaned]:
     clubs = map_club_w_team(match_leagues, cleaned_match_stat).if_err()
     cleaned_matches = join_match_w_stat(match_leagues, clubs, cleaned_match_stat).if_err()
 
-    unmatched = cleaned_matches[CleanedMatchCols.tm_game_id].null_count()
-    if unmatched > MAX_UNMATCHED_SHARE * cleaned_matches.height:
+    unmatched, covered, after = unmatched_in_covered_seasons(cleaned_matches, match_leagues)
+    if unmatched > MAX_UNMATCHED_SHARE * covered:
         return Err(
-            f"join_match_w_stat: {unmatched:,} of {cleaned_matches.height:,} matches "
-            "have no Transfermarkt game"
+            f"join_match_w_stat: {unmatched:,} of {covered:,} matches in the seasons "
+            "Transfermarkt covers have no Transfermarkt game"
+        )
+    if after:
+        print(
+            f"{after:,} matches are after Transfermarkt's last season; their Transfermarkt"
+            " features stay empty (no_tm_game)",
+            flush=True,
         )
 
     return Ok(
