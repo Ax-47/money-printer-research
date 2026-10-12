@@ -137,7 +137,7 @@ class UnderstatSettings(_Section):
         description="Start year of the first season (Understat begins in 2014).",
     )
     end_year: int = Field(
-        default=2026, description="Exclusive: 2026 makes 2025-26 the last season."
+        default=2027, description="Exclusive: 2027 makes 2026-27 the last season."
     )
     out_dir: RootPath = Field(
         default=Path("data/raw/player_stats"), description="Player stats, one parquet per match."

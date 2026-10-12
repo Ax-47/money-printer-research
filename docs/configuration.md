@@ -45,7 +45,7 @@ uv run show_config
 | --- | --- | --- |
 | `leagues` | the five big leagues | soccerdata names, at least one, no duplicates |
 | `start_year` | `2014` | start year of the first season; Understat begins in 2014 |
-| `end_year` | `2026` | exclusive: `2026` makes 2025-26 the last season; must be after `start_year` |
+| `end_year` | `2027` | exclusive: `2027` makes 2026-27, the current season, the last; must be after `start_year`. The current season's unplayed games are what `predict` predicts |
 | `out_dir` | `data/raw/player_stats` | player stats, one parquet per match |
 | `schedule_file` | `data/raw/xg_schedule.csv` | schedule with goals and xG |
 | `cache_dir` | `data/Understat` | soccerdata cache |

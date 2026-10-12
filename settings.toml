@@ -19,7 +19,7 @@ leagues = [
   # "RUS-Premier League",
 ]
 start_year = 2014
-end_year = 2026
+end_year = 2027
 out_dir = "data/raw/player_stats"
 schedule_file = "data/raw/xg_schedule.csv"
 cache_dir = "data/Understat"

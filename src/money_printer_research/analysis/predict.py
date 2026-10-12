@@ -1,7 +1,8 @@
 """H/D/A probabilities for the fixtures not played yet, from the model `modeling` saved.
 
 The fixtures are the unplayed rows (is_result False) of the Understat schedule, cleaned
-like the played ones (clean_upcoming). Their features are built from match_features.csv,
+like the played ones (clean_upcoming), from today on: an unplayed row dated in the past
+is a cancelled game. Their features are built from match_features.csv,
 the played matches, with nothing a fixture cannot know before kick-off:
 
 - elo: each team's rating after its last played match (features.elo.fixture_elo).
@@ -14,7 +15,7 @@ the played matches, with nothing a fixture cannot know before kick-off:
 Features the saved model does not use are not built; SavedModel.predict selects its own.
 """
 
-from datetime import timedelta
+from datetime import date, timedelta
 from typing import cast
 
 import polars as pl
@@ -139,9 +140,19 @@ def predict_fixtures(
     )
 
 
-def upcoming(settings: Settings) -> pl.DataFrame:
-    """The unplayed fixtures of the Understat schedule, cleaned (clean_upcoming)."""
-    return read_match_stat(settings).and_then(clean_upcoming).expect("clean_upcoming")
+def upcoming(settings: Settings, today: date | None = None) -> pl.DataFrame:
+    """The fixtures still to come: unplayed in the Understat schedule, kick-off today or later.
+
+    An unplayed fixture dated before today never will be played: Understat keeps games
+    that were cancelled, such as the Ligue 1 2019/20 ones called off for COVID.
+    """
+    fixtures = read_match_stat(settings).and_then(clean_upcoming).expect("clean_upcoming")
+    return still_to_come(fixtures, today or date.today())
+
+
+def still_to_come(fixtures: pl.DataFrame, today: date) -> pl.DataFrame:
+    """The fixtures whose kick-off day is today or later."""
+    return fixtures.filter(pl.col("date").dt.date() >= today)
 
 
 def main(settings: Settings = default_settings) -> pl.DataFrame:
@@ -149,8 +160,9 @@ def main(settings: Settings = default_settings) -> pl.DataFrame:
     fixtures = upcoming(settings)
     if fixtures.is_empty():
         print(
-            "No unplayed fixtures in the schedule. To predict the current season, set"
-            " understat.end_year past it (UNDERSTAT__END_YEAR=2027 for 2026-27), then run"
+            "No fixtures still to come in the schedule. To predict the current season, set"
+            " understat.end_year past it (end_year = 2027 in settings.toml, or"
+            " UNDERSTAT__END_YEAR=2027, for 2026-27), then run"
             " collect_data and clean_data."
         )
         return pl.DataFrame()
@@ -170,4 +182,10 @@ def exec_predict() -> None:
     main()
 
 
-__all__ = ["fixture_features", "games_in_window", "last_starters", "predict_fixtures"]
+__all__ = [
+    "fixture_features",
+    "games_in_window",
+    "last_starters",
+    "predict_fixtures",
+    "still_to_come",
+]

@@ -242,7 +242,9 @@
       $("matches").replaceChildren(notRun("predictions", "predict"));
       return;
     }
-    fixtures = await res.json();
+    // A fixture that kicked off before today is stale (or a cancelled game): hide it.
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    fixtures = (await res.json()).filter((f) => new Date(f.date) >= today);
     options($("league"), fixtures.map((f) => f.league), (v) => el("option", { value: v }, v));
     options($("teams"), fixtures.flatMap((f) => [f.home_team, f.away_team]), (v) => el("option", { value: v }));
     $("league").value = stored("upcoming-league");
