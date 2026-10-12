@@ -144,3 +144,14 @@ def test_to_json_is_plain_data_for_the_api() -> None:
     assert headline == "No model built here forecasts better than the market."
     assert data["practicality"]["limits"][0]["last_day"] == "2024-08-17"
     assert {r["league"] for r in data["strategies"]["scores"]} == {"ALL"}
+
+
+def test_the_answer_reads_the_same_numbers_in_thai() -> None:
+    from money_printer_research.analysis.report import summary
+
+    english, thai = summary(_results()), summary(_results(), "th")
+    assert len(thai) == len(english)
+    assert thai[0][0] == "ไม่มีโมเดลใดในงานนี้ทายผลได้ดีกว่าตลาด"
+    assert "23 ถึง 23 ฤดูกาล" in thai[2][1]
+    assert "-18.0% หลังหักค่าคอมมิชชัน 2%" in thai[2][1]
+    assert "97% ถึง 97%" in thai[3][1]
