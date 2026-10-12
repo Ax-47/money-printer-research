@@ -15,7 +15,9 @@ if TYPE_CHECKING:
         exec_feature_importance,
         exec_market_test,
         exec_modeling,
+        exec_practicality,
         exec_predict,
+        exec_staking,
         exec_strategies,
     )
     from money_printer_research.clean_data import clean_data, exec_clean_data
@@ -32,7 +34,9 @@ _ENTRY_POINTS = {
     "exec_feature_importance": "money_printer_research.analysis",
     "exec_market_test": "money_printer_research.analysis",
     "exec_modeling": "money_printer_research.analysis",
+    "exec_practicality": "money_printer_research.analysis",
     "exec_predict": "money_printer_research.analysis",
+    "exec_staking": "money_printer_research.analysis",
     "exec_strategies": "money_printer_research.analysis",
     "exec_notebook": "money_printer_research.notebook",
 }
@@ -59,6 +63,8 @@ __all__ = [
     "exec_market_test",
     "exec_modeling",
     "exec_notebook",
+    "exec_practicality",
     "exec_predict",
+    "exec_staking",
     "exec_strategies",
 ]

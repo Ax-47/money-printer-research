@@ -166,6 +166,31 @@ on the seasons before it.
 Prices whose implied probabilities sum to under 0.97 (an arbitrage of 3% or more) are
 dropped as data errors, mostly in football-data's best-price columns.
 
+## `staking`
+
+Runs the strategy suite, then replays the bets of a few variants (`staking.STAKED`) in
+date order from a bankroll of 1 under each staking plan:
+
+| Plan | Stake |
+| --- | --- |
+| `flat` | 1% of the starting bankroll |
+| `kelly`, `half_kelly`, `quarter_kelly` | the Kelly fraction of the current bankroll, using the probability the strategy bets on, and half or a quarter of it |
+| `martingale` | 1% of the start, doubled after each loss and reset after a win |
+
+A bankroll at 1% of its start is ruined and stops. It prints the history that happened
+(final bankroll, maximum drawdown, lowest point) and, over 1,000 resampled histories of
+1, 3 and 5 seasons, the chance of losing half and 90% of the bankroll at some point.
+
+## `practicality`
+
+For the variants with a positive expected value at the closing price (line shopping), it
+prints:
+
+- how many seasons of betting it takes before an edge of that size shows as profit
+  two standard errors above zero, and what it earns per season at 1 unit a bet
+- what is collected when soft bookmakers close each account once it is a few stakes up
+- the same rule on the Betfair exchange, which does not close winners, after commission
+
 ## `notebook`
 
 Starts JupyterLab with the project root as the notebook directory. The analysis
