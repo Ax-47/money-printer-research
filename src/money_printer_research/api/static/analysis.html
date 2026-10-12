@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Beating the Market?</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  .jump { position: sticky; top: 0; z-index: 2; display: flex; gap: 6px; flex-wrap: wrap;
+    padding: 8px 0; margin-bottom: 8px; background: var(--bg); }
+  .jump a { padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px;
+    color: var(--muted); text-decoration: none; font-size: .85rem; }
+  .jump a:hover { color: var(--text); border-color: var(--overlay1); }
+  .answer { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+  .claim { padding: 14px 16px; background: var(--panel); border: 1px solid var(--border);
+    border-left: 4px solid var(--mauve); border-radius: 10px; }
+  .claim b { display: block; margin-bottom: 6px; }
+  .claim p { margin: 0; color: var(--muted); font-size: .9rem; }
+  section { margin-top: 36px; }
+  h2 { font-size: 1.15rem; margin: 0 0 4px; }
+  h3 { font-size: .95rem; margin: 20px 0 8px; color: var(--muted); font-weight: 600; }
+  .card { padding: 14px; margin-bottom: 12px; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; }
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .88rem; font-variant-numeric: tabular-nums; }
+  th, td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; white-space: normal; }
+  th { color: var(--muted); font-weight: 500; }
+  th[data-key] { cursor: pointer; }
+  th[data-key]:hover { color: var(--text); }
+  th[aria-sort="descending"]::after { content: " ↓"; }
+  th[aria-sort="ascending"]::after { content: " ↑"; }
+  .ci { color: var(--muted); font-size: .8rem; }
+  .plus { color: var(--green); } .minus { color: var(--red); }
+  svg.chart { display: block; max-width: 100%; height: auto; }
+  svg.chart text { font: 12px system-ui, sans-serif; fill: var(--muted); }
+  svg.chart .label { fill: var(--text); }
+  svg.chart .zero { stroke: var(--overlay1); stroke-dasharray: 3 3; }
+  svg.chart .range { stroke-width: 2; stroke-linecap: round; }
+  svg.chart .row .hit { fill: transparent; }
+  svg.chart .row:hover .hit { fill: var(--border); opacity: .5; }
+  .meter { display: inline-block; vertical-align: middle; width: 80px; height: 8px; margin-left: 8px;
+    background: var(--border); border-radius: 4px; overflow: hidden; }
+  .meter span { display: block; height: 100%; background: var(--red); border-radius: 4px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: .8rem; color: var(--muted); margin: 4px 0 8px; }
+  .legend i { display: inline-block; width: 14px; height: 3px; margin-right: 6px; vertical-align: middle; border-radius: 2px; }
+  .note { font-size: .82rem; color: var(--muted); margin: 6px 0 0; }
+</style>
+</head>
+<body>
+<main>
+  <nav><a href="./">Upcoming</a><a href="backtest.html">Backtest</a><a href="analysis.html" aria-current="page">Analysis</a></nav>
+  <header>
+    <div>
+      <h1>Can a bettor beat the football market?</h1>
+      <p class="sub" id="meta">Loading…</p>
+    </div>
+    <button id="theme" title="Switch Catppuccin flavor"></button>
+  </header>
+  <div id="result"></div>
+</main>
+<script src="common.js"></script>
+<script>
+  const pct = (x, d = 1) => (x == null ? "–" : `${x > 0 ? "+" : ""}${(x * 100).toFixed(d)}%`);
+  const share = (x) => (x == null ? "–" : `${Math.round(x * 100)}%`);
+  const num = (x, d = 4) => (x == null ? "–" : `${x > 0 ? "+" : ""}${x.toFixed(d)}`);
+  const tone = (x) => (x > 0 ? "plus" : x < 0 ? "minus" : "");
+  const season = (s) => `${s}/${String((s + 1) % 100).padStart(2, "0")}`;
+  const PLANS = { flat: "Flat 1%", kelly: "Kelly", half_kelly: "½ Kelly", quarter_kelly: "¼ Kelly", martingale: "Martingale" };
+
+  function svg(tag, attrs, ...children) {
+    const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+    node.append(...children);
+    return node;
+  }
+
+  // Estimate and 95% interval per row, zero marked. lowerIsBetter says which side of zero
+  // is good: a row wholly on the good side is green, wholly on the bad side red, and the
+  // tooltip says which in words, so colour is never the only cue.
+  function intervalChart(rows, fmt, lowerIsBetter = false) {
+    // Drawn at the page's width, so text keeps its size: labels sit beside the lines when
+    // there is room and above them on a phone.
+    const w = Math.max(300, Math.min(900, $("result").clientWidth - 30));
+    const narrow = w < 600, pad = 12, labelW = narrow ? 0 : Math.min(330, w * 0.42);
+    const rowH = narrow ? 40 : 24, h = rows.length * rowH + 30;
+    const vals = rows.flatMap((r) => [r.mid, r.low, r.high]).concat(0);
+    let lo = Math.min(...vals), hi = Math.max(...vals);
+    const span = hi - lo || 1; lo -= span * 0.04; hi += span * 0.04;
+    const x = (v) => labelW + pad + ((v - lo) / (hi - lo)) * (w - labelW - pad * 2);
+    const side = (r) => (r.low > 0 ? 1 : r.high < 0 ? -1 : 0) * (lowerIsBetter ? -1 : 1);
+    const verdict = (r) => ["worse, interval excludes zero", "interval includes zero", "better, interval excludes zero"][side(r) + 1];
+    const colour = (r) => ["var(--red)", "var(--blue)", "var(--green)"][side(r) + 1];
+    return svg("svg", { viewBox: `0 0 ${w} ${h}`, width: w, height: h, class: "chart", role: "img" },
+      svg("line", { class: "zero", x1: x(0), x2: x(0), y1: 2, y2: h - 22 }),
+      svg("text", { x: x(0), y: h - 6, "text-anchor": "middle" }, "0"),
+      // The ends of the scale, unless one would crowd the 0.
+      ...[[lo, "start"], [hi, "end"]].filter(([v]) => Math.abs(x(v) - x(0)) > 44)
+        .map(([v, anchor]) => svg("text", { x: x(v), y: h - 6, "text-anchor": anchor }, fmt(v))),
+      ...rows.map((r, i) => {
+        const y = (narrow ? 26 : 14) + i * rowH;
+        const label = narrow
+          ? svg("text", { class: "label", x: pad, y: y - 10 }, r.label)
+          : svg("text", { class: "label", x: labelW, y: y + 4, "text-anchor": "end" }, r.label);
+        return svg("g", { class: "row" },
+          svg("title", {}, `${r.label}: ${fmt(r.mid)} (95% interval ${fmt(r.low)} to ${fmt(r.high)}; ${verdict(r)})`),
+          svg("rect", { class: "hit", x: 0, y: y - rowH / 2 - (narrow ? 6 : 0), width: w, height: rowH }),
+          label,
+          svg("line", { class: "range", x1: x(r.low), x2: x(r.high), y1: y, y2: y, stroke: colour(r) }),
+          svg("circle", { cx: x(r.mid), cy: y, r: 4.5, fill: colour(r), stroke: "var(--panel)", "stroke-width": 2 }));
+      }));
+  }
+
+  function legend(good, neutral, bad) {
+    return el("div", { className: "legend" },
+      el("span", {}, el("i", { style: "background: var(--green)" }), good),
+      el("span", {}, el("i", { style: "background: var(--blue)" }), neutral),
+      el("span", {}, el("i", { style: "background: var(--red)" }), bad));
+  }
+
+  // A table whose columns with a key sort on click; cells are built by each column's cell().
+  function table(columns, rows, sortKey = null) {
+    let key = sortKey, desc = true;
+    const wrap = el("div", { className: "scroll" });
+    function draw() {
+      const sorted = key ? [...rows].sort((a, b) => ((a[key] ?? -Infinity) - (b[key] ?? -Infinity)) * (desc ? -1 : 1)) : rows;
+      const head = columns.map((c) => {
+        const th = el("th", {}, c.title);
+        if (c.key) th.dataset.key = c.key;
+        if (c.key && c.key === key) th.setAttribute("aria-sort", desc ? "descending" : "ascending");
+        if (c.key) th.addEventListener("click", () => { desc = key === c.key ? !desc : true; key = c.key; draw(); });
+        return th;
+      });
+      wrap.replaceChildren(el("table", {}, el("thead", {}, el("tr", {}, ...head)),
+        el("tbody", {}, ...sorted.map((r) => el("tr", {}, ...columns.map((c) => el("td", {}, c.cell(r))))))));
+    }
+    draw();
+    return wrap;
+  }
+
+  const withCi = (fmt, mid, low, high) => (r) => el("span", { className: tone(r[mid]) }, fmt(r[mid]), " ",
+    el("span", { className: "ci" }, `(${fmt(r[low])} to ${fmt(r[high])})`));
+
+  function section(id, title, intro, ...body) {
+    return el("section", { id }, el("h2", {}, title), el("p", { className: "sub" }, intro), ...body);
+  }
+
+  let data = null;
+  const state = { league: stored("analysis-league") || "ALL", measure: stored("analysis-measure") || "close_ev",
+    variant: stored("analysis-variant"), seasons: Number(stored("analysis-seasons")) || 3 };
+
+  function modelSection() {
+    const m = data.model, names = m.names;
+    return section("model", "1. Can a model forecast better than the market?",
+      `Every forecaster scored on the same ${data.meta.test_games.toLocaleString()} games, each season predicted only from earlier ones. Below zero means the first forecaster is better.`,
+      el("div", { className: "card" },
+        legend("first is better", "no clear difference", "first is worse"),
+        intervalChart(m.comparisons.map((r) => ({
+          label: `${names[r.a]} vs ${names[r.b]}`, mid: r.log_loss, low: r.log_loss_low, high: r.log_loss_high })),
+          (v) => num(v), true)),
+      el("h3", {}, "Mean scores (lower is better)"),
+      table([
+        { title: "Forecaster", cell: (r) => names[r.forecaster] },
+        { title: "Log loss", key: "log_loss", cell: (r) => r.log_loss.toFixed(4) },
+        { title: "RPS", key: "rps", cell: (r) => r.rps.toFixed(4) },
+      ], m.forecasters),
+      el("h3", {}, "Early price + team form vs the early price, by league"),
+      table([
+        { title: "League", cell: (r) => r.league },
+        { title: "Games", key: "games", cell: (r) => r.games.toLocaleString() },
+        { title: "Log loss difference (+ is worse)", key: "log_loss", cell: (r) => el("span", {}, num(r.log_loss), " ",
+          el("span", { className: "ci" }, `(${num(r.log_loss_low)} to ${num(r.log_loss_high)})`)) },
+      ], m.by_league));
+  }
+
+  function strategySection() {
+    const s = data.strategies;
+    const league = el("select", { id: "league" }, ...s.leagues.map((v) => el("option", { value: v, selected: v === state.league }, v === "ALL" ? "All leagues" : v)));
+    const measure = el("select", { id: "measure" },
+      el("option", { value: "close_ev", selected: state.measure === "close_ev" }, "Expected profit at the closing price"),
+      el("option", { value: "roi", selected: state.measure === "roi" }, "Realised ROI"));
+    league.addEventListener("change", () => { state.league = league.value; store("analysis-league", league.value); load(); });
+    measure.addEventListener("change", () => { state.measure = measure.value; store("analysis-measure", measure.value); render(); });
+    const m = state.measure;
+    const rows = s.scores.filter((r) => r[`${m}_low`] != null)
+      .sort((a, b) => b[m] - a[m])
+      .map((r) => ({ label: r.variant, mid: r[m], low: r[`${m}_low`], high: r[`${m}_high`] }));
+    const cells = s.scores.length;
+    return section("strategies", "2. Does any strategy win?",
+      `Every pre-registered strategy, from ${season(data.meta.test_from)}. Expected profit at the closing price measures edge with far less noise than realised ROI.`,
+      el("div", { className: "filters" },
+        el("label", {}, "League", league), el("label", {}, "Measure", measure)),
+      el("div", { className: "card" },
+        legend("wins: interval above zero", "could be luck: includes zero", "loses: interval below zero"),
+        intervalChart(rows, (v) => pct(v))),
+      el("h3", {}, `Every strategy (${cells} rows; q-value corrects for all cells tried)`),
+      table([
+        { title: "Strategy", cell: (r) => r.variant },
+        { title: "Bets", key: "bets", cell: (r) => r.bets.toLocaleString() },
+        { title: "ROI", key: "roi", cell: withCi(pct, "roi", "roi_low", "roi_high") },
+        { title: "Expected at close", key: "close_ev", cell: (r) => (r.close_ev_low == null ? "–" : withCi(pct, "close_ev", "close_ev_low", "close_ev_high")(r)) },
+        { title: "q-value", key: "q_value", cell: (r) => r.q_value.toFixed(2) },
+      ], s.scores, "roi"),
+      el("h3", {}, "Each season's parameter chosen from earlier seasons only"),
+      table([
+        { title: "Strategy", cell: (r) => r.strategy },
+        { title: "Seasons", key: "seasons", cell: (r) => r.seasons },
+        { title: "Bets", key: "bets", cell: (r) => r.bets.toLocaleString() },
+        { title: "ROI", key: "roi", cell: withCi(pct, "roi", "roi_low", "roi_high") },
+      ], s.walk_forward, "roi"));
+  }
+
+  function stakingSection() {
+    const st = data.staking;
+    const variants = [...new Set(st.replay.map((r) => r.variant))];
+    if (!variants.includes(state.variant)) state.variant = variants[0];
+    const variant = el("select", {}, ...variants.map((v) => el("option", { value: v, selected: v === state.variant }, v)));
+    const horizon = el("select", {}, ...[1, 3, 5].map((n) => el("option", { value: n, selected: n === state.seasons }, `${n} season${n > 1 ? "s" : ""}`)));
+    variant.addEventListener("change", () => { state.variant = variant.value; store("analysis-variant", variant.value); render(); });
+    horizon.addEventListener("change", () => { state.seasons = Number(horizon.value); store("analysis-seasons", horizon.value); render(); });
+    const meter = (x) => el("span", {}, share(x), el("span", { className: "meter", role: "presentation" }, el("span", { style: `width:${(x * 100).toFixed(1)}%` })));
+    return section("staking", "3. What staking does to a bankroll",
+      "The bets replayed in date order from a bankroll of 1. Kelly stakes its fraction of the current bankroll using the probability the strategy bets on; martingale doubles after every loss.",
+      el("div", { className: "filters" }, el("label", {}, "Strategy", variant), el("label", {}, "Simulated history", horizon)),
+      el("h3", {}, "The history that happened"),
+      table([
+        { title: "Plan", cell: (r) => PLANS[r.plan] ?? r.plan },
+        { title: "Final bankroll", key: "final", cell: (r) => el("span", { className: tone(r.final - 1) }, `${r.final.toFixed(2)}×`) },
+        { title: "Lowest", key: "lowest", cell: (r) => `${r.lowest.toFixed(2)}×` },
+        { title: "Worst drawdown", key: "max_drawdown", cell: (r) => share(r.max_drawdown) },
+      ], st.replay.filter((r) => r.variant === state.variant)),
+      el("h3", {}, `Over 1,000 resampled histories of ${state.seasons} season${state.seasons > 1 ? "s" : ""}`),
+      table([
+        { title: "Plan", cell: (r) => PLANS[r.plan] ?? r.plan },
+        { title: "Lose half", key: "p_lose_half", cell: (r) => meter(r.p_lose_half) },
+        { title: "Lose 90%", key: "p_lose_90", cell: (r) => meter(r.p_lose_90) },
+        { title: "Median final", key: "median_final", cell: (r) => `${r.median_final.toFixed(2)}×` },
+      ], st.ruin.filter((r) => r.variant === state.variant && r.seasons === state.seasons)));
+  }
+
+  function practicalitySection() {
+    const p = data.practicality;
+    return section("practicality", "4. What collecting an edge would take",
+      "For the strategies with an expected edge at the closing price: how long before it shows, what bookmakers do to winners, and the exchange that does not close them.",
+      el("h3", {}, "Seasons of all five leagues before the edge is 2 standard errors above zero"),
+      table([
+        { title: "Strategy", cell: (r) => r.variant },
+        { title: "Bets a season", key: "bets_per_season", cell: (r) => r.bets_per_season.toLocaleString() },
+        { title: "Expected at close", key: "close_ev", cell: (r) => pct(r.close_ev) },
+        { title: "Units a season", key: "units_per_season_close_ev", cell: (r) => r.units_per_season_close_ev.toFixed(0) },
+        { title: "Seasons until it shows", key: "seasons_needed_close_ev", cell: (r) => r.seasons_needed_close_ev.toFixed(0) },
+      ], p.time),
+      el("h3", {}, "Bookmakers closing each account once it is a few stakes up"),
+      table([
+        { title: "Accounts", cell: (r) => (r.accounts == null ? "No limit" : r.accounts) },
+        { title: "Closed when up", cell: (r) => (r.limit == null ? "–" : `${r.limit} stakes`) },
+        { title: "Bets placed", key: "bets", cell: (r) => r.bets.toLocaleString() },
+        { title: "Profit (units)", key: "profit", cell: (r) => el("span", { className: tone(r.profit) }, `${r.profit > 0 ? "+" : ""}${r.profit.toFixed(0)}`) },
+        { title: "Last bet", cell: (r) => r.last_day ?? "–" },
+      ], p.limits),
+      el("h3", {}, "The Betfair exchange, after commission"),
+      table([
+        { title: "Commission", cell: (r) => share(r.commission) },
+        { title: "Bets", key: "bets", cell: (r) => r.bets.toLocaleString() },
+        { title: "ROI", key: "roi", cell: (r) => el("span", { className: tone(r.roi) }, pct(r.roi)) },
+        { title: "Expected at close", key: "close_ev", cell: (r) => pct(r.close_ev) },
+      ], p.exchange));
+  }
+
+  function render() {
+    const m = data.meta;
+    $("meta").textContent = `${m.games.toLocaleString()} games of ${m.leagues.length} leagues, ${season(m.first_season)} to ${season(m.last_season)} · `
+      + `generated ${m.generated} from code ${m.code_commit}${m.dirty ? " (uncommitted changes)" : ""}, strategies.toml ${m.suite_commit}`;
+    const y = scrollY;
+    $("result").replaceChildren(
+      el("div", { className: "jump" }, ...[["answer", "Answer"], ["model", "Model"], ["strategies", "Strategies"], ["staking", "Staking"], ["practicality", "Practicality"]]
+        .map(([id, t]) => el("a", { href: `#${id}` }, t))),
+      el("section", { id: "answer" }, el("div", { className: "answer" },
+        ...data.summary.map((c) => el("div", { className: "claim" }, el("b", {}, c.headline), el("p", {}, c.detail))))),
+      modelSection(), strategySection(), stakingSection(), practicalitySection(),
+      el("p", { className: "note" }, "Rebuild with ", el("code", {}, "uv run collect_data"), " then ", el("code", {}, "uv run report"),
+        ". Raw JSON: ", el("a", { href: `analysis?league=${encodeURIComponent(state.league)}` }, "/analysis"), "."));
+    scrollTo(0, y);
+  }
+
+  async function load() {
+    const res = await fetch(`analysis?league=${encodeURIComponent(state.league)}`);
+    if (!res.ok) {
+      $("meta").textContent = "";
+      $("result").replaceChildren(notRun("analysis", "report"));
+      return;
+    }
+    data = await res.json();
+    if (!data.strategies.leagues.includes(state.league)) { state.league = "ALL"; return load(); }
+    render();
+  }
+
+  let resized = null;
+  addEventListener("resize", () => { clearTimeout(resized); resized = setTimeout(() => data && render(), 150); });
+  load();
+</script>
+</body>
+</html>

@@ -131,3 +131,15 @@ def test_render_states_the_results_it_was_given() -> None:
     assert "returns -18.0% after 2% commission" in page
     assert "in 97% to 97% of simulated histories" in page
     assert "{" not in page.split("<style>")[1].split("</style>")[1]  # no unfilled fields
+
+
+def test_to_json_is_plain_data_for_the_api() -> None:
+    import json
+
+    from money_printer_research.analysis.report import to_json
+
+    data = json.loads(json.dumps(to_json(_results())))
+    assert data["meta"]["first_season"] == 2014
+    assert data["summary"][0]["headline"] == "No model built here forecasts better than the market."
+    assert data["practicality"]["limits"][0]["last_day"] == "2024-08-17"
+    assert {r["league"] for r in data["strategies"]["scores"]} == {"ALL"}
