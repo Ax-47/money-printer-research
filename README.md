@@ -31,6 +31,8 @@ uv run predict             # H/D/A probabilities for unplayed fixtures -> data/p
 uv run backtest            # bet the model's +EV picks against historical odds -> data/predictions
 uv run market_test         # can a model forecast better than the market's own prices?
 uv run strategies          # the pre-registered strategy suite in strategies.toml
+uv run staking             # what flat, Kelly and martingale staking do to a bankroll
+uv run practicality        # what collecting an edge would take: time, account limits, the exchange
 uv run notebook            # JupyterLab at the project root
 uv run check_clean         # validate every CSV in data/clean against its schema
 uv run show_config         # print the settings in effect
