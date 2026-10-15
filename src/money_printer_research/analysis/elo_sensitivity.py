@@ -1,7 +1,7 @@
 """How much the Elo settings matter: walk-forward log loss over a grid of K and home_adv.
 
 features.elo.EloParams were picked on seasons that come before every game the models are
-fitted or scored on, so the choice cannot leak the test seasons. This module redoes that
+validated or tested on, so the choice cannot leak the test seasons. This module redoes that
 search so it can be checked:
 
     1. football-data.co.uk results for the five leagues from WARMUP_FROM, read from
@@ -43,7 +43,7 @@ WARMUP_FROM = 2000
 """First season read; ratings need a few seasons to settle before they are scored."""
 
 TUNE_SEASONS = [f"{y}/{str(y + 1)[-2:]}" for y in range(2005, 2015)]
-"""2005/06-2014/15: where EloParams were chosen, all before the modelling data (2014/15 on)."""
+"""2005/06-2014/15: where EloParams were chosen, before the validation and test seasons."""
 
 K_GRID = [5.0, 10.0, 15.0, 20.0, 25.0, 30.0]
 HOME_ADV_GRID = [0.0, 20.0, 40.0, 60.0, 80.0, 100.0]
