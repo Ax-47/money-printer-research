@@ -108,6 +108,7 @@ def test_live_lists_todays_games(client: TestClient) -> None:
     games = client.get("/live").json()
     assert [g["espn_id"] for g in games] == ["1", "2"]  # last year's game left out
     assert games[0]["lineup_p_H"] == 0.6 and games[0]["fixture_p_H"] is None
+    assert [g["has_lineup"] for g in games] == [1, 0]
     assert [g["espn_id"] for g in client.get("/live", params={"league": LEAGUE}).json()] == ["1"]
 
 
@@ -123,3 +124,10 @@ def test_app_without_live_access_makes_no_database(tmp_path: Path) -> None:
     settings = Settings(live=LiveSettings(enabled=False, db_file=db))
     TestClient(create_app(settings)).get("/health")
     assert not db.exists()
+
+
+@pytest.mark.parametrize("page", ["live.html", "teams.html"])
+def test_pages_are_served_and_linked_from_every_page(client: TestClient, page: str) -> None:
+    assert client.get(f"/{page}").status_code == 200
+    for other in ("/", "/backtest.html", "/analysis.html", "/live.html", "/teams.html"):
+        assert f'href="{page}"' in client.get(other).text

@@ -70,6 +70,8 @@ player and form, and predicts again with the real XIs instead of last match's.
 `GET /live?league=...` lists today's games with both predictions, `GET /live/{espn_id}`
 adds the line-ups. `GET /teams?league=...` is a league's current table and
 `GET /teams/{team}` a team's season: record, home and away, last five games, Elo.
+The pages `/live.html` (today's games, refreshed every 30 seconds, with both predictions
+and the XIs) and `/teams.html` (the table and a team's season, with its Elo) show them.
 
 Serves the tables in `data/clean` (`GET /tables`, `GET /tables/{name}`) and the Elo
 model's walk-forward predictions (`GET /predictions?season=2024/25`,

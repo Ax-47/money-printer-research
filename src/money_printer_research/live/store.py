@@ -134,7 +134,8 @@ class Store:
             SELECT g.*,
                    f.p_H AS fixture_p_H, f.p_D AS fixture_p_D, f.p_A AS fixture_p_A,
                    l.p_H AS lineup_p_H, l.p_D AS lineup_p_D, l.p_A AS lineup_p_A,
-                   l.updated_at AS lineup_at
+                   l.updated_at AS lineup_at,
+                   EXISTS (SELECT 1 FROM lineups x WHERE x.espn_id = g.espn_id) AS has_lineup
             FROM games g
             LEFT JOIN predictions f ON f.espn_id = g.espn_id AND f.source = 'fixture'
             LEFT JOIN predictions l ON l.espn_id = g.espn_id AND l.source = 'lineup'

@@ -16,7 +16,8 @@
     GET /live/{espn_id}              one game, with both XIs and each starter's form
     GET /teams?league=...            every team, or one league's current table
     GET /teams/{team}                a team's season: record, home/away, form, Elo
-    GET /, /backtest.html, /analysis.html  web pages over /upcoming, /backtest, /analysis
+    GET /, /backtest.html, /analysis.html, /live.html, /teams.html
+                                     web pages over /upcoming, /backtest, /analysis, /live, /teams
 
 Tables, upcoming.csv, backtest.csv and analysis.json are read from disk on each request,
 so a new clean_data, predict, backtest or report run shows up without a restart.
