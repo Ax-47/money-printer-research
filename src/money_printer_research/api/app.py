@@ -11,14 +11,27 @@
                                      and for thresholds chosen season by season
     GET /analysis?league=...         the `report` command's results: model vs market,
                                      strategies (one league, or ALL), staking, practicality
+    GET /live?league=...             today's games from ESPN: state, score, and H/D/A
+                                     before and after the starting XIs were announced
+    GET /live/{espn_id}              one game, with both XIs and each starter's form
+    GET /teams?league=...            every team, or one league's current table
+    GET /teams/{team}                a team's season: record, home/away, form, Elo
     GET /, /backtest.html, /analysis.html  web pages over /upcoming, /backtest, /analysis
 
 Tables, upcoming.csv, backtest.csv and analysis.json are read from disk on each request,
 so a new clean_data, predict, backtest or report run shows up without a restart.
 Predictions are cached per season until elo.csv changes.
+
+With settings.live.enabled the app polls ESPN every poll_seconds while it runs
+(live.poller.refresh) and writes settings.live.db_file, which /live reads.
 """
 
+import asyncio
 import json
+import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -33,12 +46,17 @@ from money_printer_research.analysis.backtest import (
     summary,
     walk_forward_thresholds,
 )
+from money_printer_research.api import teams as team_tables
 from money_printer_research.config import Settings
 from money_printer_research.config import settings as default_settings
 from money_printer_research.features.elo import evaluate, walk_forward
+from money_printer_research.live.poller import Predictor, refresh
+from money_printer_research.live.store import Store
 from money_printer_research.schema import EloCols, PredictionCols
 
 ELO_TABLE = "elo"
+MATCHES_TABLE = "cleaned_matches"
+log = logging.getLogger(__name__)
 MAX_LIMIT = 1000
 STATIC = Path(__file__).parent / "static"
 
@@ -108,11 +126,45 @@ class _Tables:
         return self._predictions[key]
 
 
+class _Live:
+    """The live database, opened on first use so an app that never touches it makes no file."""
+
+    def __init__(self, settings: Settings) -> None:
+        self.settings = settings
+        self._store: Store | None = None
+
+    @property
+    def store(self) -> Store:
+        if self._store is None:
+            self._store = Store(self.settings.live.db_file)
+        return self._store
+
+    async def poll_forever(self) -> None:
+        predictor = Predictor(self.settings)
+        while True:
+            try:
+                seen = await asyncio.to_thread(refresh, self.settings, self.store, predictor)
+                log.info("live poll: %d games today", seen)
+            except Exception:
+                log.exception("live poll failed")
+            await asyncio.sleep(self.settings.live.poll_seconds)
+
+
 def create_app(settings: Settings = default_settings) -> FastAPI:
-    """The API over settings.clean.out_dir."""
+    """The API over settings.clean.out_dir, and the live database when it is enabled."""
+    live = _Live(settings)
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        task = asyncio.create_task(live.poll_forever()) if settings.live.enabled else None
+        yield
+        if task is not None:
+            task.cancel()
+
     app = FastAPI(
         title="money-printer-research",
         description="Clean football match tables and Elo-model H/D/A predictions.",
+        lifespan=lifespan,
     )
     tables = _Tables(settings.clean.out_dir)
 
@@ -194,6 +246,35 @@ def create_app(settings: Settings = default_settings) -> FastAPI:
             for key in ("scores", "walk_forward"):
                 strategies[key] = [row for row in strategies[key] if row["league"] == league]
         return result
+
+    @app.get("/live")
+    def live_games(league: str | None = None) -> list[dict[str, Any]]:
+        today = datetime.now(UTC).date().isoformat()
+        return live.store.games(since=today, league=league)
+
+    @app.get("/live/{espn_id}")
+    def live_game(espn_id: str) -> dict[str, Any]:
+        game = live.store.game(espn_id)
+        if game is None:
+            raise HTTPException(404, f"no live game {espn_id!r}; see GET /live")
+        return game
+
+    @app.get("/teams")
+    def list_teams(league: str | None = None) -> list[dict[str, Any]]:
+        matches = tables.read(MATCHES_TABLE)
+        if league is None:
+            return _rows(team_tables.teams(matches))
+        season = team_tables.latest_season(matches, league)
+        if season is None:
+            raise HTTPException(404, f"no games for league {league!r}")
+        return _rows(team_tables.league_table(matches, league, season))
+
+    @app.get("/teams/{team}")
+    def team(team: str) -> dict[str, Any]:
+        stats = team_tables.team_stats(tables.read(MATCHES_TABLE), tables.read(ELO_TABLE), team)
+        if stats is None:
+            raise HTTPException(404, f"no games for team {team!r}; see GET /teams")
+        return stats
 
     # Last, so the API routes above take precedence: the pages and their CSS and JS.
     app.mount("/", StaticFiles(directory=STATIC, html=True), name="pages")

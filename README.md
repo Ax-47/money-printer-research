@@ -62,6 +62,15 @@ Every page switches between English and Thai (ไทย) and between the four Ca
 flavors, and remembers both; type is IBM Plex Sans Thai, falling back to the OS's Thai
 font offline.
 
+While it runs, the API polls ESPN every minute for today's games in the five leagues
+(`[live]` in `settings.toml`) and keeps them in `data/live.sqlite`: state, score and the
+`predict` model's H/D/A. About 90 minutes before kick-off it asks ESPN for the starting
+XIs; when both are announced it stores them, matches each starter to his Understat
+player and form, and predicts again with the real XIs instead of last match's.
+`GET /live?league=...` lists today's games with both predictions, `GET /live/{espn_id}`
+adds the line-ups. `GET /teams?league=...` is a league's current table and
+`GET /teams/{team}` a team's season: record, home and away, last five games, Elo.
+
 Serves the tables in `data/clean` (`GET /tables`, `GET /tables/{name}`) and the Elo
 model's walk-forward predictions (`GET /predictions?season=2024/25`,
 `GET /predictions/metrics?season=2024/25`). Host and port are `[api_settings]` in
