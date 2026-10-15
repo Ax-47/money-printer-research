@@ -1,4 +1,5 @@
 from money_printer_research.analysis.backtest import exec_backtest
+from money_printer_research.analysis.elo_sensitivity import exec_elo_sensitivity
 from money_printer_research.analysis.feature_importance import exec_feature_importance
 from money_printer_research.analysis.market import exec_market_test
 from money_printer_research.analysis.learning_curve import exec_learning_curve
@@ -11,6 +12,7 @@ from money_printer_research.analysis.strategies import exec_strategies
 
 __all__ = [
     "exec_backtest",
+    "exec_elo_sensitivity",
     "exec_feature_importance",
     "exec_market_test",
     "exec_learning_curve",
