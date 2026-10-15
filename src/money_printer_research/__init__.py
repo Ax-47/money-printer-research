@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from money_printer_research.clean_data import clean_data, exec_clean_data
     from money_printer_research.data_collection import collect_data
     from money_printer_research.notebook import exec_notebook
+    from money_printer_research.pipeline import exec_pipeline
 
 # Entry point name -> module that defines it.
 _ENTRY_POINTS = {
@@ -45,6 +46,7 @@ _ENTRY_POINTS = {
     "exec_staking": "money_printer_research.analysis",
     "exec_strategies": "money_printer_research.analysis",
     "exec_notebook": "money_printer_research.notebook",
+    "exec_pipeline": "money_printer_research.pipeline",
 }
 
 
@@ -71,6 +73,7 @@ __all__ = [
     "exec_learning_curve",
     "exec_modeling",
     "exec_notebook",
+    "exec_pipeline",
     "exec_practicality",
     "exec_predict",
     "exec_report",

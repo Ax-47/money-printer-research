@@ -34,6 +34,7 @@ Repository = "https://github.com/Ax-47/money-printer-research"
 Documentation = "https://Ax-47.github.io/money-printer-research/"
 
 [project.scripts]
+pipeline = "money_printer_research:exec_pipeline"
 collect_data = "money_printer_research:collect_data"
 clean_data = "money_printer_research:exec_clean_data"
 feature_importance = "money_printer_research:exec_feature_importance"
