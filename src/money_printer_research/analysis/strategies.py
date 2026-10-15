@@ -142,17 +142,15 @@ def implausible_prices(prices: pl.DataFrame) -> pl.DataFrame:
     rows = []
     for (market, source, timing), _ in prices.group_by("market", "source", "timing"):
         selections = MARKETS[str(market)]
-        wide = (
-            prices.filter(
-                (pl.col("market") == market)
-                & (pl.col("source") == source)
-                & (pl.col("timing") == timing)
-            )
-            .pivot("selection", index=[*GAME_KEY, "line"], values="odds")
-            .drop_nulls([s for s in selections])
-        )
+        wide = prices.filter(
+            (pl.col("market") == market)
+            & (pl.col("source") == source)
+            & (pl.col("timing") == timing)
+        ).pivot("selection", index=[*GAME_KEY, "line"], values="odds")
+        # A source that never prices one of the selections has no book to check.
         if not all(s in wide.columns for s in selections):
             continue
+        wide = wide.drop_nulls(list(selections))
         book = wide.select(pl.sum_horizontal(1 / pl.col(s) for s in selections)).to_series()
         rows.append((market, source, timing, wide.height, int((book < MIN_BOOK).sum())))
     return pl.DataFrame(

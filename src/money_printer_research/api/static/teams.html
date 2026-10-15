@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Team Stats</title>
+<link rel="icon" href="favicon.svg">
+<link rel="stylesheet" href="common.css">
+<style>
+  .layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+  /* Numbers stay on one line; a narrow screen scrolls the table instead of wrapping digits. */
+  #detail table, #table { white-space: nowrap; }
+  #detail td, #detail th, #table td, #table th { overflow-wrap: normal; }
+  #table th:nth-child(2), #table td.team { text-align: left; }
+  td.team { text-transform: capitalize; }
+  td.team button { padding: 0; border: 0; background: none; color: var(--text); font: inherit; cursor: pointer;
+    text-transform: inherit; text-align: left; }
+  td.team button:hover { color: var(--accent); text-decoration: underline; }
+  tr[aria-selected="true"] td { background: color-mix(in srgb, var(--mauve) 12%, transparent); }
+  tr[aria-selected="true"] td.team button { color: var(--accent); font-weight: 600; }
+  .pts { font-weight: 700; }
+  #detail h2 { text-transform: capitalize; font-size: 1.3rem; margin: 0; }
+  #detail .meta { color: var(--muted); font-size: .85rem; margin: 2px 0 14px; }
+  #detail .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .form { display: inline-flex; gap: 4px; }
+  .r { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 6px;
+    font-size: .75rem; font-weight: 700; color: var(--base); }
+  .r.W { background: var(--green); } .r.D { background: var(--overlay1); } .r.L { background: var(--red); }
+  .games td:first-child { white-space: nowrap; color: var(--muted); }
+  .games td.opp, .games th:nth-child(2) { text-align: left; }
+  .games td.opp { text-transform: capitalize; }
+  .spark { position: relative; }
+  .spark svg { display: block; width: 100%; height: 120px; overflow: visible; }
+  .spark .line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .spark .grid { stroke: var(--border); stroke-width: 1; }
+  .spark .axis { fill: var(--muted); font-size: 11px; }
+  .spark circle { fill: var(--accent); stroke: var(--panel); stroke-width: 2; }
+  .spark circle.hit { fill: transparent; stroke: none; cursor: default; }
+  .tip { position: absolute; pointer-events: none; padding: 4px 8px; border-radius: 8px; font-size: .78rem;
+    background: var(--text); color: var(--base); white-space: nowrap; transform: translate(-50%, -130%); display: none; }
+</style>
+</head>
+<body>
+<header class="topbar"><div class="in">
+  <a class="brand" href="./"><span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V13M10 19V9M16 19V12M3 8l6-4 5 4 7-5"/></svg></span>
+    <span>Money Printer<small data-i18n="brand_sub">Football market research</small></span></a>
+  <nav><a href="./" data-i18n="nav_upcoming">Upcoming</a><a href="live.html" data-i18n="nav_live">Live</a><a href="teams.html" data-i18n="nav_teams" aria-current="page">Teams</a><a href="backtest.html" data-i18n="nav_backtest">Backtest</a><a href="analysis.html" data-i18n="nav_analysis">Analysis</a></nav>
+  <div class="tools"><div id="lang" class="seg" role="group"></div><button id="theme" type="button" data-i18n-title="theme_title"></button></div>
+</div></header>
+<main>
+  <div class="hero">
+    <h1 data-i18n="title">Team stats</h1>
+    <p class="sub" id="summary"></p>
+  </div>
+  <div class="filters">
+    <label><span data-i18n="league">League</span> <select id="league"></select></label>
+    <label><span data-i18n="team">Team</span> <input id="team" list="teams" data-i18n-placeholder="find_team" placeholder="Find a team"></label>
+    <datalist id="teams"></datalist>
+  </div>
+  <div class="layout">
+    <div class="scroll"><table id="table"></table></div>
+    <section class="card" id="detail"></section>
+  </div>
+</main>
+<script src="common.js"></script>
+<script>
+  addStrings({
+    en: {
+      title: "Team stats",
+      summary: "{league}, {season} season: table and each team's record, from Understat. Pick a team for its details.",
+      league: "League", team: "Team", find_team: "Find a team",
+      rank: "#", club: "Team", p: "P", w: "W", d: "D", l: "L", gf: "GF", ga: "GA", gd: "GD",
+      xg: "xG/g", xga: "xGA/g", pts: "Pts",
+      position: "Position", points: "Points", form: "Form (latest first)",
+      meta: "{league} · {season} season · {played} games",
+      venue: "Home and away", home: "Home", away: "Away", record: "W-D-L", goals: "Goals",
+      last: "Last games", date: "Date", opp: "Opponent", score: "Score", xg_pair: "xG",
+      elo: "Elo rating before each of the last {n} games", elo_tip: "{date}: {elo}",
+      pick: "Pick a team in the table.", unknown: "No games for {team}.",
+      h: "H", a: "A",
+    },
+    th: {
+      title: "สถิติทีม",
+      summary: "{league} ฤดูกาล {season} ตารางคะแนนและสถิติของแต่ละทีมจาก Understat คลิกทีมเพื่อดูรายละเอียด",
+      league: "ลีก", team: "ทีม", find_team: "ค้นหาทีม",
+      rank: "#", club: "ทีม", p: "แข่ง", w: "ชนะ", d: "เสมอ", l: "แพ้", gf: "ได้", ga: "เสีย", gd: "+/-",
+      xg: "xG/นัด", xga: "xGA/นัด", pts: "แต้ม",
+      position: "อันดับ", points: "แต้ม", form: "ฟอร์ม (ล่าสุดก่อน)",
+      meta: "{league} · ฤดูกาล {season} · {played} นัด",
+      venue: "เหย้าและเยือน", home: "เหย้า", away: "เยือน", record: "ชนะ-เสมอ-แพ้", goals: "ได้-เสีย",
+      last: "นัดล่าสุด", date: "วันที่", opp: "คู่แข่ง", score: "สกอร์", xg_pair: "xG",
+      elo: "คะแนน Elo ก่อนแข่ง {n} นัดล่าสุด", elo_tip: "{date}: {elo}",
+      pick: "คลิกทีมในตารางเพื่อดูรายละเอียด", unknown: "ไม่มีข้อมูลการแข่งของ {team}",
+      h: "เหย้า", a: "เยือน",
+    },
+  });
+
+  let allTeams = [], table = [], current = null, detail = null;
+  const season = (s) => `${s}/${String(s + 1).slice(2)}`;
+  const day = (iso) => new Date(iso).toLocaleDateString(locale(), { day: "numeric", month: "short" });
+  const signed = (n) => (n > 0 ? `+${n}` : `${n}`);
+
+  function renderTable() {
+    const cols = ["rank", "club", "p", "w", "d", "l", "gf", "ga", "gd", "xg", "xga", "pts"];
+    const head = el("tr", {}, ...cols.map((c) => el("th", { scope: "col" }, t(c))));
+    const rows = table.map((r) => {
+      const pick = el("button", { type: "button" }, r.team);
+      pick.addEventListener("click", () => select(r.team));
+      const tr = el("tr", {},
+        el("td", {}, r.rank), el("td", { className: "team" }, pick),
+        ...[r.played, r.won, r.drawn, r.lost, r.goals_for, r.goals_against].map((v) => el("td", {}, v)),
+        el("td", {}, signed(r.goal_diff)),
+        el("td", {}, r.xg_for_per_game?.toFixed(2) ?? "–"), el("td", {}, r.xg_against_per_game?.toFixed(2) ?? "–"),
+        el("td", { className: "pts" }, r.points));
+      tr.setAttribute("aria-selected", r.team === current);
+      return tr;
+    });
+    $("table").replaceChildren(el("thead", {}, head), el("tbody", {}, ...rows));
+    const league = $("league").value;
+    $("summary").textContent = table.length ? t("summary", { league, season: season(allTeams.find((x) => x.league === league)?.season_start ?? 0) }) : "";
+  }
+
+  function tile(label, value) {
+    return el("div", { className: "tile" }, el("small", {}, label), el("b", {}, value));
+  }
+
+  function formChips(form) {
+    return el("span", { className: "form" }, ...[...form].map((r) => el("span", { className: `r ${r}` }, r)));
+  }
+
+  // Elo before each recent game: one series, so no legend; the heading names it.
+  function sparkline(points) {
+    const W = 400, H = 120, PAD = { l: 38, r: 8, t: 10, b: 20 };
+    const NS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", points.map((p) => `${day(p.match_date)} ${p.elo}`).join(", "));
+    const node = (tag, attrs, text) => {
+      const n = document.createElementNS(NS, tag);
+      for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+      if (text != null) n.textContent = text;
+      svg.append(n);
+      return n;
+    };
+    const ys = points.map((p) => p.elo);
+    const lo = Math.floor((Math.min(...ys) - 5) / 10) * 10, hi = Math.ceil((Math.max(...ys) + 5) / 10) * 10;
+    const x = (i) => PAD.l + (points.length < 2 ? 0.5 : i / (points.length - 1)) * (W - PAD.l - PAD.r);
+    const y = (v) => PAD.t + (1 - (v - lo) / (hi - lo)) * (H - PAD.t - PAD.b);
+    for (const v of [lo, hi]) {
+      node("line", { class: "grid", x1: PAD.l, x2: W - PAD.r, y1: y(v), y2: y(v) });
+      node("text", { class: "axis", x: PAD.l - 6, y: y(v) + 4, "text-anchor": "end" }, v);
+    }
+    node("polyline", { class: "line", points: points.map((p, i) => `${x(i)},${y(p.elo)}`).join(" ") });
+    const wrap = el("div", { className: "spark" });
+    const tip = el("div", { className: "tip" });
+    points.forEach((p, i) => {
+      node("circle", { cx: x(i), cy: y(p.elo), r: 4 });
+      const hit = node("circle", { class: "hit", cx: x(i), cy: y(p.elo), r: 14 });
+      hit.addEventListener("mouseenter", () => {
+        tip.textContent = t("elo_tip", { date: day(p.match_date), elo: p.elo.toFixed(1) });
+        tip.style.left = `${(x(i) / W) * 100}%`;
+        tip.style.top = `${(y(p.elo) / H) * 100}%`;
+        tip.style.display = "block";
+      });
+      hit.addEventListener("mouseleave", () => { tip.style.display = "none"; });
+    });
+    const first = points[0], last = points[points.length - 1];
+    node("text", { class: "axis", x: x(0), y: H - 4, "text-anchor": "start" }, day(first.match_date));
+    if (points.length > 1) node("text", { class: "axis", x: x(points.length - 1), y: H - 4, "text-anchor": "end" }, day(last.match_date));
+    wrap.append(svg, tip);
+    return wrap;
+  }
+
+  function renderDetail() {
+    const box = $("detail");
+    if (!current) { box.replaceChildren(el("p", { className: "sub" }, t("pick"))); return; }
+    if (!detail) { box.replaceChildren(el("p", { className: "sub" }, t("unknown", { team: current }))); return; }
+    const d = detail, row = d.table;
+    const venues = el("table", {},
+      el("thead", {}, el("tr", {}, el("th", {}, ""), el("th", {}, t("p")), el("th", {}, t("record")), el("th", {}, t("goals")), el("th", {}, t("pts")))),
+      el("tbody", {}, ...d.by_venue.map((v) => el("tr", {},
+        el("td", {}, t(v.venue)), el("td", {}, v.played), el("td", {}, `${v.won}-${v.drawn}-${v.lost}`),
+        el("td", {}, `${v.goals_for}-${v.goals_against}`), el("td", { className: "pts" }, v.points)))));
+    const games = el("table", { className: "games" },
+      el("thead", {}, el("tr", {}, el("th", {}, t("date")), el("th", {}, t("opp")), el("th", {}, t("score")), el("th", {}, t("xg_pair")), el("th", {}, ""))),
+      el("tbody", {}, ...d.last_games.map((g) => el("tr", {},
+        el("td", {}, day(g.date)),
+        el("td", { className: "opp" }, `${g.opponent} (${t(g.venue === "home" ? "h" : "a")})`),
+        el("td", {}, `${g.gf}-${g.ga}`),
+        el("td", {}, `${g.xg_for.toFixed(1)}-${g.xg_against.toFixed(1)}`),
+        el("td", {}, el("span", { className: `r ${g.result}` }, g.result))))));
+    box.replaceChildren(
+      el("h2", {}, d.team),
+      el("p", { className: "meta" }, t("meta", { league: d.league, season: season(d.season_start), played: row.played })),
+      el("div", { className: "tiles" },
+        tile(t("position"), row.rank), tile(t("points"), row.points), tile(t("gd"), signed(row.goal_diff))),
+      el("h3", {}, t("form")), formChips(d.form),
+      el("h3", {}, t("venue")), el("div", { className: "scroll" }, venues),
+      el("h3", {}, t("last")), el("div", { className: "scroll" }, games),
+      ...(d.elo_history.length ? [el("h3", {}, t("elo", { n: d.elo_history.length })), sparkline(d.elo_history)] : []));
+  }
+
+  async function select(team) {
+    current = team;
+    if (location.hash.slice(1) !== encodeURIComponent(team)) history.replaceState(null, "", `#${encodeURIComponent(team)}`);
+    const res = await fetch(`teams/${encodeURIComponent(team)}`);
+    detail = res.ok ? await res.json() : null;
+    if (detail && detail.league !== $("league").value) { $("league").value = detail.league; await loadTable(); }
+    renderTable();
+    renderDetail();
+  }
+
+  async function loadTable() {
+    const league = $("league").value;
+    store("teams-league", league);
+    const res = await fetch(`teams?league=${encodeURIComponent(league)}`);
+    table = res.ok ? await res.json() : [];
+    renderTable();
+  }
+
+  async function load() {
+    const res = await fetch("teams");
+    if (!res.ok) {
+      $("table").replaceChildren();
+      $("detail").replaceChildren(notRun("cleaned_matches", "clean_data"));
+      return;
+    }
+    allTeams = await res.json();
+    const leagues = [...new Set(allTeams.map((x) => x.league))].sort();
+    $("league").replaceChildren(...leagues.map((l) => el("option", { value: l }, l)));
+    options($("teams"), allTeams.map((x) => x.team), (v) => el("option", { value: v }));
+    const fromHash = decodeURIComponent(location.hash.slice(1));
+    const remembered = stored("teams-league");
+    $("league").value = leagues.includes(remembered) ? remembered : leagues[0];
+    await loadTable();
+    if (fromHash) await select(fromHash); else renderDetail();
+  }
+
+  $("league").addEventListener("change", loadTable);
+  $("team").addEventListener("change", () => {
+    const name = $("team").value.trim().toLowerCase();
+    if (allTeams.some((x) => x.team === name)) select(name);
+  });
+  window.addEventListener("hashchange", () => { const h = decodeURIComponent(location.hash.slice(1)); if (h && h !== current) select(h); });
+  onLang(() => { renderTable(); renderDetail(); });
+  load();
+</script>
+</body>
+</html>

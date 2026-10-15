@@ -87,6 +87,15 @@ uv run show_config
 | `host` | `127.0.0.1` | address `uv run api` binds to; `settings.toml` sets `0.0.0.0` so Docker can reach it |
 | `port` | `8000` | 1 to 65535 |
 
+### `[live]`
+
+| Key | Default | Notes |
+| --- | --- | --- |
+| `enabled` | `true` | `uv run api` polls ESPN for today's games, scores and starting XIs |
+| `poll_seconds` | `60` | seconds between polls, at least 10 |
+| `lineup_window_minutes` | `90` | how long before kick-off to start asking for the line-ups |
+| `db_file` | `data/live.sqlite` | SQLite file of the games, line-ups and predictions |
+
 Unknown keys inside these sections are errors.
 
 ## Errors

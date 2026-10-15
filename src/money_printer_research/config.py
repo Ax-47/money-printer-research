@@ -205,6 +205,22 @@ class ApiSettings(_Section):
     port: int = Field(default=8000, ge=1, le=65535, description="Port `api` listens on.")
 
 
+class LiveSettings(_Section):
+    enabled: bool = Field(
+        default=True, description="Whether `api` polls ESPN for live games and line-ups."
+    )
+    poll_seconds: int = Field(default=60, ge=10, description="Seconds between ESPN polls.")
+    lineup_window_minutes: int = Field(
+        default=90,
+        ge=0,
+        description="How long before kick-off to start asking ESPN for the starting XIs.",
+    )
+    db_file: RootPath = Field(
+        default=Path("data/live.sqlite"),
+        description="SQLite file of today's games, their line-ups and predictions.",
+    )
+
+
 class Settings(BaseSettings):
     """Main settings. Priority: init args > env vars > .env > settings.toml > defaults."""
 
@@ -222,6 +238,7 @@ class Settings(BaseSettings):
     transfermarkt: TransfermarktSettings = Field(default_factory=TransfermarktSettings)
     modeling: ModelingSettings = Field(default_factory=ModelingSettings)
     api_settings: ApiSettings = Field(default_factory=ApiSettings)
+    live: LiveSettings = Field(default_factory=LiveSettings)
 
     @classmethod
     def settings_customise_sources(

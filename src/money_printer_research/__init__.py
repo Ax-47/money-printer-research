@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from money_printer_research.api import exec_api
     from money_printer_research.analysis import (
         exec_backtest,
+        exec_elo_sensitivity,
         exec_feature_importance,
         exec_learning_curve,
         exec_market_test,
@@ -25,6 +26,7 @@ if TYPE_CHECKING:
     from money_printer_research.clean_data import clean_data, exec_clean_data
     from money_printer_research.data_collection import collect_data
     from money_printer_research.notebook import exec_notebook
+    from money_printer_research.pipeline import exec_pipeline
 
 # Entry point name -> module that defines it.
 _ENTRY_POINTS = {
@@ -33,6 +35,7 @@ _ENTRY_POINTS = {
     "clean_data": "money_printer_research.clean_data",
     "exec_backtest": "money_printer_research.analysis",
     "exec_clean_data": "money_printer_research.clean_data",
+    "exec_elo_sensitivity": "money_printer_research.analysis",
     "exec_feature_importance": "money_printer_research.analysis",
     "exec_learning_curve": "money_printer_research.analysis",
     "exec_market_test": "money_printer_research.analysis",
@@ -43,6 +46,7 @@ _ENTRY_POINTS = {
     "exec_staking": "money_printer_research.analysis",
     "exec_strategies": "money_printer_research.analysis",
     "exec_notebook": "money_printer_research.notebook",
+    "exec_pipeline": "money_printer_research.pipeline",
 }
 
 
@@ -63,11 +67,13 @@ __all__ = [
     "exec_api",
     "exec_backtest",
     "exec_clean_data",
+    "exec_elo_sensitivity",
     "exec_feature_importance",
     "exec_market_test",
     "exec_learning_curve",
     "exec_modeling",
     "exec_notebook",
+    "exec_pipeline",
     "exec_practicality",
     "exec_predict",
     "exec_report",

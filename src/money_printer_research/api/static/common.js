@@ -33,10 +33,10 @@ function store(key, value) {
 // attributes); code that builds the page calls t() itself and re-renders on onLang().
 
 const STRINGS = {
-  en: { nav_upcoming: "Upcoming", nav_backtest: "Backtest", nav_analysis: "Analysis",
+  en: { nav_upcoming: "Upcoming", nav_live: "Live", nav_teams: "Teams", nav_backtest: "Backtest", nav_analysis: "Analysis",
     brand_sub: "Football market research", lang_label: "Language",
     theme_title: "Switch Catppuccin flavor", not_run: "No {what} yet. Run {command} and reload." },
-  th: { nav_upcoming: "นัดถัดไป", nav_backtest: "ทดสอบย้อนหลัง", nav_analysis: "บทวิเคราะห์",
+  th: { nav_upcoming: "นัดถัดไป", nav_live: "สด", nav_teams: "สถิติทีม", nav_backtest: "ทดสอบย้อนหลัง", nav_analysis: "บทวิเคราะห์",
     brand_sub: "งานวิจัยตลาดพนันฟุตบอล", lang_label: "ภาษา",
     theme_title: "เปลี่ยนธีมสี", not_run: "ยังไม่มีข้อมูล ({what}) รัน {command} แล้วโหลดหน้าใหม่" },
 };

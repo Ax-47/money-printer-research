@@ -239,3 +239,22 @@ def test_pages_carry_english_and_thai(client: TestClient) -> None:
     assert 'data-i18n="notice_title"' in page
     backtest = client.get("/backtest.html").text
     assert 'title: "Backtest"' in backtest and 'title: "ทดสอบย้อนหลัง"' in backtest
+
+
+def test_predictions_are_cached_until_elo_changes(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from money_printer_research.api import app as api_app
+
+    calls: list[str] = []
+    real = api_app.walk_forward
+
+    def counting(elo, seasons, dixon_coles):  # noqa: ANN001, ANN202
+        calls.append(seasons[0])
+        return real(elo, seasons, dixon_coles)
+
+    monkeypatch.setattr(api_app, "walk_forward", counting)
+    params = {"season": SEASONS[-1]}
+    first = client.get("/predictions", params=params).json()
+    assert client.get("/predictions", params=params).json() == first
+    assert calls == [SEASONS[-1]]

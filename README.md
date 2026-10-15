@@ -23,11 +23,13 @@ in effect. See [Configuration](docs/configuration.md).
 ## Pipeline
 
 ```bash
+uv run pipeline            # every step below in order, collect_data to report (--from STEP to resume)
 uv run collect_data        # Understat schedule and player stats, odds, Transfermarkt tables -> data/raw
 uv run clean_data          # cleaned tables and pre-match features -> data/clean
 uv run feature_importance  # feature selection for the H/D/A model
 uv run modeling            # compare H/D/A models, save the chosen one -> data/models
 uv run learning_curve      # log loss by training games -> data/report/learning_curve.html
+uv run elo_sensitivity     # walk-forward log loss over Elo K x home_adv, 2005/06-2014/15
 uv run predict             # H/D/A probabilities for unplayed fixtures -> data/predictions
 uv run backtest            # bet the model's +EV picks against historical odds -> data/predictions
 uv run market_test         # can a model forecast better than the market's own prices?
@@ -60,6 +62,17 @@ Every page switches between English and Thai (ไทย) and between the four Ca
 flavors, and remembers both; type is IBM Plex Sans Thai, falling back to the OS's Thai
 font offline.
 
+While it runs, the API polls ESPN every minute for today's games in the five leagues
+(`[live]` in `settings.toml`) and keeps them in `data/live.sqlite`: state, score and the
+`predict` model's H/D/A. About 90 minutes before kick-off it asks ESPN for the starting
+XIs; when both are announced it stores them, matches each starter to his Understat
+player and form, and predicts again with the real XIs instead of last match's.
+`GET /live?league=...` lists today's games with both predictions, `GET /live/{espn_id}`
+adds the line-ups. `GET /teams?league=...` is a league's current table and
+`GET /teams/{team}` a team's season: record, home and away, last five games, Elo.
+The pages `/live.html` (today's games, refreshed every 30 seconds, with both predictions
+and the XIs) and `/teams.html` (the table and a team's season, with its Elo) show them.
+
 Serves the tables in `data/clean` (`GET /tables`, `GET /tables/{name}`) and the Elo
 model's walk-forward predictions (`GET /predictions?season=2024/25`,
 `GET /predictions/metrics?season=2024/25`). Host and port are `[api_settings]` in
@@ -79,7 +92,7 @@ docker compose run --rm pipeline clean_data
 
 ```bash
 make check  # lock file, ruff, pyright, pre-commit
-make test   # pytest with coverage
+make test   # pytest with coverage; fails below 100% (see .coveragerc)
 make help   # every target
 ```
 
