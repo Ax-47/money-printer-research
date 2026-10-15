@@ -37,7 +37,7 @@ each step writes.
 
 ```bash
 make check        # lock file, ruff, pyright, pre-commit
-make test         # pytest with coverage
+make test         # pytest with coverage; fails below 100% (see .coveragerc)
 make docs-serve   # this site, live at http://127.0.0.1:8000
 make docs-build   # build the site; fails on any warning (what CI runs)
 make help         # every target

@@ -92,7 +92,7 @@ docker compose run --rm pipeline clean_data
 
 ```bash
 make check  # lock file, ruff, pyright, pre-commit
-make test   # pytest with coverage
+make test   # pytest with coverage; fails below 100% (see .coveragerc)
 make help   # every target
 ```
 

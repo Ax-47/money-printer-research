@@ -346,3 +346,37 @@ def test_predictor_without_files_or_with_bad_files_gives_none(tmp_path: Path) ->
         f.write_text("not what it should be")
     assert predictor.load() is None  # unreadable: logged, no predictions
     assert predictor.fixtures() is None and predictor.form() is None
+    assert predictor.features(1) is None
+
+
+def _short_xi(league: str, espn_id: str) -> list[espn.Starter]:
+    return espn.parse_lineups(_summary([f"H{i}" for i in range(10)], [f"A{i}" for i in range(11)]))
+
+
+def test_refresh_waits_while_an_xi_is_incomplete(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    store, calls = Store(settings.live.db_file), []
+    fetch = _fetchers("in", calls)
+    fetch.lineups = _short_xi
+    refresh(settings, store, FakePredictor(settings), fetch, now=KICKOFF)
+    assert not store.has_lineup("1")  # ten home starters: asked again next poll
+
+
+def test_refresh_stores_an_unmatched_game_without_predictions(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    store = Store(settings.live.db_file)
+
+    def games_on(league: str, day: date) -> list[espn.Game]:
+        body = {"events": [_event("7", "in", "Real Madrid", "Barcelona", ("1", "0"))]}
+        return espn.parse_scoreboard(body, league) if league == "ESP-La Liga" else []
+
+    def lineups(league: str, espn_id: str) -> list[espn.Starter]:
+        return espn.parse_lineups(
+            _summary([f"H{i}" for i in range(11)], [f"A{i}" for i in range(11)])
+        )
+
+    refresh(settings, store, FakePredictor(settings), Fetchers(games_on, lineups), now=KICKOFF)
+    game = store.game("7")
+    assert game is not None
+    assert (game["game_id"], game["fixture_p_H"], game["lineup_p_H"]) == (None, None, None)
+    assert len(game["lineup"]) == 22 and all(p["player_id"] is None for p in game["lineup"])

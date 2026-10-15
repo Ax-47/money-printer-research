@@ -131,3 +131,10 @@ def test_pages_are_served_and_linked_from_every_page(client: TestClient, page: s
     assert client.get(f"/{page}").status_code == 200
     for other in ("/", "/backtest.html", "/analysis.html", "/live.html", "/teams.html"):
         assert f'href="{page}"' in client.get(other).text
+
+
+def test_lifespan_without_live_starts_no_poller(tmp_path: Path) -> None:
+    settings = Settings(live=LiveSettings(enabled=False, db_file=tmp_path / "live.sqlite"))
+    with TestClient(create_app(settings)) as client:
+        assert client.get("/health").status_code == 200
+    assert not (tmp_path / "live.sqlite").exists()

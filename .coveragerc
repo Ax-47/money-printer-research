@@ -16,7 +16,12 @@ omit =
 
 # Overall report settings.
 [report]
-fail_under = 0
+fail_under = 100
+# Console-script glue: main() and exec_*() only read the real files under data/, call
+# functions the tests cover, and print. `uv run pipeline` runs them; tests do not.
+exclude_also =
+    def main\(
+    def exec_\w+\(
 # List the uncovered lines; the PR coverage comment reads them as its Missing column.
 show_missing = True
 
